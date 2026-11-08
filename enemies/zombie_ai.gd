@@ -39,7 +39,7 @@ var step_clock: float = 0.0
 var frenzy: float = 0.0
 var scream_cooldown: float = 0.0
 # Scavalcare e aggirare (vedi _steer).
-const UNSTICK_AFTER := 5.0
+const UNSTICK_AFTER := 3.0
 var _probe_clock: float = 0.0
 var _climb_top: float = -INF
 var _climb_left: float = 0.0
@@ -177,9 +177,10 @@ func _physics_process(delta: float) -> void:
 			if is_instance_valid(target) and kind < 4 and not crawling:
 				var from_target: Vector3 = (global_position - last_seen) * Vector3(1, 0, 1)
 				var gap := from_target.length()
-				if gap > 1.8 and gap < 7.0:
-					var side := (float(network_id % 5) - 2.0) * 0.45
-					agent.target_position = last_seen + from_target.normalized().rotated(Vector3.UP, side) * 1.1
+				if gap > 1.8 and gap < 12.0:
+					# Più sono lontani più si allargano: arrivano da lati diversi, non in fila indiana.
+					var side := (float(network_id % 5) - 2.0) * (0.45 + clampf((gap - 3.0) / 9.0, 0.0, 1.0) * 0.35)
+					agent.target_position = last_seen + from_target.normalized().rotated(Vector3.UP, side) * clampf(gap * 0.45, 1.1, 3.5)
 	if push_left > 0:
 		# Spinta della reazione (due passi di lato, 1,5 m all'indietro dopo il calcio...).
 		push_left -= delta
@@ -247,7 +248,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		var speed: float = WANDER_SPEED[kind] * speed_mul
 		if state == State.CHASE:
-			speed = CHASE_SPEED[kind] * speed_mul * (1.4 if frenzy > 0.0 else 1.0)
+			speed = CHASE_SPEED[kind] * speed_mul * (1.4 if frenzy > 0.0 else 1.0) * _surge(delta)
 			if not is_instance_valid(target) or target.dead or memory <= 0:
 				state = State.WANDER
 				target = null
@@ -306,6 +307,10 @@ func _physics_process(delta: float) -> void:
 				away.y = 0
 				var distance := away.length()
 				if distance>0.02 and distance<1.05: separation += away.normalized()*(1.05-distance)*2.0
+				# Uno davanti sulla stessa strada: si scosta di lato invece di accodarsi.
+				elif chasing and direction != Vector3.ZERO and distance < 2.6 and direction.dot(-away / distance) > 0.8:
+					var lateral := direction.cross(Vector3.UP) * (1.0 if direction.cross(Vector3.UP).dot(away) >= 0.0 else -1.0)
+					separation += lateral * (2.6 - distance) * 0.45
 		if kind == 4 and state == State.CHASE and is_instance_valid(target) and not crawling:
 			# lo sputatore tiene la distanza: indietreggia se gli sei addosso, resta fermo se ti vede
 			var gap := global_position.distance_to(target.global_position)
@@ -336,6 +341,21 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0 if is_on_floor() else velocity.y-22*delta
 	move_and_slide()
 	_audio_steps(delta)
+
+## Passo che cambia: rallenta e accelera a ondate, e ogni tanto uno scatto quando la preda è a pochi metri.
+var _burst := 0.0
+var _burst_wait := 0.0
+func _surge(delta: float) -> float:
+	if kind in [1, 4, 5] or crawling: return 1.0
+	_burst = maxf(0.0, _burst - delta)
+	_burst_wait -= delta
+	var gap: float = global_position.distance_to(target.global_position) if is_instance_valid(target) else 99.0
+	if _burst_wait <= 0.0 and gap > 2.5 and gap < 7.0:
+		_burst_wait = randf_range(3.0, 6.0)
+		_burst = randf_range(0.5, 0.9)
+	var wave: float = 1.0 + 0.2 * sin(clock * (1.1 + float(network_id % 7) * 0.13) + float(network_id))
+	return wave * (1.7 if _burst > 0.0 else 1.0)
+
 
 ## Come si arriva dal giocatore senza incastrarsi: cosa piccola davanti, ci si sale sopra; cosa grande, si gira attorno
 ## tenendosi sempre dallo stesso lato finché la via è libera. Se dopo tutto questo è ancora fermo, si sposta poco più avanti.
@@ -442,7 +462,7 @@ func _watch_stuck(delta: float) -> void:
 		_stuck_for = 0.0
 		return
 	_stuck_for += 0.5
-	if _stuck_for == 1.5 or _stuck_for == 3.0:
+	if _stuck_for == 1.0 or _stuck_for == 2.0:
 		_detour_side = -_detour_side if _detour_side != 0.0 else 1.0
 		_heading = -_heading if _heading != Vector3.ZERO else global_basis.x
 	if _stuck_for >= UNSTICK_AFTER:
