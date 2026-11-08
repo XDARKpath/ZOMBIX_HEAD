@@ -295,9 +295,20 @@ func _physics_process(delta: float) -> void:
 			direction = direction.normalized()
 		# Fuori dalle zone con la mappa di navigazione (o senza strada calcolata) si va dritti verso il giocatore.
 		var chasing: bool = state == State.CHASE and is_instance_valid(target)
-		if chasing and direction == Vector3.ZERO:
+		if chasing:
 			var straight: Vector3 = (target.global_position - global_position) * Vector3(1, 0, 1)
-			if straight.length() > 0.8: direction = straight.normalized()
+			# Se la strada dritta è libera (ginocchia e petto) si va dritti: niente giri lunghi della navigazione.
+			_open_clock -= delta
+			if _open_clock <= 0.0:
+				_open_clock = 0.3
+				_open_way = straight.length() < 30.0 and _hit_at(global_position + Vector3.UP * 0.4, target.global_position + Vector3.UP * 0.4).is_empty() and _hit_at(global_position + Vector3.UP * 1.2, target.global_position + Vector3.UP * 1.2).is_empty()
+				if _open_way: _detour_side = 0.0
+			if _open_way:
+				# verso il suo punto di accerchiamento, non tutti sulla stessa linea
+				var flank: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
+				if flank.length() > 0.5: direction = flank.normalized()
+				elif straight.length() > 0.8: direction = straight.normalized()
+			elif direction == Vector3.ZERO and straight.length() > 0.8: direction = straight.normalized()
 		if direction != Vector3.ZERO: direction = _steer(direction, delta, chasing)
 		var separation := Vector3.ZERO
 		if world:
@@ -343,6 +354,8 @@ func _physics_process(delta: float) -> void:
 	_audio_steps(delta)
 
 ## Passo che cambia: rallenta e accelera a ondate, e ogni tanto uno scatto quando la preda è a pochi metri.
+var _open_clock := 0.0
+var _open_way := false
 var _burst := 0.0
 var _burst_wait := 0.0
 func _surge(delta: float) -> float:
