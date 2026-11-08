@@ -65,7 +65,15 @@ func _run() -> void:
 	loc.set_language("it")
 	await process_frame
 	check(menu.page == "settings" and page_texts(menu).has("IMPOSTAZIONI"), "Cambio lingua: la pagina aperta si aggiorna subito")
+	# Le scelte grafiche non applicate restano dopo il cambio lingua.
+	menu.graphics()
+	var vsync: OptionButton = menu.graphics_controls.vsync
+	var wanted := (vsync.selected + 1) % vsync.item_count
+	vsync.select(wanted)
+	vsync.item_selected.emit(wanted)
 	loc.set_language("en")
+	await process_frame
+	check(menu.graphics_controls.vsync.selected == wanted and int(menu.graphics_pending.vsync) == wanted and menu.graphics_dirty, "Cambio lingua: le modifiche grafiche non applicate restano")
 	# Salvataggio e ricarica delle impostazioni.
 	world.automated = false
 	var saved: Dictionary = world.settings_data.duplicate()

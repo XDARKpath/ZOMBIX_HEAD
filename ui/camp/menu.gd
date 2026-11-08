@@ -16,6 +16,7 @@ var entries: Array[Button] = []
 var graphics_controls: Dictionary = {}
 var graphics_pending: Dictionary = {}
 var graphics_status: Label
+var graphics_dirty := false
 var page_tween: Tween
 var context_tween: Tween
 var click_sound: AudioStreamPlayer
@@ -90,7 +91,12 @@ func _rebuild_page() -> void:
 		"multiplayer": network_menu()
 		"options": options_menu()
 		"settings": settings()
-		"graphics": graphics()
+		"graphics":
+			# Le scelte non ancora applicate restano dopo il cambio lingua.
+			var pending := graphics_pending.duplicate()
+			var dirty := graphics_dirty
+			graphics()
+			_restore_graphics_pending(pending, dirty)
 		"language": language(language_return)
 		"controls": controls()
 		"skins": skins()
@@ -433,6 +439,7 @@ func graphics() -> void:
 	page = "graphics"
 	clear("GRAPHICS","SO THE NIGHT RUNS AS WELL AS IT LOOKS")
 	graphics_controls.clear()
+	graphics_dirty = false
 	var data: Dictionary = world.settings_data
 	# Le scelte restano in sospeso: solo APPLY le passa al gioco e le salva.
 	graphics_pending = {
@@ -486,7 +493,19 @@ func graphics() -> void:
 	menu_list.position.y = 648
 	context_label.hide()
 
+func _restore_graphics_pending(pending: Dictionary, dirty: bool) -> void:
+	if pending.is_empty(): return
+	graphics_pending = pending
+	var picks := {"display_mode":int(pending.display_mode),"vsync":int(pending.vsync),"overall_quality":int(pending.quality)}
+	for key in picks: graphics_controls[key].select(picks[key])
+	var sizes: Array = world.monitor_resolutions()
+	for i in range(sizes.size()):
+		if "%dx%d" % [sizes[i].x,sizes[i].y] == str(pending.resolution): graphics_controls.resolution.select(i)
+	_sync_graphics_controls()
+	if dirty: _mark_graphics_dirty()
+
 func _mark_graphics_dirty() -> void:
+	graphics_dirty = true
 	if graphics_status and is_instance_valid(graphics_status):
 		graphics_status.text = Localization.t("UNSAVED CHANGES  ·  PRESS APPLY")
 		graphics_status.add_theme_color_override("font_color",Color("ffb703"))
@@ -499,6 +518,7 @@ func _apply_graphics_pending() -> void:
 	world.settings_data.fullscreen = int(graphics_pending.display_mode) == 2
 	world.settings_data.shadows = int(graphics_pending.shadow_quality) > 0
 	world._apply_settings()
+	graphics_dirty = false
 	if graphics_status and is_instance_valid(graphics_status):
 		graphics_status.text = Localization.t("SETTINGS APPLIED")
 		graphics_status.add_theme_color_override("font_color",Color("8ecf9a"))
