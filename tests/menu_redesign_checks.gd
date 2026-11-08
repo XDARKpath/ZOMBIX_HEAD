@@ -13,7 +13,7 @@ func run():
  world.menu.network_menu()
  assert(world.menu.entries.size()==3)
  world.menu.options_menu()
- assert(world.menu.entries.size()==3)
+ assert(world.menu.entries.size()==5)
  world.menu.home()
  for avatar in world.camp.avatars:
   assert(avatar.find_children("SourceHand_*","",true,false).is_empty())

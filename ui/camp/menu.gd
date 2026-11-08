@@ -21,6 +21,7 @@ var context_tween: Tween
 var click_sound: AudioStreamPlayer
 var hover_sound: AudioStreamPlayer
 var language_return: String = "options"
+var connection_hosting: bool = true
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
@@ -76,7 +77,25 @@ func build(owner_world: Node3D) -> void:
 		hover_sound.volume_db = -24
 		add_child(hover_sound)
 	Session.status_changed.connect(func(_message: String) -> void: refresh())
+	Localization.language_changed.connect(func(_code: String) -> void: _rebuild_page())
 	home()
+
+## Rifà la pagina aperta: i testi passano di nuovo da Localization.t nella nuova lingua.
+func _rebuild_page() -> void:
+	var badge: Label = get_node_or_null("BuildBadge")
+	if badge: badge.text = Localization.t("BUILD {0}  /  LAGO CENERE", [ProjectSettings.get_setting("application/config/version")])
+	var coop: Label = get_node_or_null("CoopBadge")
+	if coop: coop.text = Localization.t("CO-OP  /  UP TO 4 PLAYERS")
+	match page:
+		"multiplayer": network_menu()
+		"options": options_menu()
+		"settings": settings()
+		"graphics": graphics()
+		"language": language(language_return)
+		"controls": controls()
+		"skins": skins()
+		"connect": connection(connection_hosting)
+		_: home()
 
 func clear(title: String, subtitle: String = "") -> void:
 	ready_button = null
@@ -329,6 +348,7 @@ func field(at: Vector2, value: String, placeholder: String) -> LineEdit:
 
 func connection(hosting: bool) -> void:
 	page = "connect"
+	connection_hosting = hosting
 	clear("HOST GAME" if hosting else "JOIN FRIENDS","A FIRE IS BETTER SHARED")
 	label("SURVIVOR NAME",Vector2(81,270),16)
 	var username := field(Vector2(81,297),Session.nickname,"Your name")
@@ -384,7 +404,7 @@ func settings() -> void:
 	label("DISPLAY AND VISUAL QUALITY ARE IN\nOPTIONS  ›  GRAPHICS.",Vector2(81,540),19,Color("b4b8a9"))
 	button("GRAPHICS",0,graphics)
 	button("%s  ·  %s" % [Localization.t("LANGUAGE"), Localization.language_name()],0,func() -> void: language("settings"))
-	button("BACK",0,home)
+	button("BACK",0,_options_or_home)
 	menu_list.position.y = 610
 	context_label.hide()
 
@@ -462,7 +482,7 @@ func graphics() -> void:
 	graphics_status = label(Localization.t("ADJUST THE SETTINGS, THEN PRESS APPLY."),Vector2(81,618),15,Color(0.70,0.74,0.69,0.75))
 	graphics_status.name = "GraphicsStatus"
 	button("APPLY",0,_apply_graphics_pending)
-	button("BACK",0,func() -> void: graphics_pending.clear(); home())
+	button("BACK",0,func() -> void: graphics_pending.clear(); _options_or_home())
 	menu_list.position.y = 648
 	context_label.hide()
 
@@ -538,9 +558,14 @@ func controls() -> void:
 	label("WASD\nMOUSE\nSHIFT\nSPACE\nCTRL (hold)\nCLICK / HOLD\nE\nESC",Vector2(81,277),25,Color("d4ad76"))
 	label("Move\nFirst-person look\nSprint\nJump\nCrouch\nStrike / charged strike\nCollect / activate\nPause menu",Vector2(267,277),25)
 	label("Collect the supplies. Defend the radio.\nThe world keeps moving while you pause online.\n\nMENU / arrows or D-pad · Enter or A to select",Vector2(81,600),19,Color("b4b8a9"))
-	button("BACK",0,home)
+	button("BACK",0,_options_or_home)
 	menu_list.position.y = 740
 	context_label.hide()
+
+## Dalle pagine di Opzioni si torna a Opzioni; in pausa si torna al menu di pausa.
+func _options_or_home() -> void:
+	if world.started: home()
+	else: options_menu()
 
 func network_menu() -> void:
 	page="multiplayer"
