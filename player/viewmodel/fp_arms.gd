@@ -668,8 +668,12 @@ func _feel(delta: float, speed: float, grounded: bool) -> void:
 	var dlook := (look - _last_look) / maxf(delta, 0.001)
 	_last_look = look
 	var goal := Vector2(clampf(dlook.x * 0.0055, -0.045, 0.045), clampf(-dlook.y * 0.0055, -0.04, 0.04))
-	_sway_v += ((goal - _sway_p) * 160.0 - _sway_v * 22.0) * delta
-	_sway_p += _sway_v * delta
+	# Molle rigide integrate a passo fisso: con un frame lungo (caricamento, scatto) Euler esplodeva in inf/NaN,
+	# il NaN restava per sempre e il motore stampava migliaia di errori instance_set_transform al minuto.
+	var dt := minf(delta, 1.0 / 60.0)
+	_sway_v += ((goal - _sway_p) * 160.0 - _sway_v * 22.0) * dt
+	_sway_p += _sway_v * dt
+	if not (_sway_p.is_finite() and _sway_v.is_finite()): _sway_p = Vector2.ZERO; _sway_v = Vector2.ZERO
 	var local_v: Vector3 = Basis(Vector3.UP, player.rig.yaw).inverse() * player.velocity
 	_tilt = lerpf(_tilt, clampf(-local_v.x / 4.0, -1.0, 1.0), 1.0 - exp(-delta * 6.0))
 	_air = move_toward(_air, 0.0 if grounded else 1.0, delta * 5.0)
@@ -677,8 +681,9 @@ func _feel(delta: float, speed: float, grounded: bool) -> void:
 		_land_v -= clampf(-_last_vy, 2.0, 12.0) * 0.06
 	_was_floor = grounded
 	_last_vy = player.velocity.y
-	_land_v += (-_land_p * 220.0 - _land_v * 18.0) * delta
-	_land_p += _land_v * delta
+	_land_v += (-_land_p * 220.0 - _land_v * 18.0) * dt
+	_land_p += _land_v * dt
+	if not (is_finite(_land_p) and is_finite(_land_v)): _land_p = 0.0; _land_v = 0.0
 	_kick = move_toward(_kick, 0.0, delta * 6.0)
 	var tremble := Vector3.ZERO
 	if melee.charging and melee.charge_fraction() >= 1.0:
@@ -716,8 +721,9 @@ func _weight(delta: float) -> void:
 		rig.rotation.x += 0.06 * _wind_env
 		rig.position += Vector3(0, 0.014 * _wind_env - 0.012 * _swing_env, 0.03 * _wind_env - 0.045 * _swing_env)
 	# La lama che entra nella carne si ferma di colpo e rimbalza sulle mani.
-	_bite_v += (-_bite_p * 240.0 - _bite_v * 17.0) * delta
-	_bite_p += _bite_v * delta
+	var bite_dt := minf(delta, 1.0 / 60.0)     # stessa ragione delle molle in _feel: niente NaN coi frame lunghi
+	_bite_v += (-_bite_p * 240.0 - _bite_v * 17.0) * bite_dt
+	_bite_p += _bite_v * bite_dt
 	rig.rotation.x += _bite_p * 0.55
 	rig.rotation.z -= side * _bite_p * 0.35
 	rig.position.z += _bite_p * 0.11
