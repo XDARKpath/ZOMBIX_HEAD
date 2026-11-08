@@ -9,7 +9,7 @@ scaricalo da godotengine.org. Clona il repo, apri Godot, *Importa* e scegli
 `project.godot`. Il primo avvio importa gli asset e richiede qualche minuto.
 
 ```
-git clone https://github.com/<utente>/ZOMBIX_HEAD.git
+git clone https://github.com/XDARKpath/ZOMBIX_HEAD.git
 Godot_v4.5.1-stable_win64.exe --path ZOMBIX_HEAD
 ```
 
