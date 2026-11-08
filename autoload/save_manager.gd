@@ -41,6 +41,8 @@ func write(world: Node) -> bool:
 		"owned": world.player.owned,
 		"equipped": world.player.equipped,
 		"slots": world.player.inventory_slots,
+		"health_ups": world.player.health_ups,
+		"stamina_ups": world.player.stamina_ups,
 		"items": world.player.items,
 		"hotbar": world.player.hotbar,
 		"slot": world.player.slot,
@@ -93,6 +95,10 @@ func apply(world: Node) -> bool:
 	world.player.owned.assign((data.get("owned", ["axe"]) as Array).filter(func(w): return not w in REMOVED))
 	world.player.equipped = "axe" if str(data.get("equipped", "axe")) in REMOVED else str(data.get("equipped", "axe"))
 	world.player.inventory_slots = int(data.get("slots", 4))
+	world.player.health_ups = (data.get("health_ups", {}) as Dictionary).duplicate()
+	world.player.stamina_ups = (data.get("stamina_ups", {}) as Dictionary).duplicate()
+	world.player.health = world.player.max_health()
+	world.player.stamina = world.player.max_stamina()
 	world.player.arrows = int(data.get("arrows", 0))
 	# Salvataggi di prima della barra rapida: la barra si ricostruisce dalle armi.
 	var saved_items: Dictionary = data.get("items", {})

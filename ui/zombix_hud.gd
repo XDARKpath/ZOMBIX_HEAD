@@ -274,16 +274,16 @@ func _center_text(center: Vector2, value: String, size_value: int, color: Color,
 # ---------------------------------------------------------------- vita e fiato
 func _draw_vitals(now: float) -> void:
 	var p = world.player
-	var hp: float = clampf(p.health/100.0,0.0,1.0)
-	var sp: float = clampf(p.stamina/100.0,0.0,1.0)
+	var hp: float = clampf(p.health/p.max_health(),0.0,1.0)
+	var sp: float = clampf(p.stamina/p.max_stamina(),0.0,1.0)
 	var hp_color: Color = C_HP.lerp(Color("d9573c"),clampf((0.5-hp)/0.5,0.0,1.0))
 	if hp < 0.30 and fmod(now,0.8) < 0.4: hp_color = hp_color.lerp(Color("ffa184"),0.45)
 	_heart(Vector2(52,48),hp_color)
-	_bar(Rect2(72,41,206,14),hp,clampf(display_health/100.0,0,1),hp_color,C_RUST,true)
+	_bar(Rect2(72,41,206,14),hp,clampf(display_health/p.max_health(),0,1),hp_color,C_RUST,true)
 	_text(Vector2(286,53),"%d" % ceili(p.health),15,C_RUST if hp < 0.3 else C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
 	_bolt(Vector2(52,74),C_RUST if p.exhausted else C_STAMINA)
 	var sp_color: Color = Color("e08a62") if p.exhausted else C_STAMINA
-	_bar(Rect2(72,70,206,8),sp,clampf(display_stamina/100.0,0,1),sp_color,Color(0.55,0.42,0.22),true)
+	_bar(Rect2(72,70,206,8),sp,clampf(display_stamina/p.max_stamina(),0,1),sp_color,Color(0.55,0.42,0.22),true)
 	_draw_noise()
 	if hp < 0.30:
 		_pill(Rect2(26,24,296,70),Color(0,0,0,0),Color(C_RUST.r,C_RUST.g,C_RUST.b,0.35+0.3*sin(now*5.0)),29.0,2)

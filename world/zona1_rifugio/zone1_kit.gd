@@ -79,6 +79,7 @@ func _armory(o: Node3D) -> void:
 		pack.rotation.y = 0.5
 		world.survival.zx.register_display(pack, "pack", -1, pack.get_node("Tag"))
 		world.survival.zx.add_counter_items(o, Vector3(-1.98, 1.0, cz + 0.12), Vector3(0.26, 0, 0))
+		world.survival.zx.add_upgrades(o, Vector3(-3.0, 1.0, cz + 0.3), Vector3(0.3, 0, 0.0))
 	put(o, ENV + "shop/SM_Shop_GunsmithWorkbench.glb", Vector3(1.9, 0, 1.55), 0.0, true)
 	put(o, ENV + "shop/SM_Prop_Vise.glb", Vector3(1.25, 0.92, 1.6), 0.0, true)
 	put(o, ENV + "shop/SM_Prop_Wrench.glb", Vector3(1.65, 0.92, 1.75), 0.6, true)

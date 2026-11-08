@@ -62,6 +62,13 @@ func run():
 	p.credits = 500
 	check(zx.target(p).get("id", "") == "pack" and zx.request(p) and p.inventory_slots == slots + 1, "Zaino comprato dal bancone: +1 slot")
 	await shot("pack")
+	# vita e fiato massimi sul bancone, due per zona
+	var up: Dictionary = find(zx, "up_health", null)
+	await face(p, zx, up, armory.global_basis.z.normalized() * 1.2)
+	p.credits = 500
+	var hp: float = p.max_health()
+	check(zx.target(p).get("id", "") == "up_health" and zx.request(p) and p.max_health() == hp + 15.0, "Vita +15 comprata dal bancone (%s)" % zx.target(p).get("id", "nessuno"))
+	await shot("up-health")
 	# negozio della zona 4 (Spaccio del Deposito)
 	var lmg: Dictionary = find(zx, "lmg", zx.shops[3])
 	await face(p, zx, lmg, zx.shops[3].global_basis.z.normalized() * 2.0)

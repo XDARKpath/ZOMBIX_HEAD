@@ -650,7 +650,8 @@ func _farm() -> void:
 	cap.mesh = cm
 	cap.position.y = 10.45
 	cap.material_override = Props.material(Color("4c5d5b"), 0.4)
-	_perch(tank, Vector3(1.3, 7.25, 1.3))
+	# Sul ballatoio, fuori dal cilindro (raggio 1.9): lo sputatore non deve comparire dentro il serbatoio.
+	_perch(tank, Vector3(1.85, 7.25, 1.85))
 	# campi coltivati (abbandonati) e balle di fieno
 	for row in 10:
 		box(f, Vector3(-22, 0.03, -14 + row * 2.6), Vector3(18, 0.05, 1.1), Color("4a3d2b"), false)
@@ -847,6 +848,10 @@ func _update_boss_bar() -> void:
 
 
 # ================================================================== gioco (host)
+## Da qui (metri dal centro) il borgo si popola: poco oltre il bordo piatto (L.FLAT), cioè all'ingresso.
+const ARRIVE := 125.0
+
+
 func in_town(p: Vector3) -> bool:
 	return Vector2(p.x - L.CENTER.x, p.z - L.CENTER.z).length() < 95.0
 
@@ -1087,7 +1092,7 @@ func _do(actor: CharacterBody3D, index: int) -> void:
 	ch.lid.visible = false
 	ch.tag.visible = false
 	if ch.heal:
-		actor.health = load("res://autoload/balance.gd").PLAYER_MAX_HEALTH
+		actor.health = actor.max_health()
 		world.announce("Cassa medica: salute al massimo.", 3)
 	else:
 		actor.credits += ch.amount
@@ -1118,7 +1123,8 @@ func _process(delta: float) -> void:
 		var pos: Vector3 = a.global_position
 		if Vector2(pos.x - L.CENTER.x, pos.z - L.CENTER.z).length() < 170:
 			near = true
-		if in_town(pos):
+		# Gli infetti compaiono quando entri nel borgo, non a metà strada verso la piazza.
+		if Vector2(pos.x - L.CENTER.x, pos.z - L.CENTER.z).length() < ARRIVE:
 			town = true
 	if state == "idle" and town:
 		_populate_town()
