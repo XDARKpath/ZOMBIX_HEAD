@@ -395,7 +395,7 @@ func tick(delta: float, equipped: String) -> void:
 		_fidget_t = -1.0
 	elif _gun and player.reload_left > 0:
 		act = set_name + "_Reload"
-		var rs: float = RELOAD_SECONDS.get(set_name, 1.6)
+		var rs: float = maxf(player.reload_total, 0.1)
 		t = clampf((rs - player.reload_left) / rs, 0.0, 1.0) * _len(act)
 	elif _use_t >= 0.0:
 		act = set_name + "_Use"
@@ -500,7 +500,7 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 		row = [which, melee.attack_time, melee.active_windup, melee.active_seconds, melee.active_recovery]
 	var reload := -1.0
 	if _gun and player.reload_left > 0.0:
-		var rs: float = RELOAD_SECONDS.get(set_name, 1.6)
+		var rs: float = maxf(player.reload_total, 0.1)
 		reload = clampf((rs - player.reload_left) / rs, 0.0, 1.0)
 	_motion.tick(delta, row, melee.charge_fraction() if melee.charging and not _gun else 0.0, melee.blocking, _sprint_w > 0.5, melee.ads, reload, _inspect_t)
 	_tool_w = move_toward(_tool_w, 0.0 if _one_t >= 0.0 else 1.0, delta / 0.1)

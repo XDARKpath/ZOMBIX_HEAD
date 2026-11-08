@@ -82,6 +82,16 @@ static func curve(clip: String) -> Dictionary:
 		_curves[clip] = JSON.parse_string(FileAccess.get_file_as_string(path)) if FileAccess.file_exists(path) else {}
 	return _curves[clip]
 
+## Durata della ricarica in secondi. Le armi a cartucce ("shell") ricaricano un colpo alla volta:
+## qui c'è il tempo di una cartuccia. Le clip FP durano meno di una ricarica vera, per questo c'è una tabella.
+const RELOAD_SECONDS := {"pistol": 1.6, "revolver": 2.8, "flare_gun": 1.8, "nailgun": 2.0, "smg": 2.1,
+	"assault_rifle": 2.5, "lmg": 4.8, "sniper_rifle": 3.0, "tesla_rifle": 2.8, "sawn_off": 2.3, "leaf_blower": 2.2,
+	"crossbow": 2.0, "pump_shotgun": 0.6, "lever_rifle": 0.55, "grenade_launcher": 0.9}
+const SHELL_RELOAD := ["pump_shotgun", "lever_rifle", "grenade_launcher"]
+
+static func reload_seconds(equipped: String) -> float:
+	return float(RELOAD_SECONDS.get(equipped, clip_seconds(str(def(equipped).get("reload", "Player_Pistol_Reload")))))
+
 static func clip_seconds(clip: String) -> float:
 	var c := curve(clip)
 	return (float(c.frames) - 1.0) / float(c.fps) if not c.is_empty() else 0.8
