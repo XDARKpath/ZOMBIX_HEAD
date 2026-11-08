@@ -1,5 +1,5 @@
 extends SceneTree
-# Foto del viewmodel a metà ricarica (pistola e pompa) nella Zona 1. Serve una finestra vera, non --headless.
+# Foto del viewmodel in tre momenti della ricarica (pistola e pompa) nella Zona 1. Serve una finestra vera, non --headless.
 # Uso: Godot --path . -s res://tests/reload_capture.gd -- --shots=<cartella>
 func _initialize(): call_deferred("run")
 func run():
@@ -16,10 +16,17 @@ func run():
 	for id in ["pistol", "pump_shotgun"]:
 		p.select_slot(p.hotbar.find(id))
 		await create_timer(1.0).timeout
-		p.magazine = 1
-		p.reload_weapon()
-		await create_timer(p.reload_total * 0.5).timeout
-		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png(dir.path_join("reload_%s.png" % id))
-		print("shot %s mag=%d left=%.2f/%.2f" % [id, p.magazine, p.reload_left, p.reload_total])
+		# Tre momenti: inizio (caricatore fuori / mano alla tasca), metà (pezzo nuovo in mano), fine (scatto / spinta).
+		for k in [0.3, 0.5, 0.8]:
+			p.magazine = 1
+			p.reload_left = 0.0
+			await process_frame
+			p.reload_weapon()
+			# Il frame in finestra è lento: si porta la ricarica al punto voluto e si lasciano assestare le molle.
+			p.reload_left = p.reload_total * (1.0 - k) + 0.05
+			p._reload_seen = p.reload_left      # non è una ricarica nuova: la durata resta quella vera
+			for f in 3: await process_frame
+			await RenderingServer.frame_post_draw
+			root.get_texture().get_image().save_png(dir.path_join("reload_%s_%02d.png" % [id, int(k * 100)]))
+			print("shot %s %d%% mag=%d left=%.2f/%.2f" % [id, int(k * 100), p.magazine, p.reload_left, p.reload_total])
 	quit()

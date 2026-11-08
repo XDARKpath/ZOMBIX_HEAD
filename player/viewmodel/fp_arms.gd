@@ -123,6 +123,9 @@ var _hit_mark: Control
 var _tool_w := 1.0
 var _mag: Node3D
 var _mag_base := Vector3.ZERO
+# Caricatore o cartuccia nella mano sinistra durante la ricarica: blocchetti originali, l'arma importata non li ha.
+var _carry_mag: MeshInstance3D
+var _carry_shell: MeshInstance3D
 
 
 func build(owner_player: CharacterBody3D) -> void:
@@ -158,6 +161,8 @@ func build(owner_player: CharacterBody3D) -> void:
 	_hand_socket = BoneAttachment3D.new()
 	_hand_socket.bone_name = "hand_l"
 	skeleton.add_child(_hand_socket)
+	_carry_mag = _carry_piece(BoxMesh.new(), Color("2b2d2f"), Vector3(0.026, 0.10, 0.045))
+	_carry_shell = _carry_piece(CylinderMesh.new(), Color("a3302a"), Vector3(0.022, 0.06, 0.022))
 	if player.local_control: _build_hit_mark()
 	player.melee.impact.connect(func(_t, charged):
 		_show_hit(charged)
@@ -244,6 +249,7 @@ func _set_weapon(id: String) -> void:
 		_slide = item.find_child("*Slide*", true, false) as Node3D
 		if _slide: _slide_base = _slide.position
 		_mag = item.find_child("*_Mag*", true, false) as Node3D
+		if not _mag: _mag = item.find_child("Magazine*", true, false) as Node3D
 		if _mag: _mag_base = _mag.position
 	_motion = null
 	for side in ["r", "l"]:
@@ -507,6 +513,8 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 	if _mag:
 		_mag.position = _mag_base + Vector3(0, -0.3, 0) * _motion.mag_out
 		_mag.visible = _motion.mag_out < 0.98
+	_carry_mag.visible = _motion.carry == "mag"
+	_carry_shell.visible = _motion.carry == "shell"
 	if _tool_w <= 0.0: return
 	# Le spalle sono fuori dall'inquadratura: portarle avanti allunga il braccio senza che si veda, e la mano arriva sulla canna.
 	for side in ["r", "l"]:
@@ -805,3 +813,20 @@ func _mix(a: Dictionary, b: Dictionary, w: float) -> void:
 		if b[bone][1] != null:
 			var p: Vector3 = a[bone][1] if a[bone][1] != null else _rest[bone][1]
 			a[bone][1] = p.lerp(b[bone][1], w)
+
+
+func _carry_piece(mesh: PrimitiveMesh, color: Color, size: Vector3) -> MeshInstance3D:
+	if mesh is BoxMesh: (mesh as BoxMesh).size = size
+	else:
+		(mesh as CylinderMesh).top_radius = size.x * 0.5; (mesh as CylinderMesh).bottom_radius = size.x * 0.5; (mesh as CylinderMesh).height = size.y
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = 0.6
+	mesh.material = mat
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0.0, 0.07, 0.03)      # nel palmo, verso le dita
+	mi.visible = false
+	_hand_socket.add_child(mi)
+	return mi

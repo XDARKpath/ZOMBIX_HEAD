@@ -88,7 +88,7 @@ const POSES := {
 		"idle": [Vector3(0.13, -0.20, -0.46), Vector3(-0.06, 0.05, -0.99), Vector3(1, 0, -0.06)],
 		"sprint": [Vector3(0.17, -0.27, -0.36), Vector3(0.05, 0.5, -0.85), Vector3(0.95, -0.2, 0.1)],
 		"aim": [Vector3(0.0, -0.135, -0.36), Vector3(0, 0, -1), Vector3(1, 0, 0)],
-		"reload": [Vector3(0.07, -0.17, -0.38), Vector3(-0.35, 0.4, -0.85), Vector3(0.9, 0.35, -0.2)],
+		"reload": [Vector3(0.02, -0.07, -0.36), Vector3(-0.45, 0.2, -0.87), Vector3(0.9, 0.35, -0.2)],
 		"inspect": [Vector3(0.08, -0.17, -0.38), Vector3(-0.6, 0.15, -0.8), Vector3(0.8, 0.1, -0.6)],
 		"low": [Vector3(0.14, -0.46, -0.28), Vector3(0.1, -0.7, -0.7), Vector3(1, 0, 0)],
 	},
@@ -105,7 +105,7 @@ const POSES := {
 		"idle": [Vector3(0.12, -0.20, -0.24), Vector3(-0.08, 0.06, -0.99), Vector3(1, 0, -0.08)],
 		"sprint": [Vector3(0.12, -0.30, -0.16), Vector3(-0.55, 0.4, -0.73), Vector3(0.75, 0.55, -0.3)],
 		"aim": [Vector3(0.0, -0.15, -0.14), Vector3(0, 0, -1), Vector3(1, 0, 0)],
-		"reload": [Vector3(0.06, -0.20, -0.26), Vector3(-0.3, 0.5, -0.81), Vector3(0.85, 0.5, -0.0)],
+		"reload": [Vector3(0.03, -0.10, -0.26), Vector3(-0.45, 0.25, -0.86), Vector3(0.85, 0.5, -0.0)],
 		"inspect": [Vector3(0.10, -0.22, -0.26), Vector3(-0.6, 0.25, -0.75), Vector3(0.72, 0.25, -0.6)],
 		"low": [Vector3(0.16, -0.50, -0.14), Vector3(0.05, -0.65, -0.75), Vector3(1, 0, 0)],
 	},
@@ -271,6 +271,8 @@ var rot := Quaternion.IDENTITY
 ## Ricarica: caricatore fuori (0-1), carrello indietro (0-1), mano sinistra spostata (spazio dell'arma).
 var mag_out := 0.0
 var slide_back := 0.0
+# Cosa tiene la sinistra durante la ricarica: "mag" (caricatore nuovo), "shell" (cartuccia) o "".
+var carry := ""
 var left_shift := Vector3.ZERO
 var edge_w := 0.0
 var walk := 0.0                          # da 0 a 1: il passo fa ondeggiare l'arma (da fuori; la prima persona ha il suo)
@@ -499,6 +501,7 @@ func tick(delta: float, swing: Array, charge: float, guard: bool, sprint: bool, 
 	var rate := 11.0
 	mag_out = 0.0
 	slide_back = 0.0
+	carry = ""
 	left_shift = Vector3.ZERO
 	if not is_gun():
 		if not swing.is_empty():
@@ -569,10 +572,12 @@ func tick(delta: float, swing: Array, charge: float, guard: bool, sprint: bool, 
 func _reload_hands(reload: float, delta: float) -> void:
 	match str(WEAPONS[id].get("reload", "mag")):
 		"shell":
-			# Colpo dopo colpo: la mano fa avanti e indietro dalla tasca alla finestra.
-			var n: float = clampf(reload / 0.9, 0.0, 1.0) * 4.0
-			var c: float = absf(sin(n * PI))
-			left_shift = Vector3(-0.05, -0.05, -0.1) * c + Vector3(0, -support * 0.4, 0.04)
+			# Una ricarica = una cartuccia (player.gd riparte per la successiva): la mano va alla tasca,
+			# torna con la cartuccia e la spinge nel tubo sotto la canna; la spinta dà un piccolo colpo all'arma.
+			var c: float = sin(clampf(reload / 0.85, 0.0, 1.0) * PI)
+			left_shift = Vector3(-0.04, -0.09, -0.03) * c + Vector3(0, -support * 0.4, 0.04)   # resta in vista sotto la finestra
+			if reload > 0.3 and reload < 0.78: carry = "shell"
+			if reload > 0.74 and reload < 0.8: _spring_pv.y += 0.25 * delta * 30.0
 		"break":
 			var away := smoothstep(0.15, 0.3, reload) * (1.0 - smoothstep(0.55, 0.72, reload))
 			left_shift = Vector3(-0.05, -0.03, -0.14) * away
@@ -582,9 +587,10 @@ func _reload_hands(reload: float, delta: float) -> void:
 			# La sinistra scende a prendere il caricatore, lo infila e poi tira indietro il carrello.
 			var away := smoothstep(0.2, 0.34, reload) * (1.0 - smoothstep(0.48, 0.66, reload))
 			var rack := smoothstep(0.72, 0.78, reload) * (1.0 - smoothstep(0.9, 0.96, reload))
-			left_shift = Vector3(-0.05, -0.03, -0.15) * away + Vector3(-0.03, -support * 0.5, 0.12) * rack
+			left_shift = Vector3(-0.03, -0.08, -0.03) * away + Vector3(-0.03, -support * 0.5, 0.12) * rack   # sotto il pozzetto, in vista
 			slide_back = smoothstep(0.78, 0.86, reload) * (1.0 - smoothstep(0.87, 0.89, reload))
 			if reload > 0.68 and reload < 0.74: _spring_pv.y += 0.4 * delta * 30.0       # il palmo chiude il caricatore
+			if reload > 0.38 and reload < 0.62: carry = "mag"                               # il caricatore nuovo in mano
 
 
 ## La posa finale dell'arma, con il rinculo e il respiro, nello spazio della camera.
