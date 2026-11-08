@@ -1,0 +1,172 @@
+refuge013-campaign.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Eight campaign destinations
+PASS Every destination is at least 1.4 km from previous; route 12.78 km
+PASS All road samples are level and connected to terrain
+PASS 68 nature models available to terrain distribution
+PASS Future GPS coordinates and vehicle initially locked
+PASS Unknown peer cannot interact
+PASS Remote pickup denied
+PASS Unrepaired vehicle cannot be entered
+PASS Repair component 1 collected nearby
+PASS Repair component 2 collected nearby
+PASS Repair component 3 collected nearby
+PASS All three components required before repair
+PASS Repair cannot start remotely
+PASS Repair starts next to vehicle
+PASS Walking away cancels repair
+PASS Completed repair reveals only the next destination
+PASS Driver enters first free seat
+PASS Seated player cannot jump or attack
+PASS Passenger 2 enters distinct seat
+PASS Passenger 3 enters distinct seat
+PASS Passenger 4 enters distinct seat
+PASS All four unique occupants recognized
+PASS W accelerates physical vehicle along road
+PASS Cannot exit moving vehicle
+PASS Vehicle brakes to rest when input stops
+PASS Passenger can exit safely when stopped
+PASS Missing passenger blocks squad travel
+PASS Walking/teleporting player to next zone does not complete vehicle travel
+PASS Stopped vehicle with entire squad activates next zone
+PASS Arrival spawns six local defenders
+PASS Relay download remains blocked before clearing zone
+PASS Zone 2 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 3
+PASS Zone 3 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 4
+PASS Zone 4 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 5
+PASS Zone 5 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 6
+PASS Zone 6 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 7
+PASS Zone 7 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 8
+PASS Zone 8 relay requires cleared yard and assembled squad
+PASS Eighth zone completes route without invalid ninth destination
+PASS Terrain unloads distant sectors
+PASS Retargeted gameplay library includes driving and excludes dance
+PASS Reusable archery scene: bow
+PASS Reusable archery scene: bow_native
+PASS Reusable archery scene: crossbow
+PASS Reusable archery scene: arrow
+PASS Reusable archery scene: arrow_native
+PASS Reusable archery scene: bolt
+CAMPAIGN_CHECKS 59 failures=0
+
+
+refuge013-checks-final.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Enter keeper house walking without jumping actual=(-14.99999, 0.088638, -10.11752)
+PASS Cross front room around table actual=(-15.0, 0.087369, -11.17363)
+PASS Approach inner doorway actual=(-17.32185, 0.08864, -11.10509)
+PASS Walk through inner doorway actual=(-17.25443, 0.088801, -13.39468)
+PASS Stand beside office desk actual=(-17.25078, 0.088801, -13.5919)
+PASS Battery collected from floor beside desk
+PASS Back wall blocks interaction through wall
+PASS Enter open workshop and reach bench actual=(23.4, 0.088066, -25.17612)
+PASS Belt collected from floor beside workbench
+PASS Reach fuel pallet from forecourt actual=(-10.0, 0.000195, -42.25609)
+PASS Fuel collected; repair stage unlocked
+PASS Zombie navigation reaches room (-17.25, 0.0, -13.7) path=[(-15.0, 0.5, -6.000001), (-15.04741, 0.5, -6.284482), (-15.125, 0.5, -6.75), (-15.2, 0.5, -7.2), (-15.25, 0.5, -7.5), (-15.4, 0.5, -8.1), (-15.4375, 0.5, -8.25), (-15.5, 0.5, -8.5), (-16.0, 0.5, -10.5), (-16.0, 0.5, -10.5), (-16.75, 0.5, -11.75), (-17.04297, 0.5, -12.89258), (-17.05612, 0.5, -12.94388), (-17.07319, 0.5, -13.01046), (-17.09038, 0.5, -13.07747), (-17.25, 0.5, -13.7)]
+PASS Zombie navigation reaches room (23.4, 0.0, -25.1) path=[(23.4, 0.5, -17.0), (23.4, 0.5, -17.5), (23.4, 0.5, -17.83158), (23.4, 0.5, -18.25), (23.4, 0.5, -21.34167), (23.4, 0.5, -21.84474), (23.4, 0.5, -23.60882), (23.4, 0.5, -23.64231), (23.4, 0.5, -23.75), (23.4, 0.5, -24.41), (23.4, 0.5, -25.1)]
+PASS Zombie navigation reaches room (-17.25, 0.0, -36.7) path=[(-15.0, 0.5, -29.0), (-15.125, 0.5, -29.75), (-15.2, 0.5, -30.2), (-15.25, 0.5, -30.5), (-15.4, 0.5, -31.1), (-15.4375, 0.5, -31.25), (-15.5, 0.5, -31.5), (-16.0, 0.5, -33.5), (-16.0, 0.5, -33.5), (-16.75, 0.5, -34.75), (-17.04297, 0.5, -35.89258), (-17.05612, 0.5, -35.94388), (-17.07319, 0.5, -36.01046), (-17.09038, 0.5, -36.07747), (-17.25, 0.5, -36.7)]
+PASS Zombie physically pursues player through both doors; actual=(-16.66267, 0.088093, -12.93521)
+PASS Zombie variant 0 attack changes skeletal hand pose
+PASS Zombie variant 0 reacts to hit
+PASS Zombie variant 0 uses skeletal death
+PASS Zombie variant 1 attack changes skeletal hand pose
+PASS Zombie variant 1 reacts to hit
+PASS Zombie variant 1 uses skeletal death
+PASS Zombie variant 2 attack changes skeletal hand pose
+PASS Zombie variant 2 reacts to hit
+PASS Zombie variant 2 uses skeletal death
+REFUGE_CHECKS 24 failures=0
+
+
+refuge013-camp.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Military 4x4 and seating present; pot removed
+PASS Four distinct camp activities
+PASS All four upper bodies are visible and separated outside menu text
+PASS Katana survivor kneels beside fire, with center foreground open
+PASS Cook and right-hand rifle survivor sit along the same log
+PASS Left-hand katana survivor retains previous kneeling placement
+PASS Reusable rifle scene retains rig and weapon attachment markers
+PASS Reusable katana scene exposes blade and grip markers
+PASS Hand targets reached throughout all three skins and activity cycles (max 0.0057 m)
+PASS Feet stay above ground for every skin (min 0.050 m)
+PASS Cigarette stays at the thumb and index pinch throughout cycle
+PASS Chicken stays above fire throughout turning (max 0.082 m)
+PASS Bent knee stays outside vehicle body (clearance 0.398 m)
+PASS Raised boot stays near wheel side (max depth gap 0.083 m)
+PASS Roasting stick keeps a fixed length
+PASS Cleaning cloth remains on rifle stock throughout inspection
+PASS Scoped rifle replaces the sidearm
+PASS Katana grip remains within palm reach throughout cycle
+PASS Cigarette smoke emitter present
+PASS Changing skins releases previous cook props
+PASS Absent lobby cook has no floating roast
+PASS Exhalation moves forward away from the face
+PASS Exhalation stops after the short puff
+PASS All three skins use five separate skinned digits; fused source hands removed
+PASS New hands stay attached to both wrists throughout animation
+PASS Support palms face up beneath rifle and katana, without inverted wrists
+PASS Fingertip surface touches cleaning cloth (max gap 0.0054 m)
+PASS Katana handle stays centered inside closed fingers (max 0.0022 m)
+PASS Wrists avoid backward folds across all skins and cycles (max 83.1 degrees)
+PASS Smoker's lowered wrist stays aligned with forearm (max 0.0 degrees)
+PASS Gang Warfare pistol stays in left grip with muzzle lowered across all skins and cycles
+PASS Pistol grip aligns with knuckle row and three curled fingers wrap to its opposite side
+CAMP10: 0 errors
+
+
+refuge013-render.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+PHOTO 01-panorama
+PHOTO 02-officina
+PHOTO 03-casa
+PHOTO 04-deposito
+PHOTO 06-batteria
+PHOTO 05-zombie
+
+
+refuge013-net-host.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET invalid remote interactions rejected=true
+NET remote driver motion=4.55289173126221 all_aboard=true
+CAMPAIGN_NET_HOST zone=1 seats=[0, 0, 0, 1] valid=true
+
+
+refuge013-net-client1.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET zombie skeletal attack synchronized=true
+CAMPAIGN_NET_CLIENT rank=2 snapshots=289 campaign_packets=85 valid=true
+
+
+refuge013-net-client2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET zombie skeletal attack synchronized=true
+CAMPAIGN_NET_CLIENT rank=1 snapshots=294 campaign_packets=83 valid=true
+
+
+refuge013-net-client3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET zombie skeletal attack synchronized=true
+CAMPAIGN_NET_CLIENT rank=0 snapshots=289 campaign_packets=82 valid=true

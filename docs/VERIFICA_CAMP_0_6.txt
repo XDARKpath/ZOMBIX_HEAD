@@ -1,0 +1,49 @@
+ZOMBIX HEAD 0.6 — verifiche
+
+camp06-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Cooking station and physical seating present
+PASS Four distinct camp activities
+PASS Hand targets reached throughout all three skins and activity cycles (max 0.0037 m)
+PASS Feet stay above ground for every skin (min 0.040 m)
+PASS Cigarette follows hand throughout raise and lower
+PASS Spoon stays inside cooking pot throughout stirring
+PASS Whetstone tracks the blade during sharpening (max 0.056 m)
+PASS Cigarette smoke emitter present
+PASS Changing skins releases previous cook props
+PASS Absent lobby cook has no floating spoon
+CAMP06: 0 errors
+
+camp06-menu-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Seven native menu buttons
+PASS English menu hierarchy
+PASS Soft shader gradient replaces solid panel
+PASS Borderless native buttons
+PASS Bundled display font
+PASS Context hidden before selection
+PASS Keyboard focus animates warm selection and slide
+PASS Host contextual text fades in
+PASS Tactile press scales the native button
+PASS Native accept opens the host form
+PASS Host form opens a real camp lobby
+PASS Online camp shows actual connected players
+PASS Pointer hover uses native GUI hit testing
+PASS Solo selection has no network description
+PASS Character page retains three skin choices and Back
+PASS Roster refresh preserves the idle animation instance
+PASS Skin choice changes the camp preview
+PASS Settings remain accessible
+PASS Controls remain accessible
+PASS Four visible survivors with four different poses
+PASS Feet remain above the campsite ground
+PASS Fourth survivor has an animated gaze
+PASS Knife remains attached to third survivor
+PASS Foreground embers never intercept clicks
+MENU05: 0 errors
+
+camp06-record.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU

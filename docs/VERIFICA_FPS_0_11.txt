@@ -1,0 +1,98 @@
+fps-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Player settles on the floor
+PASS Local avatar does not obscure first-person camera
+PASS Standing camera is at eye height
+PASS Walk accelerates to 4 m/s
+PASS Forward sprint reaches 7 m/s and consumes stamina
+PASS Sideways movement does not become a full-speed sprint
+PASS Grounded jump accepted
+PASS Repeated jump before takeoff is rejected
+PASS Jump reaches a controlled height and lands (0.81 m)
+PASS Jump clears the 45 cm obstacle
+PASS Standing player is blocked by low tunnel entrance
+PASS Crouched player enters the low tunnel
+PASS Releasing crouch under roof keeps body and eyes below ceiling
+PASS Jump is blocked while crouched under roof
+PASS Player stands again after leaving tunnel
+PASS Looking up does not change horizontal walking speed
+PASS Disabled controls cannot move or jump
+PASS Empty stamina blocks jumping
+FPS: 0 errors
+
+
+fps-render.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+PASS Player settles on the floor
+PASS Local avatar does not obscure first-person camera
+PASS Standing camera is at eye height
+PASS Walk accelerates to 4 m/s
+PASS Forward sprint reaches 7 m/s and consumes stamina
+PASS Sideways movement does not become a full-speed sprint
+PASS Grounded jump accepted
+PASS Repeated jump before takeoff is rejected
+PASS Jump reaches a controlled height and lands (0.81 m)
+PASS Jump clears the 45 cm obstacle
+PASS Standing player is blocked by low tunnel entrance
+PASS Crouched player enters the low tunnel
+PASS Releasing crouch under roof keeps body and eyes below ceiling
+PASS Jump is blocked while crouched under roof
+PASS Player stands again after leaving tunnel
+PASS Looking up does not change horizontal walking speed
+PASS Disabled controls cannot move or jump
+PASS Empty stamina blocks jumping
+FPS: 0 errors
+
+
+fps-game-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Nuovo nome del gioco
+PASS Accampamento compatibile con quattro giocatori
+PASS Percorsi navigabili dal rifugio alle tre scorte
+PASS Spedizione iniziale con tre casse
+PASS Interazione rifiutata per un giocatore inesistente
+PASS Non si possono raccogliere scorte a distanza
+PASS Raccolta reale della cassa 1
+PASS Raccolta reale della cassa 2
+PASS Raccolta reale della cassa 3
+PASS Le scorte curano il giocatore che le raccoglie
+PASS Tre casse sbloccano la radio
+PASS Radio non attivabile da lontano
+PASS Attivazione radio vicino al terminale
+PASS La difesa avanza con un sopravvissuto presente
+PASS La difesa si ferma se la squadra si allontana
+PASS Trasmissione completata e squadra curata
+PASS Una nuova spedizione ripristina gli obiettivi
+PASS Le tre casse sono nuovamente disponibili
+PASS Un giocatore morto non può interagire
+PASS L'assalto rispetta il limite dei nemici
+PASS Nuovo HUD e ambiente attivi
+ZOMBIX: 0 errori
+
+
+fps-net-host.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+FPS_NET_HOST peers=1 crouched=3 jumped=3 valid=true
+
+
+fps-net-client1.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+FPS_NET_CLIENT actors=4 jump_y=0.78422147035599 snapshots=55 valid=true
+
+
+fps-net-client2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+FPS_NET_CLIENT actors=4 jump_y=0.76461654901505 snapshots=55 valid=true
+
+
+fps-net-client3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+FPS_NET_CLIENT actors=4 jump_y=0.77452063560486 snapshots=55 valid=true

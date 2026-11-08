@@ -1,0 +1,353 @@
+{
+  "archive": "User supplied POLYGON Gang Warfare Source Files v4",
+  "models": [
+    {
+      "name": "SM_Bld_Wall_Brick_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Wall_Brick_Door_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Wall_Brick_Window_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Wall_Metal_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Wall_Metal_Window_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Wall_Beam_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Roof_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Roof_Truss_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Roof_Flat_Closed_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Floor_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Floor_Ceiling_Wood_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Interior_Wall_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Interior_Wall_Door_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Interior_Wall_Window_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Interior_Door_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Metal_Door_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Fence_Wire_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Fence_Pole_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Bld_Exterior_Shade_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Cabinets_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Shelf_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Shelf_Preset_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Table_Metal_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Office_Desk_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Chair_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_OfficeChair_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Office_Shelf_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Book_Group_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Papers_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_GasCan_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Pallet_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_CardboardBox_Stack_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Container_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Barrel_Metal_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Fire_Extinguisher_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Cone_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Light_Wall_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Warehouse_Light_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Warehouse_PowerBox_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Warehouse_Venting_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Sink_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_MiniStove_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Pot_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A",
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Bottle_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Woodstack_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_PaintCan_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_RubberMat_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Sign_Caution_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Sign_Danger_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Powerbox_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Bag_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Puddle_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Puddle_02",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Bollard_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    },
+    {
+      "name": "SM_Prop_Warehouse_Rack_01",
+      "textures": [
+        "PolygonGangWarfare_Texture_01_A"
+      ]
+    }
+  ],
+  "zombie_clips": [
+    "Idle_Loop",
+    "Walk_Loop",
+    "Jog_Fwd_Loop",
+    "Punch_Cross",
+    "Punch_Jab",
+    "Hit_Chest",
+    "Death01"
+  ],
+  "animation_source": "User supplied Universal Animation Library[Standard].zip",
+  "new_plugins": []
+}

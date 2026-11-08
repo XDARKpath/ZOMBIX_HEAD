@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="MeleeWeaponData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://weapons/melee/weapon_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+display_name = "Accetta"
+damage = 26.0
+charged_damage = 58.0
+stamina_cost = 12.0
+charged_stamina_cost = 28.0
+charge_seconds = 0.65
+windup = 0.16
+active_seconds = 0.16
+recovery = 0.32
+charged_windup = 0.24
+charged_recovery = 0.46
+reach = 2.5
+knockback = 2.8
+charged_knockback = 5.0
+noise = 10.0
+price = 0
+tier = 1
+special_effect = ""

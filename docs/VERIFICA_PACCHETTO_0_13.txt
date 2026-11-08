@@ -1,0 +1,35 @@
+Pacchetto Windows 0.13 — verifica del 30 ottobre 2026
+ZIP verificato mediante CRC; sorgenti estratti in una cartella indipendente.
+Primo import senza cache: uscita 1 durante la preparazione del font Barlow.
+Secondo import (stesso tentativo automatico previsto dal launcher): uscita 0.
+Il launcher incluso gestisce questo nuovo tentativo e non avvia una preparazione fallita.
+Nessun errore di script/import nel log del secondo tentativo.
+Prova del rifugio sulla copia estratta: 24 controlli superati, uscita 0.
+
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Enter keeper house walking without jumping actual=(-14.99999, 0.088638, -10.11752)
+PASS Cross front room around table actual=(-15.0, 0.087369, -11.17363)
+PASS Approach inner doorway actual=(-17.32185, 0.08864, -11.10509)
+PASS Walk through inner doorway actual=(-17.25443, 0.088801, -13.39468)
+PASS Stand beside office desk actual=(-17.25078, 0.088801, -13.5919)
+PASS Battery collected from floor beside desk
+PASS Back wall blocks interaction through wall
+PASS Enter open workshop and reach bench actual=(23.4, 0.088066, -25.17612)
+PASS Belt collected from floor beside workbench
+PASS Reach fuel pallet from forecourt actual=(-10.0, 0.000195, -42.25609)
+PASS Fuel collected; repair stage unlocked
+PASS Zombie navigation reaches room (-17.25, 0.0, -13.7) path=[(-15.0, 0.5, -6.000001), (-15.04741, 0.5, -6.284482), (-15.125, 0.5, -6.75), (-15.2, 0.5, -7.2), (-15.25, 0.5, -7.5), (-15.4, 0.5, -8.1), (-15.4375, 0.5, -8.25), (-15.5, 0.5, -8.5), (-16.0, 0.5, -10.5), (-16.0, 0.5, -10.5), (-16.75, 0.5, -11.75), (-17.04297, 0.5, -12.89258), (-17.05612, 0.5, -12.94388), (-17.07319, 0.5, -13.01046), (-17.09038, 0.5, -13.07747), (-17.25, 0.5, -13.7)]
+PASS Zombie navigation reaches room (23.4, 0.0, -25.1) path=[(23.4, 0.5, -17.0), (23.4, 0.5, -17.5), (23.4, 0.5, -17.83158), (23.4, 0.5, -18.25), (23.4, 0.5, -21.34167), (23.4, 0.5, -21.84474), (23.4, 0.5, -23.60882), (23.4, 0.5, -23.64231), (23.4, 0.5, -23.75), (23.4, 0.5, -24.41), (23.4, 0.5, -25.1)]
+PASS Zombie navigation reaches room (-17.25, 0.0, -36.7) path=[(-15.0, 0.5, -29.0), (-15.125, 0.5, -29.75), (-15.2, 0.5, -30.2), (-15.25, 0.5, -30.5), (-15.4, 0.5, -31.1), (-15.4375, 0.5, -31.25), (-15.5, 0.5, -31.5), (-16.0, 0.5, -33.5), (-16.0, 0.5, -33.5), (-16.75, 0.5, -34.75), (-17.04297, 0.5, -35.89258), (-17.05612, 0.5, -35.94388), (-17.07319, 0.5, -36.01046), (-17.09038, 0.5, -36.07747), (-17.25, 0.5, -36.7)]
+PASS Zombie physically pursues player through both doors; actual=(-16.66267, 0.088093, -12.93521)
+PASS Zombie variant 0 attack changes skeletal hand pose
+PASS Zombie variant 0 reacts to hit
+PASS Zombie variant 0 uses skeletal death
+PASS Zombie variant 1 attack changes skeletal hand pose
+PASS Zombie variant 1 reacts to hit
+PASS Zombie variant 1 uses skeletal death
+PASS Zombie variant 2 attack changes skeletal hand pose
+PASS Zombie variant 2 reacts to hit
+PASS Zombie variant 2 uses skeletal death
+REFUGE_CHECKS 24 failures=0

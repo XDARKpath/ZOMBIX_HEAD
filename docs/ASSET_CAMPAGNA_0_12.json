@@ -1,0 +1,26 @@
+[
+  {
+    "archive": "Stylized Nature MegaKit[Standard].zip",
+    "source": "User-provided local archive",
+    "sha256": "298f6732b872e4cf7b30e6e7abf9641c7f6dc6b326df37ac089533ed7e3d58c9",
+    "installed_plugin": false
+  },
+  {
+    "archive": "Universal Animation Library[Standard].zip",
+    "source": "User-provided local archive",
+    "sha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+    "installed_plugin": false
+  },
+  {
+    "archive": "POLYGON_BowAndCrossbow_SourceFiles_v3.zip",
+    "source": "User-provided local archive",
+    "sha256": "e9c48245d7b6af8e58dbfc8c4e5bbb59016f141165128bf520339298d63d94c1",
+    "installed_plugin": false
+  },
+  {
+    "archive": "Tripo3d_3dsMax_Bridge-latest.zip",
+    "source": "User-provided local archive",
+    "sha256": "de31122927f1c5885ed3b27e584b18f09c1b0a29fea8d13fea7bfc033660a56f",
+    "installed_plugin": false
+  }
+]

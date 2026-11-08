@@ -1,0 +1,58 @@
+{
+ "SM_NPC_Manager": {
+  "title": "Il Dottor Ferri",
+  "lines": [
+   "Come da mia ultima email: i morti camminano.",
+   "Ne riparliamo quando gli zombie se ne vanno?",
+   "Mi serve il settore B ripulito entro venerdì.",
+   "Sinergia. E poi: correre."
+  ],
+  "clips": [
+   "Player_Idle_Unarmed",
+   "NPC_Phone_Talk",
+   "NPC_Check_Watch",
+   "NPC_Nervous_Idle",
+   "NPC_Merchant_Idle_Talk",
+   "NPC_Wave",
+   "Player_Hit_Impact_Front",
+   "Player_Death_Collapse_Front",
+   "Player_Emote_Dance"
+  ],
+  "tris": 3630
+ },
+ "SM_NPC_Shopkeeper": {
+  "title": "Big Earl",
+  "lines": [
+   "Benvenuto da Earl. Contanti, scatolette o pezzi d'auto.",
+   "Se lo rompi, lo compri. Se lo compri, non faccio domande.",
+   "Ho una batteria sul retro. Puzza di procione morto. Funziona.",
+   "Munizioni corsia due. Carne secca corsia uno. Priorità."
+  ],
+  "clips": [
+   "Player_Idle_Unarmed",
+   "NPC_Counter_Lean",
+   "NPC_Merchant_Idle_Talk",
+   "NPC_Show_Item",
+   "NPC_Wave",
+   "Player_Hit_Impact_Front",
+   "Player_Death_Collapse_Front"
+  ],
+  "tris": 3566
+ },
+ "SM_NPC_Gunsmith": {
+  "title": "L'Armaiolo",
+  "lines": [
+   "Portami rottami, ti porto potenza di fuoco.",
+   "Quella canna è storta. Come la tua mira.",
+   "Pulisci il fucile e lui pulirà la strada."
+  ],
+  "clips": [
+   "Player_Idle_Unarmed",
+   "NPC_Counter_Lean",
+   "NPC_Show_Item",
+   "NPC_Merchant_Idle_Talk",
+   "NPC_Wave"
+  ],
+  "tris": 3558
+ }
+}

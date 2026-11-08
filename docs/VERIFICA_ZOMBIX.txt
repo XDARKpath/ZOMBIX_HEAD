@@ -1,0 +1,145 @@
+ZOMBIX HEAD 0.4 — verifiche del 27 ottobre 2026
+
+zombix-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Nuovo nome del gioco
+PASS Accampamento compatibile con quattro giocatori
+PASS Percorsi navigabili dal rifugio alle tre scorte
+PASS Spedizione iniziale con tre casse
+PASS Interazione rifiutata per un giocatore inesistente
+PASS Non si possono raccogliere scorte a distanza
+PASS Raccolta reale della cassa 1
+PASS Raccolta reale della cassa 2
+PASS Raccolta reale della cassa 3
+PASS Le scorte curano il giocatore che le raccoglie
+PASS Tre casse sbloccano la radio
+PASS Radio non attivabile da lontano
+PASS Attivazione radio vicino al terminale
+PASS La difesa avanza con un sopravvissuto presente
+PASS La difesa si ferma se la squadra si allontana
+PASS Trasmissione completata e squadra curata
+PASS Una nuova spedizione ripristina gli obiettivi
+PASS Le tre casse sono nuovamente disponibili
+PASS Un giocatore morto non può interagire
+PASS L'assalto rispetta il limite dei nemici
+PASS Nuovo HUD e ambiente attivi
+ZOMBIX: 0 errori
+
+zombix-regression3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Quattro posti nella lobby
+PASS Pose seduta e coltello
+PASS Scelta della skin
+PASS Impostazioni accessibili
+PASS NavMesh generata dalle collisioni
+PASS Sei zombie iniziali
+PASS Giocatore singolo registrato
+PASS Vista attiva l'inseguimento
+PASS Navigazione muove lo zombie
+PASS Percorso devia attorno al camion
+PASS Attacco infligge danno dopo il preavviso
+PASS Rumore attiva l'inseguimento
+PASS I muri bloccano la linea di vista
+PASS Perdita interesse riporta al vagare
+PASS Cadavere conservato per 30 secondi
+PASS Cadavere rimosso alla scadenza
+PASS Spawner rispetta il limite di otto infetti vivi
+PASS Limite totale dei corpi rispettato
+PASS Pausa ferma la partita singola
+FASE3: 0 errori
+
+zombix-regression2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS  Il giocatore appoggia sul terreno importato
+PASS  Cacciatore originale con scheletro importato
+PASS  Cammino senza regressioni: 3.67 m
+PASS  Sprint più veloce del cammino
+PASS  Sprint consuma stamina
+PASS  Schivata disponibile
+PASS  Invulnerabilità durante la schivata
+PASS  Avvio del colpo rapido
+PASS  Costo rapido: 12 stamina
+PASS  Nessun secondo attacco durante il recupero
+PASS  La schivata non interrompe un attacco attivo
+PASS  Un solo danno da 26 per bersaglio e colpo
+PASS  Impatto sposta lo zombie
+PASS  Hit-stop ripristina il tempo
+PASS  Inizio caricamento
+PASS  Rilascio del colpo caricato
+PASS  Costo caricato: 28 stamina
+PASS  Colpo caricato uccide con salute limitata a zero
+PASS  Cadavere escluso dagli impatti successivi
+PASS  Il colpo non raggiunge alle spalle
+PASS  Portata limitata
+PASS  Nessun danno attraverso un muro
+PASS  Stamina insufficiente impedisce l'attacco
+PASS  Costo caricato verificato prima dell'attacco
+PASS  Attacco negato non consuma stamina
+PASS  Pausa mostra il menu
+PASS  Impostazioni accessibili
+PASS  Rientro dopo morte ripristina giocatore
+FASE 2: 0 errori
+
+zombix-net-host.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_HOST_START roster=4 actors=4
+NET_HOST_DAMAGE health=0.0 validated=true
+
+zombix-net-client1.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=50 enemies=6 moved=true stamina=72.0
+
+zombix-net-client2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=50 enemies=6 moved=true stamina=72.0
+
+zombix-net-client3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=50 enemies=6 moved=true stamina=72.0
+
+zombix-mission-host.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+EXP_HOST completed=true stage=3 members=4
+
+zombix-mission-client1.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+EXP_CLIENT completed=true updates=31 members=4
+
+zombix-mission-client2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+EXP_CLIENT completed=true updates=31 members=4
+
+zombix-mission-client3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+EXP_CLIENT completed=true updates=31 members=4
+
+zombix-final-menu.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+zombix-final-game.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+zombix-compatible.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+OpenGL API 3.3.0 NVIDIA 617.42 - Compatibility - Using Device: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+ERROR: Texture with GL ID of 26: leaked 349524 bytes.
+   at: ~Utilities (drivers/gles3/storage/utilities.cpp:77)
+ERROR: Texture with GL ID of 27: leaked 349524 bytes.
+   at: ~Utilities (drivers/gles3/storage/utilities.cpp:77)
+
+Le prove di rete usano quattro processi sullo stesso PC. Non verificati Internet esterno, sessioni lunghe o hardware minimo.
+La modalità OpenGL visualizza il menu ma segnala due texture non liberate alla chiusura; Vulkan è la modalità consigliata.

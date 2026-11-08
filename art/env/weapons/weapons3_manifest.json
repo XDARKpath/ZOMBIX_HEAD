@@ -1,0 +1,130 @@
+{
+ "SM_Wep_FireAxe": {
+  "tris": 428,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_SawnOff": {
+  "tris": 400,
+  "parts": [
+   "SM_Wep_SawnOff_Barrels"
+  ],
+  "anims": [
+   "Wep_Reload"
+  ]
+ },
+ "SM_Wep_FlareGun": {
+  "tris": 296,
+  "parts": [
+   "SM_Wep_FlareGun_Barrel"
+  ],
+  "anims": [
+   "Wep_Reload"
+  ]
+ },
+ "SM_Wep_Machete": {
+  "tris": 336,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_Crowbar": {
+  "tris": 156,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_NailBat": {
+  "tris": 416,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_LeverRifle": {
+  "tris": 504,
+  "parts": [
+   "SM_Wep_LeverRifle_Lever"
+  ],
+  "anims": [
+   "Wep_Fire"
+  ]
+ },
+ "SM_Wep_Crossbow": {
+  "tris": 768,
+  "parts": [
+   "SM_Wep_Crossbow_Bolt"
+  ],
+  "anims": [
+   "Wep_Fire",
+   "Wep_Reload"
+  ]
+ },
+ "SM_Wep_Pickaxe": {
+  "tris": 324,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_Sledgehammer": {
+  "tris": 394,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_Fun_FryingPan": {
+  "tris": 214,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_Fun_Guitar": {
+  "tris": 436,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_Nailgun": {
+  "tris": 444,
+  "parts": [
+   "SM_Wep_Nailgun_Mag"
+  ],
+  "anims": [
+   "Wep_Reload"
+  ]
+ },
+ "SM_Wep_LMG": {
+  "tris": 1076,
+  "parts": [
+   "SM_Wep_LMG_Mag",
+   "SM_Wep_LMG_Cover"
+  ],
+  "anims": [
+   "Wep_Reload"
+  ]
+ },
+ "SM_Wep_CombatKnife": {
+  "tris": 300,
+  "parts": [],
+  "anims": []
+ },
+ "SM_Wep_GrenadeLauncher": {
+  "tris": 692,
+  "parts": [
+   "SM_Wep_GrenadeLauncher_Cylinder"
+  ],
+  "anims": [
+   "Wep_Fire"
+  ]
+ },
+ "SM_Wep_TeslaRifle": {
+  "tris": 660,
+  "parts": [
+   "SM_Wep_TeslaRifle_Coil"
+  ],
+  "anims": [
+   "Wep_Fire"
+  ]
+ },
+ "SM_Wep_Fun_LeafBlower": {
+  "tris": 672,
+  "parts": [
+   "SM_Wep_Fun_LeafBlower_Fan"
+  ],
+  "anims": [
+   "Wep_Fire"
+  ]
+ }
+}

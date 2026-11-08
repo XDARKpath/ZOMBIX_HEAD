@@ -1,0 +1,444 @@
+{
+ "clips": {
+  "Player_Idle_Unarmed": {
+   "frames": 60,
+   "loop": true,
+   "new": false
+  },
+  "Player_Idle_Rifle": {
+   "frames": 60,
+   "loop": true,
+   "new": false
+  },
+  "Player_Walk_Fwd_Rifle": {
+   "frames": 30,
+   "loop": true,
+   "new": false
+  },
+  "Player_Walk_Bwd_Rifle": {
+   "frames": 30,
+   "loop": true,
+   "new": false
+  },
+  "Player_Strafe_Left_Rifle": {
+   "frames": 30,
+   "loop": true,
+   "new": false
+  },
+  "Player_Strafe_Right_Rifle": {
+   "frames": 30,
+   "loop": true,
+   "new": false
+  },
+  "Player_Run_Fwd_Rifle": {
+   "frames": 20,
+   "loop": true,
+   "new": false
+  },
+  "Player_Crouch_Idle_Rifle": {
+   "frames": 60,
+   "loop": true,
+   "new": false
+  },
+  "Player_Crouch_Walk_Fwd": {
+   "frames": 40,
+   "loop": true,
+   "new": false
+  },
+  "Player_Rifle_Aim_In": {
+   "frames": 10,
+   "loop": false,
+   "new": false
+  },
+  "Player_Rifle_Fire_Single": {
+   "frames": 8,
+   "loop": false,
+   "new": false
+  },
+  "Player_Rifle_Reload": {
+   "frames": 50,
+   "loop": false,
+   "new": false
+  },
+  "Player_Pistol_Draw": {
+   "frames": 15,
+   "loop": false,
+   "new": false
+  },
+  "Player_Pistol_Holster": {
+   "frames": 15,
+   "loop": false,
+   "new": false
+  },
+  "Player_Melee_Knife_Slash": {
+   "frames": 22,
+   "loop": false,
+   "new": false
+  },
+  "Player_Melee_Kick": {
+   "frames": 28,
+   "loop": false,
+   "new": false
+  },
+  "Player_Grenade_Throw": {
+   "frames": 35,
+   "loop": false,
+   "new": false
+  },
+  "Player_Interact_Reach_High": {
+   "frames": 25,
+   "loop": false,
+   "new": false
+  },
+  "Player_Interact_Reach_Low": {
+   "frames": 25,
+   "loop": false,
+   "new": false
+  },
+  "Player_Hit_Impact_Front": {
+   "frames": 15,
+   "loop": false,
+   "new": false
+  },
+  "Player_Hit_Impact_Back": {
+   "frames": 15,
+   "loop": false,
+   "new": false
+  },
+  "Player_Death_Collapse_Front": {
+   "frames": 65,
+   "loop": false,
+   "new": false
+  },
+  "Player_Death_Blown_Back": {
+   "frames": 55,
+   "loop": false,
+   "new": false
+  },
+  "Player_Rifle_Fire_Auto": {
+   "frames": 6,
+   "loop": true,
+   "new": true
+  },
+  "Player_Shotgun_Fire_Pump": {
+   "frames": 30,
+   "loop": false,
+   "new": true
+  },
+  "Player_Shotgun_Reload_Shell": {
+   "frames": 20,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sniper_Aim": {
+   "frames": 40,
+   "loop": true,
+   "new": true
+  },
+  "Player_Sniper_Fire_Bolt": {
+   "frames": 40,
+   "loop": false,
+   "new": true
+  },
+  "Player_Pistol_Idle": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Pistol_Aim": {
+   "frames": 40,
+   "loop": true,
+   "new": true
+  },
+  "Player_Pistol_Fire": {
+   "frames": 8,
+   "loop": false,
+   "new": true
+  },
+  "Player_Revolver_Fire": {
+   "frames": 12,
+   "loop": false,
+   "new": true
+  },
+  "Player_SMG_Fire_Auto": {
+   "frames": 4,
+   "loop": true,
+   "new": true
+  },
+  "Player_Pistol_Reload": {
+   "frames": 40,
+   "loop": false,
+   "new": true
+  },
+  "Player_Revolver_Reload": {
+   "frames": 60,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Idle": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Sword_Slash_1": {
+   "frames": 24,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Slash_2": {
+   "frames": 24,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Heavy": {
+   "frames": 36,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Block": {
+   "frames": 30,
+   "loop": true,
+   "new": true
+  },
+  "Player_Longsword_Draw": {
+   "frames": 26,
+   "loop": false,
+   "new": true
+  },
+  "Player_Katana_Draw_Iai": {
+   "frames": 28,
+   "loop": false,
+   "new": true
+  },
+  "Player_Katana_Sheathe": {
+   "frames": 34,
+   "loop": false,
+   "new": true
+  },
+  "Player_Melee1H_Idle": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Melee1H_Swing": {
+   "frames": 22,
+   "loop": false,
+   "new": true
+  },
+  "Player_Melee1H_Swing_Back": {
+   "frames": 22,
+   "loop": false,
+   "new": true
+  },
+  "Player_Melee1H_Slap": {
+   "frames": 30,
+   "loop": false,
+   "new": true
+  },
+  "Player_Emote_Dance": {
+   "frames": 48,
+   "loop": true,
+   "new": true
+  },
+  "Player_Emote_Dab": {
+   "frames": 36,
+   "loop": false,
+   "new": true
+  },
+  "Player_Axe_Idle": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Axe_Swing_Horizontal": {
+   "frames": 34,
+   "loop": false,
+   "new": true
+  },
+  "Player_Axe_Swing_Back": {
+   "frames": 32,
+   "loop": false,
+   "new": true
+  },
+  "Player_Axe_Chop_Overhead": {
+   "frames": 44,
+   "loop": false,
+   "new": true
+  },
+  "Player_Axe_Block": {
+   "frames": 30,
+   "loop": true,
+   "new": true
+  },
+  "Player_Axe_Shove": {
+   "frames": 20,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Slash_3": {
+   "frames": 28,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Parry_Riposte": {
+   "frames": 34,
+   "loop": false,
+   "new": true
+  },
+  "Player_Sword_Dodge_Back": {
+   "frames": 22,
+   "loop": false,
+   "new": true
+  },
+  "Player_Car_Sit_Drive": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Car_Steer_Left": {
+   "frames": 20,
+   "loop": true,
+   "new": true
+  },
+  "Player_Car_Steer_Right": {
+   "frames": 20,
+   "loop": true,
+   "new": true
+  },
+  "Player_Car_Sit_Passenger": {
+   "frames": 120,
+   "loop": true,
+   "new": true
+  },
+  "Player_Car_Enter_Driver": {
+   "frames": 40,
+   "loop": false,
+   "new": true
+  },
+  "Player_Car_Exit_Driver": {
+   "frames": 36,
+   "loop": false,
+   "new": true
+  },
+  "Player_Car_Enter_Passenger": {
+   "frames": 40,
+   "loop": false,
+   "new": true
+  },
+  "Player_Car_Exit_Passenger": {
+   "frames": 36,
+   "loop": false,
+   "new": true
+  },
+  "Player_Repair_Engine": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Repair_Wheel": {
+   "frames": 60,
+   "loop": true,
+   "new": true
+  },
+  "Player_Install_Part": {
+   "frames": 24,
+   "loop": false,
+   "new": true
+  },
+  "Player_Break_Reload": {
+   "frames": 60,
+   "loop": false,
+   "new": true
+  },
+  "Player_Lever_Fire": {
+   "frames": 40,
+   "loop": false,
+   "new": true
+  },
+  "Player_Crossbow_Reload": {
+   "frames": 50,
+   "loop": false,
+   "new": true
+  },
+  "Player_LMG_Reload": {
+   "frames": 60,
+   "loop": false,
+   "new": true
+  },
+  "Player_Knife_Stab": {
+   "frames": 18,
+   "loop": false,
+   "new": true
+  },
+  "Player_Melee1H_Bonk": {
+   "frames": 26,
+   "loop": false,
+   "new": true
+  },
+  "Player_Blower_Sweep": {
+   "frames": 40,
+   "loop": true,
+   "new": true
+  }
+ },
+ "skins": [
+  [
+   "Operative",
+   "The original. Sensible, tactical, slightly sweaty."
+  ],
+  [
+   "Scavenger",
+   "Hoodie, canvas jacket and a backpack full of mystery cans."
+  ],
+  [
+   "Tactician",
+   "Fade, plate carrier, rolled sleeves. Has a plan. Several."
+  ],
+  [
+   "Veteran",
+   "Flat cap, trench coat, bandolier. Has seen things."
+  ],
+  [
+   "Mechanic",
+   "Overalls, flannel at the waist. Fixes trucks and zombies."
+  ],
+  [
+   "Fisherman",
+   "Oilskin, waders and a trout for emergencies."
+  ],
+  [
+   "Hazmat",
+   "Sealed suit with respirator. Smells of nothing. Finally."
+  ],
+  [
+   "Astronaut",
+   "Took a wrong turn on re-entry. Stayed for the zombies."
+  ],
+  [
+   "Banana",
+   "Peak potassium. Zero stealth."
+  ],
+  [
+   "Chicken",
+   "Why did the survivor cross the road? Exactly."
+  ]
+ ],
+ "tris": {
+  "Skin_Operative": 3182,
+  "Skin_Scavenger": 3650,
+  "Skin_Tactician": 3634,
+  "Skin_Veteran": 3568,
+  "Skin_Mechanic": 2918,
+  "Skin_Fisherman": 3552,
+  "Skin_Hazmat": 3616,
+  "Skin_Astronaut": 3760,
+  "Skin_Banana": 3424,
+  "Skin_Chicken": 3298,
+  "Slot1_Chest_PlateCarrier": 384,
+  "Slot2_Back_SurvivalPack": 384,
+  "Slot3_Thigh_Holster": 124,
+  "Slot4_Head_BallisticCap": 120,
+  "Slot4_Head_NVG_Down": 136,
+  "Slot4_Head_NVG_Up": 136
+ }
+}

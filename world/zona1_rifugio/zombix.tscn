@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://dwnug5iqt3c1q"]
+
+[ext_resource type="Script" uid="uid://dygfd5j7fhfu6" path="res://world/zona1_rifugio/zombix.gd" id="1"]
+[ext_resource type="PackedScene" path="res://player/player.tscn" id="2"]
+
+[node name="Rifugio" type="Node3D"]
+process_mode = 3
+script = ExtResource("1")
+
+[node name="Player" parent="." instance=ExtResource("2")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.5, 2)
+
+[node name="SpawnPoint" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.5, 2)
+
+[node name="Interface" type="CanvasLayer" parent="."]

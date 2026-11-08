@@ -1,0 +1,113 @@
+ZOMBIX HEAD 0.5 — verifiche
+
+menu05-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Seven native menu buttons
+PASS English menu hierarchy
+PASS Soft shader gradient replaces solid panel
+PASS Borderless native buttons
+PASS Bundled display font
+PASS Context hidden before selection
+PASS Keyboard focus animates warm selection and slide
+PASS Host contextual text fades in
+PASS Tactile press scales the native button
+PASS Native accept opens the host form
+PASS Host form opens a real camp lobby
+PASS Online camp shows actual connected players
+PASS Pointer hover uses native GUI hit testing
+PASS Solo selection has no network description
+PASS Character page retains three skin choices and Back
+PASS Roster refresh preserves the idle animation instance
+PASS Skin choice changes the camp preview
+PASS Settings remain accessible
+PASS Controls remain accessible
+PASS Four visible survivors with four different poses
+PASS Feet remain above the campsite ground
+PASS Fourth survivor has an animated gaze
+PASS Knife remains attached to third survivor
+PASS Foreground embers never intercept clicks
+MENU05: 0 errors
+
+menu05-regression3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Quattro posti nella lobby
+PASS Pose seduta e coltello
+PASS Scelta della skin
+PASS Impostazioni accessibili
+PASS NavMesh generata dalle collisioni
+PASS Sei zombie iniziali
+PASS Giocatore singolo registrato
+PASS Vista attiva l'inseguimento
+PASS Navigazione muove lo zombie
+PASS Percorso devia attorno al camion
+PASS Attacco infligge danno dopo il preavviso
+PASS Rumore attiva l'inseguimento
+PASS I muri bloccano la linea di vista
+PASS Perdita interesse riporta al vagare
+PASS Cadavere conservato per 30 secondi
+PASS Cadavere rimosso alla scadenza
+PASS Spawner rispetta il limite di otto infetti vivi
+PASS Limite totale dei corpi rispettato
+PASS Pausa ferma la partita singola
+FASE3: 0 errori
+
+menu05-expedition.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Nuovo nome del gioco
+PASS Accampamento compatibile con quattro giocatori
+PASS Percorsi navigabili dal rifugio alle tre scorte
+PASS Spedizione iniziale con tre casse
+PASS Interazione rifiutata per un giocatore inesistente
+PASS Non si possono raccogliere scorte a distanza
+PASS Raccolta reale della cassa 1
+PASS Raccolta reale della cassa 2
+PASS Raccolta reale della cassa 3
+PASS Le scorte curano il giocatore che le raccoglie
+PASS Tre casse sbloccano la radio
+PASS Radio non attivabile da lontano
+PASS Attivazione radio vicino al terminale
+PASS La difesa avanza con un sopravvissuto presente
+PASS La difesa si ferma se la squadra si allontana
+PASS Trasmissione completata e squadra curata
+PASS Una nuova spedizione ripristina gli obiettivi
+PASS Le tre casse sono nuovamente disponibili
+PASS Un giocatore morto non può interagire
+PASS L'assalto rispetta il limite dei nemici
+PASS Nuovo HUD e ambiente attivi
+ZOMBIX: 0 errori
+
+menu05-net-host.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_HOST_START roster=4 actors=4
+NET_HOST_DAMAGE health=0.0 validated=true
+
+menu05-net-client1.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=50 enemies=6 moved=true stamina=72.0
+
+menu05-net-client2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=50 enemies=6 moved=true stamina=72.0
+
+menu05-net-client3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=50 enemies=6 moved=true stamina=72.0
+
+menu05-record.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+menu05-options.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+menu05-character.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU

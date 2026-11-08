@@ -1,0 +1,82 @@
+TESTE 0.3 — Verifiche del 27 ottobre 2026
+
+Fase 3: 19 controlli
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Quattro posti nella lobby
+PASS Pose seduta e coltello
+PASS Scelta della skin
+PASS Impostazioni accessibili
+PASS NavMesh generata dalle collisioni
+PASS Sei zombie iniziali
+PASS Giocatore singolo registrato
+PASS Vista attiva l'inseguimento
+PASS Navigazione muove lo zombie
+PASS Percorso devia attorno al camion
+PASS Attacco infligge danno dopo il preavviso
+PASS Rumore attiva l'inseguimento
+PASS I muri bloccano la linea di vista
+PASS Perdita interesse riporta al vagare
+PASS Cadavere conservato per 30 secondi
+PASS Cadavere rimosso alla scadenza
+PASS Spawner rispetta il limite di otto infetti vivi
+PASS Limite totale dei corpi rispettato
+PASS Pausa ferma la partita singola
+FASE3: 0 errori
+
+Regressione Fase 2: 28 controlli
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS  Il giocatore appoggia sul terreno importato
+PASS  Cacciatore originale con scheletro importato
+PASS  Cammino senza regressioni: 3.67 m
+PASS  Sprint più veloce del cammino
+PASS  Sprint consuma stamina
+PASS  Schivata disponibile
+PASS  Invulnerabilità durante la schivata
+PASS  Avvio del colpo rapido
+PASS  Costo rapido: 12 stamina
+PASS  Nessun secondo attacco durante il recupero
+PASS  La schivata non interrompe un attacco attivo
+PASS  Un solo danno da 26 per bersaglio e colpo
+PASS  Impatto sposta lo zombie
+PASS  Hit-stop ripristina il tempo
+PASS  Inizio caricamento
+PASS  Rilascio del colpo caricato
+PASS  Costo caricato: 28 stamina
+PASS  Colpo caricato uccide con salute limitata a zero
+PASS  Cadavere escluso dagli impatti successivi
+PASS  Il colpo non raggiunge alle spalle
+PASS  Portata limitata
+PASS  Nessun danno attraverso un muro
+PASS  Stamina insufficiente impedisce l'attacco
+PASS  Costo caricato verificato prima dell'attacco
+PASS  Attacco negato non consuma stamina
+PASS  Pausa mostra il menu
+PASS  Impostazioni accessibili
+PASS  Rientro dopo morte ripristina giocatore
+FASE 2: 0 errori
+
+Cooperativa: host
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_HOST_START roster=4 actors=4
+NET_HOST_DAMAGE health=0.0 validated=true
+
+Cooperativa: client 1
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=49 enemies=6 moved=true stamina=72.0
+
+Cooperativa: client 2
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=49 enemies=6 moved=true stamina=72.0
+
+Cooperativa: client 3
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET_CLIENT roster=4 actors=4 snapshots=49 enemies=6 moved=true stamina=72.0
+
+Catture Vulkan controllate: menu, skin, gameplay.
+Rete provata con quattro processi locali; Internet esterno e test prolungati non eseguiti.

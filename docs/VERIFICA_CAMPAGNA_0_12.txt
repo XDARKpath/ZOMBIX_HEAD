@@ -1,0 +1,169 @@
+campaign-assets.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+Retargeted SK_Chr_Hunter_Male_01: 24 clips
+Retargeted SK_Chr_Soldier_Male_01: 24 clips
+Retargeted SK_Chr_Contractor_Male_02: 24 clips
+Archery bow source bounds [P: (-0.040142, -0.727849, -0.171032), S: (0.080283, 1.455698, 0.208377)] normalized extent 1.25
+Archery bow_native source bounds [P: (-0.114831, -0.711635, -0.188548), S: (0.209336, 1.42327, 0.227252)] normalized extent 1.3
+Archery crossbow source bounds [P: (-0.44372, -0.09039, -1.027484), S: (0.887439, 0.150261, 1.121457)] normalized extent 0.85
+Archery arrow source bounds [P: (-0.02475, -0.03063, -0.464833), S: (0.05343, 0.061259, 0.929666)] normalized extent 0.75
+Archery arrow_native source bounds [P: (-0.030485, -0.043364, -0.428567), S: (0.060969, 0.08447, 1.005257)] normalized extent 0.75
+Archery bolt source bounds [P: (-0.017031, -0.014753, -0.231463), S: (0.034063, 0.029507, 0.462926)] normalized extent 0.4
+
+
+campaign-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Eight campaign destinations
+PASS Every destination is at least 1.4 km from previous; route 12.78 km
+PASS All road samples are level and connected to terrain
+PASS 68 nature models available to terrain distribution
+PASS Future GPS coordinates and vehicle initially locked
+PASS Unknown peer cannot interact
+PASS Remote pickup denied
+PASS Unrepaired vehicle cannot be entered
+PASS Repair component 1 collected nearby
+PASS Repair component 2 collected nearby
+PASS Repair component 3 collected nearby
+PASS All three components required before repair
+PASS Repair cannot start remotely
+PASS Repair starts next to vehicle
+PASS Walking away cancels repair
+PASS Completed repair reveals only the next destination
+PASS Driver enters first free seat
+PASS Seated player cannot jump or attack
+PASS Passenger 2 enters distinct seat
+PASS Passenger 3 enters distinct seat
+PASS Passenger 4 enters distinct seat
+PASS All four unique occupants recognized
+PASS W accelerates physical vehicle along road
+PASS Cannot exit moving vehicle
+PASS Vehicle brakes to rest when input stops
+PASS Passenger can exit safely when stopped
+PASS Missing passenger blocks squad travel
+PASS Walking/teleporting player to next zone does not complete vehicle travel
+PASS Stopped vehicle with entire squad activates next zone
+PASS Arrival spawns six local defenders
+PASS Relay download remains blocked before clearing zone
+PASS Zone 2 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 3
+PASS Zone 3 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 4
+PASS Zone 4 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 5
+PASS Zone 5 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 6
+PASS Zone 6 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 7
+PASS Zone 7 relay requires cleared yard and assembled squad
+PASS GPS unlocks exactly one new destination
+PASS Vehicle arrival for zone 8
+PASS Zone 8 relay requires cleared yard and assembled squad
+PASS Eighth zone completes route without invalid ninth destination
+PASS Terrain unloads distant sectors
+PASS Retargeted gameplay library includes driving and excludes dance
+PASS Reusable archery scene: bow
+PASS Reusable archery scene: bow_native
+PASS Reusable archery scene: crossbow
+PASS Reusable archery scene: arrow
+PASS Reusable archery scene: arrow_native
+PASS Reusable archery scene: bolt
+CAMPAIGN_CHECKS 59 failures=0
+
+
+campaign-drive.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+CAMPAIGN_DRIVE distance_remaining=5.92605638504028 pos=(122.7506, 0.000942, -1455.249) frames=4054 peak_speed=24.0 floor_min=0.00084772298578 valid=true
+
+
+campaign-fps.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Player settles on the floor
+PASS Local avatar does not obscure first-person camera
+PASS Standing camera is at eye height
+PASS Walk accelerates to 4 m/s
+PASS Forward sprint reaches 7 m/s and consumes stamina
+PASS Sideways movement does not become a full-speed sprint
+PASS Grounded jump accepted
+PASS Repeated jump before takeoff is rejected
+PASS Jump reaches a controlled height and lands (0.81 m)
+PASS Jump clears the 45 cm obstacle
+PASS Standing player is blocked by low tunnel entrance
+PASS Crouched player enters the low tunnel
+PASS Releasing crouch under roof keeps body and eyes below ceiling
+PASS Jump is blocked while crouched under roof
+PASS Player stands again after leaving tunnel
+PASS Looking up does not change horizontal walking speed
+PASS Disabled controls cannot move or jump
+PASS Empty stamina blocks jumping
+FPS: 0 errors
+
+
+campaign-menu.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Seven native menu buttons
+PASS English menu hierarchy
+PASS Soft shader gradient replaces solid panel
+PASS Borderless native buttons
+PASS Bundled display font
+PASS Context hidden before selection
+PASS Keyboard focus animates warm selection and slide
+PASS Host contextual text fades in
+PASS Tactile press scales the native button
+PASS Native accept opens the host form
+PASS Host form opens a real camp lobby
+PASS Online camp shows actual connected players
+PASS Pointer hover uses native GUI hit testing
+PASS Solo selection has no network description
+PASS Character page retains three skin choices and Back
+PASS Roster refresh preserves the idle animation instance
+PASS Skin choice changes the camp preview
+PASS Settings remain accessible
+PASS Controls remain accessible
+PASS Four visible survivors with four different poses
+PASS Feet remain above the campsite ground
+PASS Fourth survivor has an animated gaze
+PASS Sniper rifle and katana present on their survivors
+PASS Foreground embers never intercept clicks
+MENU05: 0 errors
+
+
+campaign-render.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU
+
+
+
+campaign-net-host.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+NET invalid remote interactions rejected=true
+NET remote driver motion=4.55289173126221 all_aboard=true
+CAMPAIGN_NET_HOST zone=1 seats=[0, 0, 0, 1] valid=true
+
+
+campaign-net-client1.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+CAMPAIGN_NET_CLIENT rank=1 snapshots=300 campaign_packets=87 valid=true
+
+
+campaign-net-client2.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+CAMPAIGN_NET_CLIENT rank=0 snapshots=284 campaign_packets=85 valid=true
+
+
+campaign-net-client3.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+CAMPAIGN_NET_CLIENT rank=2 snapshots=290 campaign_packets=89 valid=true

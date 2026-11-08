@@ -1,0 +1,28 @@
+# Godot 4: cache dell'editor (si rigenera). I file *.import invece vanno nel repo:
+# contengono le impostazioni di importazione degli asset.
+.godot/
+*.tmp
+
+# Copie di lavoro del progetto (regola: backup e niente cancellazioni)
+_backup_*/
+_da_eliminare/
+_preview/
+
+# Video, foto e log dei test
+*.avi
+*.mp4
+*.webm
+*.log
+screenshots/
+foto_*/
+
+# Scarti di Python e Blender
+__pycache__/
+*.pyc
+*.blend1
+*.bak
+
+# Fuori dal progetto, non finiscono comunque qui: audio_raw/, runtime/, mixamo_raw/
+audio_raw/
+runtime/
+mixamo_raw/

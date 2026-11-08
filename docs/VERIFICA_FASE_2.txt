@@ -1,0 +1,31 @@
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS  Il giocatore appoggia sul terreno importato
+PASS  Cacciatore originale con scheletro importato
+PASS  Cammino senza regressioni: 3.67 m
+PASS  Sprint più veloce del cammino
+PASS  Sprint consuma stamina
+PASS  Schivata disponibile
+PASS  Invulnerabilità durante la schivata
+PASS  Avvio del colpo rapido
+PASS  Costo rapido: 12 stamina
+PASS  Nessun secondo attacco durante il recupero
+PASS  La schivata non interrompe un attacco attivo
+PASS  Un solo danno da 26 per bersaglio e colpo
+PASS  Impatto sposta lo zombie
+PASS  Hit-stop ripristina il tempo
+PASS  Inizio caricamento
+PASS  Rilascio del colpo caricato
+PASS  Costo caricato: 28 stamina
+PASS  Colpo caricato uccide con salute limitata a zero
+PASS  Cadavere escluso dagli impatti successivi
+PASS  Il colpo non raggiunge alle spalle
+PASS  Portata limitata
+PASS  Nessun danno attraverso un muro
+PASS  Stamina insufficiente impedisce l'attacco
+PASS  Costo caricato verificato prima dell'attacco
+PASS  Attacco negato non consuma stamina
+PASS  Pausa mostra il menu
+PASS  Impostazioni accessibili
+PASS  Rientro dopo morte ripristina giocatore
+FASE 2: 0 errori

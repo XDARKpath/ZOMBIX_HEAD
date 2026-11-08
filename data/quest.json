@@ -1,0 +1,15 @@
+{
+  "status": "planned_not_implemented",
+  "quests": [
+    {
+      "id": "repair_house",
+      "resource": "wood",
+      "required": 10
+    },
+    {
+      "id": "open_shop",
+      "resource": "heads_delivered",
+      "required": 20
+    }
+  ]
+}

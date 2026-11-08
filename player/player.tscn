@@ -1,0 +1,224 @@
+[gd_scene load_steps=29 format=3]
+
+[ext_resource type="Script" path="res://player/player.gd" id="1"]
+[ext_resource type="Script" path="res://player/camera_rig/camera_rig.gd" id="2"]
+
+[ext_resource type="Script" path="res://weapons/melee/melee_controller.gd" id="3"]
+
+[sub_resource type="BoxShape3D" id="HitShape"]
+size = Vector3(3.1, 2.1, 2.6)
+
+[sub_resource type="StandardMaterial3D" id="P1"]
+albedo_color = Color(0.20, 0.39, 0.40, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="P2"]
+albedo_color = Color(0.71, 0.49, 0.32, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="P3"]
+albedo_color = Color(0.10, 0.15, 0.17, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="P4"]
+albedo_color = Color(0.77, 0.35, 0.15, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="P5"]
+albedo_color = Color(0.27, 0.32, 0.18, 1)
+roughness = 0.9
+
+[sub_resource type="CapsuleShape3D" id="P6"]
+radius = 0.32
+height = 1.8
+
+[sub_resource type="SphereShape3D" id="P7"]
+radius = 0.18
+
+[sub_resource type="BoxMesh" id="P8"]
+size = Vector3(0.62, 0.65, 0.35)
+material = SubResource("P1")
+
+[sub_resource type="BoxMesh" id="P9"]
+size = Vector3(0.5, 0.5, 0.09)
+material = SubResource("P5")
+
+[sub_resource type="BoxMesh" id="P10"]
+size = Vector3(0.48, 0.6, 0.28)
+material = SubResource("P4")
+
+[sub_resource type="BoxMesh" id="P11"]
+size = Vector3(0.08, 0.64, 0.025)
+material = SubResource("P3")
+
+[sub_resource type="BoxMesh" id="P12"]
+size = Vector3(0.42, 0.43, 0.4)
+material = SubResource("P2")
+
+[sub_resource type="BoxMesh" id="P13"]
+size = Vector3(0.47, 0.15, 0.44)
+material = SubResource("P3")
+
+[sub_resource type="BoxMesh" id="P14"]
+size = Vector3(0.46, 0.06, 0.22)
+material = SubResource("P3")
+
+[sub_resource type="BoxMesh" id="P15"]
+size = Vector3(0.25, 0.05, 0.02)
+material = SubResource("P3")
+
+[sub_resource type="BoxMesh" id="P16"]
+size = Vector3(0.25, 0.62, 0.28)
+material = SubResource("P3")
+
+[sub_resource type="BoxMesh" id="P17"]
+size = Vector3(0.28, 0.18, 0.39)
+material = SubResource("P5")
+
+[sub_resource type="BoxMesh" id="P18"]
+size = Vector3(0.2, 0.44, 0.24)
+material = SubResource("P1")
+
+[sub_resource type="BoxMesh" id="P19"]
+size = Vector3(0.18, 0.18, 0.21)
+material = SubResource("P2")
+
+[sub_resource type="BoxMesh" id="P20"]
+size = Vector3(0.25, 0.62, 0.28)
+material = SubResource("P3")
+
+[sub_resource type="BoxMesh" id="P21"]
+size = Vector3(0.28, 0.18, 0.39)
+material = SubResource("P5")
+
+[sub_resource type="BoxMesh" id="P22"]
+size = Vector3(0.2, 0.44, 0.24)
+material = SubResource("P1")
+
+[sub_resource type="BoxMesh" id="P23"]
+size = Vector3(0.18, 0.18, 0.21)
+material = SubResource("P2")
+
+[node name="Player" type="CharacterBody3D"]
+process_mode = 1
+collision_layer = 2
+collision_mask = 13
+floor_snap_length = 0.4
+script = ExtResource("1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("P6")
+
+[node name="Visual" type="Node3D" parent="."]
+
+
+[node name="RollPivot" type="Node3D" parent="Visual"]
+position = Vector3(0, 0.9, 0)
+
+[node name="Torso" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.25, 0)
+mesh = SubResource("P8")
+
+[node name="Vest" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.25, -0.195)
+mesh = SubResource("P9")
+
+[node name="Pack" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.3, 0.28)
+mesh = SubResource("P10")
+
+[node name="PackStrap" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.28, 0.43)
+mesh = SubResource("P11")
+
+[node name="Head" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.8, 0)
+mesh = SubResource("P12")
+
+[node name="Hat" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 1.03, 0)
+mesh = SubResource("P13")
+
+[node name="HatBrim" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.98, -0.22)
+mesh = SubResource("P14")
+
+[node name="Eyes" type="MeshInstance3D" parent="Visual/RollPivot"]
+position = Vector3(0, 0.81, -0.205)
+mesh = SubResource("P15")
+
+[node name="LeftLeg" type="Node3D" parent="Visual/RollPivot"]
+position = Vector3(-0.19, -0.06, 0)
+
+[node name="Leg" type="MeshInstance3D" parent="Visual/RollPivot/LeftLeg"]
+position = Vector3(0, -0.31, 0)
+mesh = SubResource("P16")
+
+[node name="Boot" type="MeshInstance3D" parent="Visual/RollPivot/LeftLeg"]
+position = Vector3(0, -0.66, -0.05)
+mesh = SubResource("P17")
+
+[node name="LeftArm" type="Node3D" parent="Visual/RollPivot"]
+position = Vector3(-0.41800000000000004, 0.5, 0)
+
+[node name="Sleeve" type="MeshInstance3D" parent="Visual/RollPivot/LeftArm"]
+position = Vector3(0, -0.22, 0)
+mesh = SubResource("P18")
+
+[node name="Hand" type="MeshInstance3D" parent="Visual/RollPivot/LeftArm"]
+position = Vector3(0, -0.49, 0)
+mesh = SubResource("P19")
+
+[node name="RightLeg" type="Node3D" parent="Visual/RollPivot"]
+position = Vector3(0.19, -0.06, 0)
+
+[node name="Leg" type="MeshInstance3D" parent="Visual/RollPivot/RightLeg"]
+position = Vector3(0, -0.31, 0)
+mesh = SubResource("P20")
+
+[node name="Boot" type="MeshInstance3D" parent="Visual/RollPivot/RightLeg"]
+position = Vector3(0, -0.66, -0.05)
+mesh = SubResource("P21")
+
+[node name="RightArm" type="Node3D" parent="Visual/RollPivot"]
+position = Vector3(0.41800000000000004, 0.5, 0)
+
+[node name="Sleeve" type="MeshInstance3D" parent="Visual/RollPivot/RightArm"]
+position = Vector3(0, -0.22, 0)
+mesh = SubResource("P22")
+
+[node name="Hand" type="MeshInstance3D" parent="Visual/RollPivot/RightArm"]
+position = Vector3(0, -0.49, 0)
+mesh = SubResource("P23")
+
+[node name="WeaponHolder" type="Node3D" parent="Visual"]
+position = Vector3(0.4, 0.85, -0.25)
+
+[node name="CameraRig" type="Node3D" parent="."]
+top_level = true
+script = ExtResource("2")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraRig"]
+rotation = Vector3(-0.28, 0, 0)
+shape = SubResource("P7")
+spring_length = 5.2
+margin = 0.15
+collision_mask = 1
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig/SpringArm3D"]
+current = true
+fov = 68.0
+near = 0.08
+far = 160.0
+
+[node name="MeleeController" type="Node3D" parent="."]
+script = ExtResource("3")
+
+[node name="HitArea" type="Area3D" parent="MeleeController"]
+position = Vector3(0, 1, -1.3)
+collision_layer = 0
+collision_mask = 4
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeleeController/HitArea"]
+shape = SubResource("HitShape")

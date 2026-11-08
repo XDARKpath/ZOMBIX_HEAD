@@ -1,0 +1,22 @@
+{
+  "status": "design_only",
+  "currency": "head_units",
+  "items": {
+    "bandage": 5,
+    "knife": 15,
+    "rusty_pistol": 30,
+    "ammo_10": 8,
+    "machete": 60,
+    "katana": 120,
+    "shotgun": 150,
+    "vest": 100,
+    "grenade": 20,
+    "assault_rifle": 400,
+    "chainsaw": 350,
+    "molotov": 25,
+    "engine": 250,
+    "reinforced_tyres": 300,
+    "tank": 300,
+    "medkit": 80
+  }
+}

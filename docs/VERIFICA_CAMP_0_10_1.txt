@@ -1,0 +1,73 @@
+ZOMBIX HEAD 0.10.1
+
+camp101-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Military 4x4 and seating present; pot removed
+PASS Four distinct camp activities
+PASS All four upper bodies are visible and separated outside menu text
+PASS Katana survivor kneels beside fire, with center foreground open
+PASS Cook and right-hand rifle survivor sit along the same log
+PASS Left-hand katana survivor retains previous kneeling placement
+PASS Reusable rifle scene retains rig and weapon attachment markers
+PASS Reusable katana scene exposes blade and grip markers
+PASS Hand targets reached throughout all three skins and activity cycles (max 0.0057 m)
+PASS Feet stay above ground for every skin (min 0.050 m)
+PASS Cigarette stays at the thumb and index pinch throughout cycle
+PASS Chicken stays above fire throughout turning (max 0.082 m)
+PASS Bent knee stays outside vehicle body (clearance 0.398 m)
+PASS Raised boot stays near wheel side (max depth gap 0.083 m)
+PASS Roasting stick keeps a fixed length
+PASS Cleaning cloth remains on rifle stock throughout inspection
+PASS Scoped rifle replaces the sidearm
+PASS Katana grip remains within palm reach throughout cycle
+PASS Cigarette smoke emitter present
+PASS Changing skins releases previous cook props
+PASS Absent lobby cook has no floating roast
+PASS Exhalation moves forward away from the face
+PASS Exhalation stops after the short puff
+PASS All three skins use five separate skinned digits; fused source hands removed
+PASS New hands stay attached to both wrists throughout animation
+PASS Support palms face up beneath rifle and katana, without inverted wrists
+PASS Fingertip surface touches cleaning cloth (max gap 0.0054 m)
+PASS Katana handle stays centered inside closed fingers (max 0.0022 m)
+PASS Wrists avoid backward folds across all skins and cycles (max 83.1 degrees)
+PASS Smoker's lowered wrist stays aligned with forearm (max 0.0 degrees)
+PASS Gang Warfare pistol stays in left grip with muzzle lowered across all skins and cycles
+PASS Pistol grip aligns with knuckle row and three curled fingers wrap to its opposite side
+CAMP10: 0 errors
+
+
+camp101-menu-check.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+
+PASS Seven native menu buttons
+PASS English menu hierarchy
+PASS Soft shader gradient replaces solid panel
+PASS Borderless native buttons
+PASS Bundled display font
+PASS Context hidden before selection
+PASS Keyboard focus animates warm selection and slide
+PASS Host contextual text fades in
+PASS Tactile press scales the native button
+PASS Native accept opens the host form
+PASS Host form opens a real camp lobby
+PASS Online camp shows actual connected players
+PASS Pointer hover uses native GUI hit testing
+PASS Solo selection has no network description
+PASS Character page retains three skin choices and Back
+PASS Roster refresh preserves the idle animation instance
+PASS Skin choice changes the camp preview
+PASS Settings remain accessible
+PASS Controls remain accessible
+PASS Four visible survivors with four different poses
+PASS Feet remain above the campsite ground
+PASS Fourth survivor has an animated gaze
+PASS Sniper rifle and katana present on their survivors
+PASS Foreground embers never intercept clicks
+MENU05: 0 errors
+
+
+camp101-record.log
+Godot Engine v4.5.1.stable.official.f62fdbde1 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3050 Laptop GPU

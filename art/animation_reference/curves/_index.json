@@ -1,0 +1,82 @@
+{
+ "Player_Axe_Idle": {
+  "frames": 61,
+  "seconds": 2.033,
+  "weapon": "SM_Wep_FireAxe"
+ },
+ "Player_Axe_Swing_Horizontal": {
+  "frames": 35,
+  "seconds": 1.167,
+  "weapon": "SM_Wep_FireAxe"
+ },
+ "Player_Axe_Swing_Back": {
+  "frames": 33,
+  "seconds": 1.1,
+  "weapon": "SM_Wep_FireAxe"
+ },
+ "Player_Axe_Chop_Overhead": {
+  "frames": 45,
+  "seconds": 1.5,
+  "weapon": "SM_Wep_FireAxe"
+ },
+ "Player_Axe_Block": {
+  "frames": 31,
+  "seconds": 1.033,
+  "weapon": "SM_Wep_FireAxe"
+ },
+ "Player_Axe_Shove": {
+  "frames": 21,
+  "seconds": 0.7,
+  "weapon": "SM_Wep_FireAxe"
+ },
+ "Player_Sword_Idle": {
+  "frames": 61,
+  "seconds": 2.033,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Slash_1": {
+  "frames": 25,
+  "seconds": 0.833,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Slash_2": {
+  "frames": 25,
+  "seconds": 0.833,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Slash_3": {
+  "frames": 29,
+  "seconds": 0.967,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Heavy": {
+  "frames": 37,
+  "seconds": 1.233,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Block": {
+  "frames": 31,
+  "seconds": 1.033,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Parry_Riposte": {
+  "frames": 35,
+  "seconds": 1.167,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Sword_Dodge_Back": {
+  "frames": 23,
+  "seconds": 0.767,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Katana_Draw_Iai": {
+  "frames": 29,
+  "seconds": 0.967,
+  "weapon": "SM_Wep_Katana"
+ },
+ "Player_Katana_Sheathe": {
+  "frames": 35,
+  "seconds": 1.167,
+  "weapon": "SM_Wep_Katana"
+ }
+}

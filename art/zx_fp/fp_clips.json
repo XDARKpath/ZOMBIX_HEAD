@@ -1,0 +1,632 @@
+{
+ "Axe_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Axe_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Axe_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Axe_Attack_A": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Axe_Attack_B": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Axe_Charge": {
+  "frames": 24,
+  "loop": false,
+  "seconds": 0.8
+ },
+ "Axe_Heavy": {
+  "frames": 38,
+  "loop": false,
+  "seconds": 1.267
+ },
+ "Shovel_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Shovel_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Shovel_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Shovel_Attack_A": {
+  "frames": 22,
+  "loop": false,
+  "seconds": 0.733
+ },
+ "Shovel_Attack_B": {
+  "frames": 22,
+  "loop": false,
+  "seconds": 0.733
+ },
+ "Shovel_Charge": {
+  "frames": 20,
+  "loop": false,
+  "seconds": 0.667
+ },
+ "Shovel_Heavy": {
+  "frames": 28,
+  "loop": false,
+  "seconds": 0.933
+ },
+ "Knife_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Knife_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Knife_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Knife_Attack_A": {
+  "frames": 26,
+  "loop": false,
+  "seconds": 0.867
+ },
+ "Knife_Attack_B": {
+  "frames": 26,
+  "loop": false,
+  "seconds": 0.867
+ },
+ "Knife_Charge": {
+  "frames": 20,
+  "loop": false,
+  "seconds": 0.667
+ },
+ "Knife_Heavy": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Pistol_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Pistol_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Pistol_Equip": {
+  "frames": 12,
+  "loop": false,
+  "seconds": 0.4
+ },
+ "Pistol_Fire": {
+  "frames": 12,
+  "loop": false,
+  "seconds": 0.4
+ },
+ "Pistol_Reload": {
+  "frames": 48,
+  "loop": false,
+  "seconds": 1.6
+ },
+ "Interact_Pickup": {
+  "frames": 26,
+  "loop": false,
+  "seconds": 0.867
+ },
+ "Interact_Keycard": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Interact_InsertCore": {
+  "frames": 40,
+  "loop": false,
+  "seconds": 1.333
+ },
+ "Interact_UseKey": {
+  "frames": 36,
+  "loop": false,
+  "seconds": 1.2
+ },
+ "Interact_PlaceBait": {
+  "frames": 40,
+  "loop": false,
+  "seconds": 1.333
+ },
+ "Melee1H_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Melee1H_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Melee1H_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Melee1H_Attack_A": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Melee1H_Attack_B": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Melee1H_Charge": {
+  "frames": 24,
+  "loop": false,
+  "seconds": 0.8
+ },
+ "Melee1H_Heavy": {
+  "frames": 38,
+  "loop": false,
+  "seconds": 1.267
+ },
+ "Axe2H_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Axe2H_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Axe2H_Equip": {
+  "frames": 18,
+  "loop": false,
+  "seconds": 0.6
+ },
+ "Axe2H_Attack_A": {
+  "frames": 38,
+  "loop": false,
+  "seconds": 1.267
+ },
+ "Axe2H_Attack_B": {
+  "frames": 38,
+  "loop": false,
+  "seconds": 1.267
+ },
+ "Axe2H_Charge": {
+  "frames": 24,
+  "loop": false,
+  "seconds": 0.8
+ },
+ "Axe2H_Heavy": {
+  "frames": 40,
+  "loop": false,
+  "seconds": 1.333
+ },
+ "Sword_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Sword_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Sword_Equip": {
+  "frames": 18,
+  "loop": false,
+  "seconds": 0.6
+ },
+ "Sword_Attack_A": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Sword_Attack_B": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Sword_Charge": {
+  "frames": 22,
+  "loop": false,
+  "seconds": 0.733
+ },
+ "Sword_Heavy": {
+  "frames": 36,
+  "loop": false,
+  "seconds": 1.2
+ },
+ "Rifle_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Rifle_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Rifle_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Rifle_Fire": {
+  "frames": 10,
+  "loop": false,
+  "seconds": 0.333
+ },
+ "Shotgun_Fire": {
+  "frames": 26,
+  "loop": false,
+  "seconds": 0.867
+ },
+ "Rifle_Reload": {
+  "frames": 60,
+  "loop": false,
+  "seconds": 2.0
+ },
+ "Item_Testa_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Testa_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Testa_Use": {
+  "frames": 60,
+  "loop": false,
+  "seconds": 2.0
+ },
+ "Item_Bende_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Bende_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Bende_Use": {
+  "frames": 54,
+  "loop": false,
+  "seconds": 1.8
+ },
+ "Item_Cibo_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Cibo_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Cibo_Use": {
+  "frames": 44,
+  "loop": false,
+  "seconds": 1.467
+ },
+ "Item_KitMedico_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_KitMedico_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_KitMedico_Use": {
+  "frames": 50,
+  "loop": false,
+  "seconds": 1.667
+ },
+ "Item_Legna_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Legna_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Legna_Use": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Batteria_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Batteria_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Batteria_Use": {
+  "frames": 28,
+  "loop": false,
+  "seconds": 0.933
+ },
+ "Item_Tanica_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Tanica_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Tanica_Use": {
+  "frames": 40,
+  "loop": false,
+  "seconds": 1.333
+ },
+ "Item_Cinghia_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Item_Cinghia_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Item_Cinghia_Use": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Knife_Fidget": {
+  "frames": 48,
+  "loop": false,
+  "seconds": 1.6
+ },
+ "Blunt1H_Idle": {
+  "frames": 90,
+  "loop": true,
+  "seconds": 3.0
+ },
+ "Blunt1H_Sprint": {
+  "frames": 20,
+  "loop": true,
+  "seconds": 0.667
+ },
+ "Blunt1H_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Blunt1H_Attack_A": {
+  "frames": 36,
+  "loop": false,
+  "seconds": 1.2
+ },
+ "Blunt1H_Attack_B": {
+  "frames": 34,
+  "loop": false,
+  "seconds": 1.133
+ },
+ "Blunt1H_Charge": {
+  "frames": 24,
+  "loop": false,
+  "seconds": 0.8
+ },
+ "Blunt1H_Heavy": {
+  "frames": 38,
+  "loop": false,
+  "seconds": 1.267
+ },
+ "Axe_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Melee1H_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Blunt1H_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Knife_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Shovel_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Axe2H_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Sword_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Pistol_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Rifle_Inspect": {
+  "frames": 96,
+  "loop": false,
+  "seconds": 3.2
+ },
+ "Item_Testa_Equip": {
+  "frames": 16,
+  "loop": false,
+  "seconds": 0.533
+ },
+ "Item_Testa_Inspect": {
+  "frames": 60,
+  "loop": false,
+  "seconds": 2.0
+ },
+ "Item_Bende_Inspect": {
+  "frames": 54,
+  "loop": false,
+  "seconds": 1.8
+ },
+ "Item_Cibo_Inspect": {
+  "frames": 44,
+  "loop": false,
+  "seconds": 1.467
+ },
+ "Item_KitMedico_Inspect": {
+  "frames": 50,
+  "loop": false,
+  "seconds": 1.667
+ },
+ "Item_Legna_Inspect": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Batteria_Inspect": {
+  "frames": 28,
+  "loop": false,
+  "seconds": 0.933
+ },
+ "Item_Tanica_Inspect": {
+  "frames": 40,
+  "loop": false,
+  "seconds": 1.333
+ },
+ "Item_Cinghia_Inspect": {
+  "frames": 32,
+  "loop": false,
+  "seconds": 1.067
+ },
+ "Axe_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Melee1H_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Blunt1H_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Knife_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Pistol_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Shovel_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Axe2H_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Sword_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Rifle_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Testa_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Bende_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Cibo_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_KitMedico_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Tanica_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Cinghia_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Legna_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Batteria_Throw": {
+  "frames": 30,
+  "loop": false,
+  "seconds": 1.0
+ },
+ "Item_Testa_Give": {
+  "frames": 34,
+  "loop": false,
+  "seconds": 1.133
+ }
+}
