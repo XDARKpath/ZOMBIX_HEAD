@@ -11,13 +11,16 @@ func run():
 	root.get_node("Session").launch(); await create_timer(2.0).timeout
 	var p: CharacterBody3D = world.player
 	p.reset_at(Vector3(6, 0.1, 2)); p.rig.yaw = PI; p.rig.pitch = -0.05
-	p.owned.assign(["axe", "pistol", "pump_shotgun"])
-	p.hotbar.assign(["pistol", "pump_shotgun", "axe", "", "", "", "", "", ""])
-	for id in ["pistol", "pump_shotgun"]:
+	p.owned.assign(["pistol", "pump_shotgun", "assault_rifle", "lmg"])
+	p.inventory_slots = 4
+	p.hotbar.assign(["pistol", "pump_shotgun", "assault_rifle", "lmg", "", "", "", "", ""])
+	var arms: Node = p.find_child("FpArms", true, false)
+	var cam: Camera3D = p.rig.camera
+	for id in ["pistol", "pump_shotgun", "assault_rifle", "lmg"]:
 		p.select_slot(p.hotbar.find(id))
 		await create_timer(1.0).timeout
 		# Tre momenti: inizio (caricatore fuori / mano alla tasca), metà (pezzo nuovo in mano), fine (scatto / spinta).
-		for k in [0.3, 0.5, 0.8]:
+		for k in [0.22, 0.5, 0.8]:
 			p.magazine = 1
 			p.reload_left = 0.0
 			await process_frame
@@ -29,4 +32,9 @@ func run():
 			await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png(dir.path_join("reload_%s_%02d.png" % [id, int(k * 100)]))
 			print("shot %s %d%% mag=%d left=%.2f/%.2f" % [id, int(k * 100), p.magazine, p.reload_left, p.reload_total])
+			if arms:
+				for piece in [arms._carry_mag, arms._carry_shell]:
+					print("   piece vis=%s cam=%s on_screen=%s" % [piece.is_visible_in_tree(), cam.global_transform.affine_inverse() * piece.global_position, cam.unproject_position(piece.global_position)])
+				if arms._mag: print("   mag vis=%s cam=%s" % [arms._mag.is_visible_in_tree(), cam.global_transform.affine_inverse() * arms._mag.global_position])
+				else: print("   mag none")
 	quit()

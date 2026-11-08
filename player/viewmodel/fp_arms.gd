@@ -161,8 +161,8 @@ func build(owner_player: CharacterBody3D) -> void:
 	_hand_socket = BoneAttachment3D.new()
 	_hand_socket.bone_name = "hand_l"
 	skeleton.add_child(_hand_socket)
-	_carry_mag = _carry_piece(BoxMesh.new(), Color("2b2d2f"), Vector3(0.026, 0.10, 0.045))
-	_carry_shell = _carry_piece(CylinderMesh.new(), Color("a3302a"), Vector3(0.022, 0.06, 0.022))
+	_carry_mag = _carry_piece(BoxMesh.new(), Color("7a8087"), Vector3(0.024, 0.08, 0.034))
+	_carry_shell = _carry_piece(CylinderMesh.new(), Color("d23a2c"), Vector3(0.02, 0.055, 0.02))
 	if player.local_control: _build_hit_mark()
 	player.melee.impact.connect(func(_t, charged):
 		_show_hit(charged)
@@ -511,10 +511,16 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 	_motion.tick(delta, row, melee.charge_fraction() if melee.charging and not _gun else 0.0, melee.blocking, _sprint_w > 0.5, melee.ads, reload, _inspect_t)
 	_tool_w = move_toward(_tool_w, 0.0 if _one_t >= 0.0 else 1.0, delta / 0.1)
 	if _mag:
-		_mag.position = _mag_base + Vector3(0, -0.3, 0) * _motion.mag_out
+		_mag.position = _mag_base + Vector3(0, -0.2, 0) * _motion.mag_out     # il vecchio scivola fuori dal pozzetto, si vede
 		_mag.visible = _motion.mag_out < 0.98
 	_carry_mag.visible = _motion.carry == "mag"
 	_carry_shell.visible = _motion.carry == "shell"
+	# Il pezzo sta davanti al palmo visto dalla camera (gli assi dell'osso della mano non aiutano): un po' sopra e verso la camera.
+	var cam := get_viewport().get_camera_3d()
+	if cam and (_carry_mag.visible or _carry_shell.visible):
+		var at: Vector3 = _hand_socket.global_position + cam.global_basis * Vector3(0.035, 0.075, 0.07)
+		_carry_mag.global_transform = Transform3D(cam.global_basis * Basis(Vector3.FORWARD, 0.35), at)
+		_carry_shell.global_transform = Transform3D(cam.global_basis * Basis(Vector3.FORWARD, 1.2), at)
 	if _tool_w <= 0.0: return
 	# Le spalle sono fuori dall'inquadratura: portarle avanti allunga il braccio senza che si veda, e la mano arriva sulla canna.
 	for side in ["r", "l"]:

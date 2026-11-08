@@ -583,11 +583,11 @@ func _reload_hands(reload: float, delta: float) -> void:
 			left_shift = Vector3(-0.05, -0.03, -0.14) * away
 			slide_back = smoothstep(0.1, 0.2, reload) * (1.0 - smoothstep(0.78, 0.86, reload))
 		_:
-			mag_out = smoothstep(0.17, 0.3, reload) * (1.0 - smoothstep(0.56, 0.68, reload))
+			mag_out = smoothstep(0.1, 0.34, reload) * (1.0 - smoothstep(0.56, 0.68, reload))
 			# La sinistra scende a prendere il caricatore, lo infila e poi tira indietro il carrello.
 			var away := smoothstep(0.2, 0.34, reload) * (1.0 - smoothstep(0.48, 0.66, reload))
 			var rack := smoothstep(0.72, 0.78, reload) * (1.0 - smoothstep(0.9, 0.96, reload))
-			left_shift = Vector3(-0.03, -0.08, -0.03) * away + Vector3(-0.03, -support * 0.5, 0.12) * rack   # sotto il pozzetto, in vista
+			left_shift = Vector3(-0.06, 0.06, 0.0) * away + Vector3(-0.03, -support * 0.5, 0.12) * rack   # sale col caricatore nuovo, in vista
 			slide_back = smoothstep(0.78, 0.86, reload) * (1.0 - smoothstep(0.87, 0.89, reload))
 			if reload > 0.68 and reload < 0.74: _spring_pv.y += 0.4 * delta * 30.0       # il palmo chiude il caricatore
 			if reload > 0.38 and reload < 0.62: carry = "mag"                               # il caricatore nuovo in mano
