@@ -1,5 +1,5 @@
 extends SceneTree
-# Foto del viewmodel a metÃ  ricarica (pistola e pompa) nella Zona 1. Serve una finestra vera, non --headless.
+# Foto del viewmodel a metà ricarica (pistola e pompa) nella Zona 1. Serve una finestra vera, non --headless.
 # Uso: Godot --path . -s res://tests/reload_capture.gd -- --shots=<cartella>
 func _initialize(): call_deferred("run")
 func run():
