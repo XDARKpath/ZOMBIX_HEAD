@@ -16,6 +16,7 @@
 extends "res://world/villaggio/borgo_build.gd"
 
 const L := preload("res://world/villaggio/villaggio_layout.gd")
+const LootChest := preload("res://world/campaign/loot_chest.gd")
 ## alberi: pini Quaternius, come il resto del bosco
 const FOREST := ["Pine_1", "Pine_2", "Pine_3", "Pine_4", "Pine_5", "Pine_1"]
 const BOSS_MUSIC := "mago"
@@ -217,6 +218,10 @@ func _plaza() -> void:
 	plate.font = load("res://art/fonts/BarlowCondensed-SemiBold.ttf")
 	_chest(Vector3(-2.2, 0, -7.5), 200, false)
 	_chest(Vector3(2.2, 0, -7.5), 0, true)
+	# forzieri sparsi per il borgo: si aprono subito, una volta sola (soldi o bende)
+	_chest(Vector3(-15, 0, 6), 60, false, true)
+	_chest(Vector3(15, 0, 8), 0, true, true)
+	_chest(Vector3(-3, 0, 15.5), 60, false, true)
 	# bancarelle del mercato abbandonato
 	for m in [Vector3(-10, 0, 3), Vector3(10, 0, 3), Vector3(-6, 0, 11), Vector3(7, 0, 12)]:
 		_stall(p, m, rng.randf_range(-0.3, 0.3) + (PI if m.z > 8 else 0.0))
@@ -280,7 +285,6 @@ func _stall(parent: Node3D, at: Vector3, yaw: float) -> void:
 	for i in 3:
 		_junk(g, Vector3(rng.randf_range(-1.2, 1.2), 0.0, rng.randf_range(0.7, 1.4)))
 	asset(g, "Prop_Pot_01", Vector3(-0.5, 0.92, 0), 0, false)
-	asset(g, "Prop_Container_01", Vector3(0.6, 0.92, 0.1), 0.4, false)
 
 
 func _barricade(at: Vector3, yaw: float) -> void:
@@ -348,23 +352,21 @@ func set_barricades(up: bool) -> void:
 		_push_state()
 
 
-func _chest(at: Vector3, amount: int, heal: bool) -> void:
+func _chest(at: Vector3, amount: int, heal: bool, free := false) -> void:
 	var g := _node(geo, at, PI)
-	box(g, Vector3(0, 0.35, 0), Vector3(1.2, 0.7, 0.7), Color("4f5a40") if not heal else Color("d6d0bd"), true)
-	for x in [-0.5, 0.5]:
-		box(g, Vector3(x, 0.35, 0), Vector3(0.08, 0.72, 0.72), Color("2f3533"), false)
-	var lid := box(g, Vector3(0, 0.76, 0), Vector3(1.22, 0.12, 0.72), Color("5a6748") if not heal else Color("c0392b"), false)
+	var lid: Node3D = LootChest.make(not heal)
+	g.add_child(lid)          # "lid" = il forziere intero: set_open() lo apre (loot_chest.gd)
 	var tag := Label3D.new()
 	g.add_child(tag)
-	tag.text = Localization.t("CASSA DEL BORGO" if not heal else "CASSA MEDICA") + "\n" + Localization.t("[E] apri")
+	tag.text = Localization.t("FORZIERE" if free else "CASSA DEL BORGO" if not heal else "CASSA MEDICA") + "\n" + Localization.t("[E] apri")
 	tag.position = Vector3(0, 1.4, 0)
 	tag.font_size = 34
 	tag.pixel_size = 0.005
 	tag.outline_size = 10
 	tag.modulate = Color("ffcf4a")
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	tag.visible = false
-	chests.append({"pos": L.CENTER + at, "lid": lid, "tag": tag, "looted": false, "amount": amount, "heal": heal})
+	tag.visible = free
+	chests.append({"pos": L.CENTER + at, "lid": lid, "tag": tag, "looted": false, "amount": amount, "heal": heal, "free": free})
 
 
 # ================================================================== edifici
@@ -867,8 +869,8 @@ func reset() -> void:
 	arena = "idle"
 	for ch in chests:
 		ch.looted = false
-		ch.lid.visible = true
-		ch.tag.visible = false
+		LootChest.set_open(ch.lid, false, false)
+		ch.tag.visible = ch.free
 	barricade_up = true
 	set_barricades(false)
 	_place_supplies()
@@ -883,11 +885,10 @@ func _place_supplies() -> void:
 ## Scritta a schermo vicino al pozzo e alle casse.
 func context(actor: CharacterBody3D) -> String:
 	if not is_instance_valid(actor): return ""
-	if arena == "cleared":
-		for ch in chests:
-			if not ch.looted and actor.global_position.distance_to(ch.pos) < 2.4:
-				return Localization.t("E  APRI {0}", [Localization.t("LA CASSA MEDICA" if ch.heal else "LA CASSA DEL BORGO")])
-		return ""
+	for ch in chests:
+		if (arena == "cleared" or ch.free) and not ch.looted and actor.global_position.distance_to(ch.pos) < 2.4:
+			return Localization.t("E  APRI {0}", [Localization.t("IL FORZIERE" if ch.free else "LA CASSA MEDICA" if ch.heal else "LA CASSA DEL BORGO")])
+	if arena == "cleared": return ""
 	if actor.global_position.distance_to(L.CENTER) > L.WELL_REACH or arena != "idle": return ""
 	if not world.quest.can_summon(1): return "IL POZZO È IN SILENZIO · PARLA CON LO SCERIFFO"
 	if actor.baits > 0: return "E  GETTA L'ESCA NEL POZZO · SVEGLIA IL MACELLAIO"
@@ -1049,10 +1050,8 @@ func request_use(actor: CharacterBody3D) -> bool:
 		else:
 			_ask.rpc_id(1, -1)
 		return true
-	if arena != "cleared":
-		return false
 	for i in chests.size():
-		if not chests[i].looted and actor.global_position.distance_to(chests[i].pos) < 2.4:
+		if (arena == "cleared" or chests[i].free) and not chests[i].looted and actor.global_position.distance_to(chests[i].pos) < 2.4:
 			if _is_host():
 				_do(actor, i)
 			else:
@@ -1078,15 +1077,18 @@ func _do(actor: CharacterBody3D, index: int) -> void:
 		_start_arena()
 		_push_state()
 		return
-	if index < 0 or index >= chests.size() or arena != "cleared":
+	if index < 0 or index >= chests.size() or (arena != "cleared" and not chests[index].free):
 		return
 	var ch: Dictionary = chests[index]
 	if ch.looted or actor.global_position.distance_to(ch.pos) > 3.0:
 		return
 	ch.looted = true
-	ch.lid.visible = false
+	LootChest.set_open(ch.lid, true)
 	ch.tag.visible = false
-	if ch.heal:
+	if ch.heal and ch.free:
+		actor.health = minf(actor.health + 35.0, load("res://autoload/balance.gd").PLAYER_MAX_HEALTH)
+		world.announce("Forziere: bende, +35 salute.", 3)
+	elif ch.heal:
 		actor.health = load("res://autoload/balance.gd").PLAYER_MAX_HEALTH
 		world.announce("Cassa medica: salute al massimo.", 3)
 	else:
@@ -1154,6 +1156,7 @@ func _state(up: bool, looted: Array, arena_state: String) -> void:
 	arena = arena_state
 	set_barricades(up)
 	for i in mini(looted.size(), chests.size()):
+		if looted[i] != chests[i].looted:
+			LootChest.set_open(chests[i].lid, looted[i])
 		chests[i].looted = looted[i]
-		chests[i].lid.visible = not looted[i]
-		chests[i].tag.visible = arena == "cleared" and not looted[i]
+		chests[i].tag.visible = (arena == "cleared" or chests[i].free) and not looted[i]

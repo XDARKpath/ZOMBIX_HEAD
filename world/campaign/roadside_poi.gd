@@ -180,7 +180,6 @@ func _military_place() -> void:
 		for z in [-14.0, -11.5, 11.5, 14.0]:
 			asset(geo, "Prop_Cone_01", Vector3(s * 4.3, 0.2, z), 0, false, Vector3.ONE * 1.8)
 	_glb(geo, BK + "SM_Borgo_Truck_Wreck.glb", Vector3(-11.5, 0, 6), 0.1)
-	asset(geo, "Prop_Container_01", Vector3(13, 0, 7), 0.2, true, Vector3.ONE * 3.0)
 	# torretta di guardia e tenda del comando
 	var tw := _node(geo, Vector3(12.5, 0, -9), 0.0, "Torretta")
 	for x in [-1.4, 1.4]:

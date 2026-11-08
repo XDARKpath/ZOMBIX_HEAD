@@ -46,10 +46,8 @@ func _gate(index: int, at: Vector3, dir: Vector3) -> void:
 	body.add_child(shape)
 	gate.add_child(body)
 	bodies.append(body)
-	# Quello che si vede: container impilati, camion di traverso, barriere, sacchi di terra.
-	for row in [["SM_Prop_Container_01", Vector3(-9.5, 0, 0), 0.05, 1.0], ["SM_Prop_Container_01", Vector3(9.5, 0, 0), -0.04, 1.0],
-			["SM_Prop_Container_01", Vector3(-9.4, 2.55, 0.1), -0.08, 1.0], ["SM_Prop_Container_01", Vector3(9.4, 2.55, 0.0), 0.06, 1.0],
-			["SM_Borgo_Truck_Wreck", Vector3(0.8, 0, 0.5), 1.45, 1.0], ["SM_Prop_Sign_Danger_01", Vector3(-5.0, 0, 1.8), 0.15, 1.0],
+	# Quello che si vede: camion di traverso, barriere, sacchi di terra.
+	for row in [["SM_Borgo_Truck_Wreck", Vector3(0.8, 0, 0.5), 1.45, 1.0], ["SM_Prop_Sign_Danger_01", Vector3(-5.0, 0, 1.8), 0.15, 1.0],
 			["SM_Prop_RoadBarrier_Small", Vector3(-3.4, 0, 2.6), 0.1, 1.4], ["SM_Prop_RoadBarrier_Small", Vector3(0.0, 0, 3.0), -0.07, 1.4], ["SM_Prop_RoadBarrier_Small", Vector3(3.4, 0, 2.6), 0.06, 1.4],
 			["SM_Prop_Barrel_Metal_01", Vector3(5.4, 0, 1.9), 0.0, 1.0], ["SM_Prop_Barrel_Metal_01", Vector3(6.2, 0, 2.4), 0.5, 1.0]]:
 		_prop(gate, row[0], row[1], row[2], row[3])

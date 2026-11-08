@@ -488,14 +488,17 @@ func _refresh_upper() -> void:
 func _set_upper(clip: String, amount: float) -> void:
 	if tree == null:
 		return
+	if clip != "" and not _player.has_animation(clip):
+		clip = ""
+		amount = 0.0                   # senza la posa dell'arma le braccia seguono il passo, mai la T-pose
 	if clip != "":
 		_upper_anim.animation = clip
 	tree.set("parameters/Upper/blend_amount", amount)
 
 
 func _play_action(clip: String, full_body := false) -> void:
-	if tree == null or _dead:
-		return
+	if tree == null or _dead or not _player.has_animation(clip):
+		return                         # gesto senza clip: si salta, il corpo resta nella posa che ha
 	if full_body:
 		_full_anim.use_custom_timeline = false
 		_full_anim.animation = clip
@@ -524,8 +527,20 @@ func _clip_len(clip: String) -> float:
 
 func _anim(n: String) -> AnimationNodeAnimation:
 	var a := AnimationNodeAnimation.new()
-	a.animation = n
+	a.animation = _valid(n)
 	return a
+
+
+## Una clip che non c'è lascia le ossa nella posa di riposo: la T-pose che si vede dall'ombra.
+## Qui ogni nome passa da una clip che esiste davvero (prima la stessa, poi le pose di base).
+func _valid(clip: String) -> String:
+	if _player == null or clip == "" or _player.has_animation(clip):
+		return clip
+	for fallback in ["Player_Idle_Rifle", "Player_Idle_Unarmed", "Player_Walk_Fwd_Rifle"]:
+		if _player.has_animation(fallback):
+			push_warning("zx_player: clip mancante %s, uso %s" % [clip, fallback])
+			return fallback
+	return clip
 
 
 func _xfade(t := 0.2) -> AnimationNodeStateMachineTransition:

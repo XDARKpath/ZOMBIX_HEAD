@@ -4,6 +4,7 @@
 extends RefCounted
 
 const PROPS := "res://art/zx_rocca/props/"
+const LootChest := preload("res://world/campaign/loot_chest.gd")
 
 
 static func load_prop(prop: String, parent: Node3D) -> Node3D:
@@ -76,11 +77,11 @@ class Crate extends Node3D:
 
 
 # =================================================================== FORZIERE
-## [E] vicino: Chest_Lid_Pop_Open, poi escono i pickup (bende / pozioni / monete) davanti al forziere.
+## [E] vicino: il coperchio si apre (forziere originale di loot_chest.gd), poi escono i pickup (bende / pozioni / monete) davanti al forziere.
 class Chest extends Node3D:
 	var level: Node3D
 	var index := 0
-	var ap: AnimationPlayer
+	var model: Node3D
 	var opened := false
 	var loot: Array = []           # ["bandage", "ammo", ...]
 
@@ -88,28 +89,18 @@ class Chest extends Node3D:
 		level = owner_level
 		index = i
 		loot = contents
-		var m: Node3D = load(PROPS + "SM_Rocca_Forziere" + ".glb").instantiate()
-		add_child(m)
-		ap = m.find_children("*", "AnimationPlayer", true, false)[0]
-		ap.play("Chest_Lid_Pop_Open"); ap.seek(0.0, true); ap.pause()
-		var sb := StaticBody3D.new()
-		var cs := CollisionShape3D.new()
-		var box := BoxShape3D.new()
-		box.size = Vector3(0.95, 0.5, 0.6)
-		cs.shape = box
-		cs.position = Vector3(0, 0.25, 0)
-		sb.add_child(cs)
-		add_child(sb)
+		model = LootChest.make(true)
+		add_child(model)
 
 	func pop() -> void:
 		if opened:
 			return
 		opened = true
-		ap.play("Chest_Lid_Pop_Open")
+		LootChest.set_open(model, true)
 
 	func reset() -> void:
 		opened = false
-		ap.play("Chest_Lid_Pop_Open"); ap.seek(0.0, true); ap.pause()
+		LootChest.set_open(model, false, false)
 
 
 # =================================================================== PICKUP

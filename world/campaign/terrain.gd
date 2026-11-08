@@ -97,6 +97,9 @@ static func ground_height(x: float,z: float) -> float:
 
 ## Altezza ai vertici della griglia.
 static func _raw_height(x: float,z: float) -> float:
+	# La Rocca (world/rocca/rocca.gd, ORIGIN 1500,300,1500) sta sotto terra: qui il terreno resta sotto i suoi pavimenti,
+	# sennò il pendio attraversa le sale (piano grigio inclinato vicino all'armeria) e blocca il giocatore.
+	if x>1440.0 and x<1560.0 and z>1400.0 and z<1560.0: return minf(Route.shape_height(x,z,_base_height(x,z)),290.0)
 	return Route.shape_height(x,z,_base_height(x,z))
 
 static func _base_height(x: float,z: float) -> float:
@@ -601,8 +604,8 @@ func _distances(samples:Array) -> void:
 	_commit(tools,mark_material)
 
 const WRECKS:=["car_sedan","car_hatchback","car_stationwagon","car_taxi","car_police"]
-# Detriti: sacchi della spazzatura e oggetti del kit ambiente ZOMBIX (niente casse da dungeon).
-const JUNK:=["res://art/kaykit_city/trash_A.gltf","res://art/kaykit_city/trash_B.gltf","res://art/env/shop/SM_Prop_AmmoCrate_Wood.glb","res://art/env/interactive/SM_Int_Chest_Supply.glb","res://art/env/shop/SM_Prop_OilTin.glb","res://art/env/shop/SM_Prop_AmmoCan_Military.glb"]
+# Detriti: sacchi della spazzatura e latte d'olio (niente casse verdi né casse di munizioni).
+const JUNK:=["res://art/kaykit_city/trash_A.gltf","res://art/kaykit_city/trash_B.gltf","res://art/env/shop/SM_Prop_OilTin.glb"]
 var _scene_cache:Dictionary={}
 
 func _scene(path:String) -> Node3D:

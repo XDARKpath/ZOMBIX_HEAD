@@ -15,6 +15,8 @@ const PISTOL := {"index": [0.32, 0.12, 0.08], "middle": [1.15, 1.3, 0.75], "ring
 
 const RELAXED := {"index": [0.25, 0.35, 0.2], "middle": [0.32, 0.42, 0.25], "ring": [0.4, 0.5, 0.3], "pinky": [0.48, 0.55, 0.32], "thumb": [0.15, 0.2, 0.15]}
 const RELAXED_LEFT := Vector3(0.30, 0.98, 0.10)
+## Da fuori le armi lunghe vanno alla spalla destra (+X è la sinistra del personaggio), un poco più in basso.
+const LONG_GUN_SHIFT := Vector3(-0.11, -0.05, 0.0)
 const ROLL := {"index": [0.5, 0.65, 0.4], "middle": [0.6, 0.7, 0.45], "ring": [0.65, 0.75, 0.45], "pinky": [0.7, 0.75, 0.45], "thumb": [0.35, 0.3, 0.2]}
 ## Altre armi: canna o lama lungo le dita piegate di 90 gradi, in alto il dorso (asse +Z dell'arma).
 const OTHER_GRIP := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
@@ -169,6 +171,8 @@ func _process_modification() -> void:
 	var f: Transform3D = motion.frame()
 	var flip := Basis(Vector3.UP, PI)
 	var local := Vector3(-f.origin.x, HOLD_Y + f.origin.y, HOLD_Z - f.origin.z * Z_SCALE)
+	if motion.is_gun() and kind != "pistol":
+		local += LONG_GUN_SHIFT          # calcio sulla spalla destra: la sinistra arriva al paramano senza torcere il polso
 	var w := Transform3D(turn * flip * f.basis, rest.origin + turn * (local - rest.origin) + (chest.origin - rest.origin))
 	var up := turn * Vector3.UP
 	if _left_w < 1.0:

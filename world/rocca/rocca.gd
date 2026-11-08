@@ -424,8 +424,7 @@ func _dress() -> void:
 	_place("P_FirewoodStack", cell_pos(Vector2i(1, 5), u) + Vector3(1.2, 0, 1.2))
 	for x in [-2, 2, 3]:      # non a 0: lì accanto al camino c'è il varco, lo stendardo pendeva nel vuoto
 		_place("P_BannerBlue" if x % 2 else "P_BannerRed", cell_pos(Vector2i(x, 5), u) + Vector3(0, 0.3, 1.8), PI)
-	for z in [3, 4]:
-		_place("P_BannerRed", cell_pos(Vector2i(-2, z), u) + Vector3(-1.8, 0.3, 0), PI / 2)
+	_place("P_BannerRed", cell_pos(Vector2i(-2, 4), u) + Vector3(-1.8, 0.3, 0), PI / 2)      # (-2,3) è il varco dell'armeria
 	_place("P_WeaponWall", cell_pos(Vector2i(3, 3), u) + Vector3(1.8, 0, 0), -PI / 2)
 	# --- armeria (la chiave d'oro sullo scrittoio)
 	_place("P_Desk", cell_pos(Vector2i(-4, 3), u) + Vector3(0.6, 0, -1.2), PI)
