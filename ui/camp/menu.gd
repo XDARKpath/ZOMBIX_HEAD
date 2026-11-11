@@ -449,9 +449,11 @@ func graphics() -> void:
 		"quality":int(data.quality),
 		"textures":int(data.textures),
 		"shadow_quality":int(data.shadow_quality),
-		"anti_aliasing":int(data.anti_aliasing)
+		"anti_aliasing":int(data.anti_aliasing),
+		"vegetation":int(data.get("vegetation",2)),
+		"atmosphere":int(data.get("atmosphere",1))
 	}
-	_graphic_option("DISPLAY MODE",264,["WINDOWED","BORDERLESS","FULLSCREEN"],int(graphics_pending.display_mode),func(index: int) -> void:
+	_graphic_option("DISPLAY MODE",250,["WINDOWED","BORDERLESS","FULLSCREEN"],int(graphics_pending.display_mode),func(index: int) -> void:
 		graphics_pending.display_mode = index
 		_mark_graphics_dirty(),"display_mode")
 	# Le risoluzioni arrivano dal monitor: niente voci fuori portata.
@@ -462,35 +464,43 @@ func graphics() -> void:
 	for i in range(sizes.size()):
 		names.append("%d × %d" % [sizes[i].x,sizes[i].y])
 		if sizes[i] == current: selected = i
-	_graphic_option("RESOLUTION",316,names,selected,func(index: int) -> void:
+	_graphic_option("RESOLUTION",294,names,selected,func(index: int) -> void:
 		var size: Vector2i = sizes[clampi(index,0,sizes.size()-1)]
 		graphics_pending.resolution = "%dx%d" % [size.x,size.y]
 		_mark_graphics_dirty(),"resolution")
-	_graphic_option("V-SYNC",368,["OFF","ON","ADAPTIVE"],int(graphics_pending.vsync),func(index: int) -> void:
+	_graphic_option("V-SYNC",338,["OFF","ON","ADAPTIVE"],int(graphics_pending.vsync),func(index: int) -> void:
 		graphics_pending.vsync = index
 		_mark_graphics_dirty(),"vsync")
-	_graphic_option("OVERALL QUALITY",420,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.quality),func(index: int) -> void:
+	_graphic_option("OVERALL QUALITY",382,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.quality),func(index: int) -> void:
 		var preset: Dictionary = world.quality_preset_values(index)
 		graphics_pending.quality = index
 		graphics_pending.textures = int(preset.textures)
 		graphics_pending.shadow_quality = int(preset.shadow_quality)
 		graphics_pending.anti_aliasing = int(preset.anti_aliasing)
+		graphics_pending.vegetation = int(preset.vegetation)
+		graphics_pending.atmosphere = int(preset.atmosphere)
 		_sync_graphics_controls()
 		_mark_graphics_dirty(),"overall_quality")
-	_graphic_option("TEXTURE QUALITY",472,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.textures),func(index: int) -> void:
+	_graphic_option("TEXTURE QUALITY",426,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.textures),func(index: int) -> void:
 		graphics_pending.textures = index
 		_mark_graphics_dirty(),"texture_quality")
-	_graphic_option("SHADOW QUALITY",524,["OFF","LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.shadow_quality),func(index: int) -> void:
+	_graphic_option("SHADOW QUALITY",470,["OFF","LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.shadow_quality),func(index: int) -> void:
 		graphics_pending.shadow_quality = index
 		_mark_graphics_dirty(),"shadow_quality")
-	_graphic_option("ANTI-ALIASING",576,["OFF","FXAA","MSAA 2×","MSAA 4×","MSAA 8×"],int(graphics_pending.anti_aliasing),func(index: int) -> void:
+	_graphic_option("ANTI-ALIASING",514,["OFF","FXAA","MSAA 2×","MSAA 4×","MSAA 8×"],int(graphics_pending.anti_aliasing),func(index: int) -> void:
 		graphics_pending.anti_aliasing = index
 		_mark_graphics_dirty(),"anti_aliasing")
-	graphics_status = label(Localization.t("ADJUST THE SETTINGS, THEN PRESS APPLY."),Vector2(81,618),15,Color(0.70,0.74,0.69,0.75))
+	_graphic_option("VEGETATION",558,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.vegetation),func(index: int) -> void:
+		graphics_pending.vegetation = index
+		_mark_graphics_dirty(),"vegetation")
+	_graphic_option("ATMOSPHERE EFFECTS",602,["OFF","ON"],int(graphics_pending.atmosphere),func(index: int) -> void:
+		graphics_pending.atmosphere = index
+		_mark_graphics_dirty(),"atmosphere")
+	graphics_status = label(Localization.t("ADJUST THE SETTINGS, THEN PRESS APPLY."),Vector2(81,640),15,Color(0.70,0.74,0.69,0.75))
 	graphics_status.name = "GraphicsStatus"
 	button("APPLY",0,_apply_graphics_pending)
 	button("BACK",0,func() -> void: graphics_pending.clear(); _options_or_home())
-	menu_list.position.y = 648
+	menu_list.position.y = 668
 	context_label.hide()
 
 func _restore_graphics_pending(pending: Dictionary, dirty: bool) -> void:
@@ -568,7 +578,7 @@ func _style_option(control: OptionButton) -> void:
 	popup.add_theme_color_override("font_hover_color",Color("ffb703"))
 
 func _sync_graphics_controls() -> void:
-	for pair in [["texture_quality",int(graphics_pending.textures)],["shadow_quality",int(graphics_pending.shadow_quality)],["anti_aliasing",int(graphics_pending.anti_aliasing)]]:
+	for pair in [["texture_quality",int(graphics_pending.textures)],["shadow_quality",int(graphics_pending.shadow_quality)],["anti_aliasing",int(graphics_pending.anti_aliasing)],["vegetation",int(graphics_pending.vegetation)],["atmosphere",int(graphics_pending.atmosphere)]]:
 		var control: OptionButton = graphics_controls.get(pair[0])
 		if control: control.select(clampi(int(pair[1]),0,control.item_count-1))
 

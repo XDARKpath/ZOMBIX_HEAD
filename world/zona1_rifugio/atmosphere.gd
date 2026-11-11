@@ -10,7 +10,7 @@ var weather: Environment
 var breeze: CPUParticles3D
 var nature_cache: Dictionary = {}
 var forest_cache: Dictionary = {}
-const FOG_BASE := 0.008
+const FOG_BASE := 0.0018
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
@@ -22,9 +22,16 @@ func build(owner_world: Node3D) -> void:
 			sky_material.shader = preload("res://world/zona1_rifugio/sky.gdshader")
 			sky.sky_material = sky_material
 			if RenderingServer.get_current_rendering_method()!="gl_compatibility": weather.sky = sky
-			weather.ambient_light_color = Color("aec8cc")
-			weather.ambient_light_energy = 0.38
-			weather.fog_light_color = Color("66746f")
+			weather.ambient_light_color = Color("b8cfe0")
+			weather.ambient_light_energy = 0.32
+			# Foschia azzurra di profondità, leggera: il bosco sfuma, non sparisce.
+			weather.fog_light_color = Color("a9c3d6")
+			weather.fog_sun_scatter = 0.35
+			weather.fog_height_density = 0.008
+			weather.volumetric_fog_density = 0.007
+			weather.volumetric_fog_albedo = Color("fff0d8")
+			weather.glow_intensity = 0.6
+			weather.glow_bloom = 0.08
 			weather.fog_density = FOG_BASE
 			weather.glow_enabled = RenderingServer.get_current_rendering_method()!="gl_compatibility"
 			# Occlusione ambientale più marcata: gli angoli e gli incastri in pietra
@@ -33,14 +40,17 @@ func build(owner_world: Node3D) -> void:
 			weather.ssao_radius = 1.4
 			weather.ssao_intensity = 1.5
 			weather.adjustment_enabled = true
-			weather.adjustment_contrast = 1.10
-			# Toni più spenti: è un mondo dopo l'epidemia, non un parco.
-			weather.adjustment_saturation = 0.82
+			weather.adjustment_contrast = 1.22
+			# Colori naturali pieni, come un pomeriggio d'estate.
+			weather.adjustment_saturation = 1.12
 		if child is DirectionalLight3D:
 			sun = child
-			sun.rotation_degrees = Vector3(-26,-32,0)
-			sun.light_color = Color("ffd0a1")
-			sun.light_energy = 1.15
+			sun.rotation_degrees = Vector3(-22,-32,0)
+			sun.light_color = Color("ffe2b3")
+			sun.light_energy = 1.45
+			# Raggi nella foschia volumetrica e ombre morbide.
+			sun.light_volumetric_fog_energy = 4.0
+			sun.light_angular_distance = 1.2
 	# Erba GPU con licenza MIT (art/grass/ATTRIBUTION.md) al posto del vecchio prato piatto.
 	var field := Node3D.new()
 	field.set_script(preload("res://world/grass/grass_field.gd"))
@@ -216,6 +226,6 @@ func _process(delta: float) -> void:
 	if not world or not world.started: return
 	clock += delta
 	# Passaggi di nuvole: variazioni lente, senza cambiare la leggibilità del combattimento.
-	if sun: sun.light_energy = 1.1+sin(clock*0.025)*0.12
+	if sun: sun.light_energy = 1.4+sin(clock*0.025)*0.08
 	# Banchi di nebbia che vanno e vengono.
-	if weather: weather.fog_density = FOG_BASE+(sin(clock*0.017)*0.5+0.5)*0.004
+	if weather: weather.fog_density = FOG_BASE+(sin(clock*0.017)*0.5+0.5)*0.0015

@@ -19,7 +19,8 @@ var settings_data := {
 	"sensitivity":1.0,"volume":70.0,"blood":true,"shadows":true,
 	"fullscreen":false,"resolution":"1440x900",
 	"display_mode":0,"vsync":1,
-	"quality":2,"textures":2,"shadow_quality":3,"anti_aliasing":1
+	"quality":2,"textures":2,"shadow_quality":3,"anti_aliasing":1,
+	"vegetation":2,"atmosphere":1
 }
 # Risoluzioni standard PC, filtrate sulla risoluzione nativa dello schermo.
 const RESOLUTION_LADDER := [
@@ -30,12 +31,12 @@ const RESOLUTION_LADDER := [
 	Vector2i(2560,1600),Vector2i(2880,1620),Vector2i(3200,1800),Vector2i(3440,1440),
 	Vector2i(3840,2160),Vector2i(5120,1440),Vector2i(5120,2880),Vector2i(7680,4320)
 ]
-# Texture, ombre e anti-aliasing impostati da ogni preset complessivo.
+# Texture, ombre, anti-aliasing, vegetazione ed effetti impostati da ogni preset complessivo.
 const QUALITY_PRESETS := [
-	{"textures":0,"shadow_quality":0,"anti_aliasing":0},
-	{"textures":1,"shadow_quality":2,"anti_aliasing":1},
-	{"textures":2,"shadow_quality":3,"anti_aliasing":1},
-	{"textures":3,"shadow_quality":4,"anti_aliasing":3}
+	{"textures":0,"shadow_quality":0,"anti_aliasing":0,"vegetation":0,"atmosphere":0},
+	{"textures":1,"shadow_quality":2,"anti_aliasing":1,"vegetation":1,"atmosphere":0},
+	{"textures":2,"shadow_quality":3,"anti_aliasing":1,"vegetation":2,"atmosphere":1},
+	{"textures":3,"shadow_quality":4,"anti_aliasing":3,"vegetation":3,"atmosphere":1}
 ]
 var _resolution_cache: Array[Vector2i] = []
 
@@ -556,6 +557,8 @@ func apply_quality_preset(index: int) -> void:
 	settings_data.textures = int(preset.textures)
 	settings_data.shadow_quality = int(preset.shadow_quality)
 	settings_data.anti_aliasing = int(preset.anti_aliasing)
+	settings_data.vegetation = int(preset.vegetation)
+	settings_data.atmosphere = int(preset.atmosphere)
 	settings_data.shadows = int(preset.shadow_quality) > 0
 	_apply_settings()
 
@@ -608,6 +611,16 @@ func _apply_render_quality() -> void:
 		viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if aa == 1 else Viewport.SCREEN_SPACE_AA_DISABLED
 		viewport.msaa_3d = [Viewport.MSAA_DISABLED,Viewport.MSAA_DISABLED,Viewport.MSAA_2X,Viewport.MSAA_4X,Viewport.MSAA_8X][aa]
 		viewport.msaa_2d = Viewport.MSAA_DISABLED
+	# Vegetazione: densità e raggio del prato. Effetti: nebbia volumetrica (raggi di sole),
+	# bagliore e occlusione ambientale, i più pesanti sulle schede video deboli.
+	for field in get_tree().get_nodes_in_group("grass_field"): field.set_quality(int(settings_data.vegetation))
+	var effects := int(settings_data.atmosphere) > 0
+	for child in landscape.get_children():
+		if child is WorldEnvironment and child.environment:
+			var forward := RenderingServer.get_current_rendering_method() == "forward_plus"
+			child.environment.volumetric_fog_enabled = effects and forward
+			child.environment.ssao_enabled = effects and forward
+			child.environment.glow_enabled = effects and RenderingServer.get_current_rendering_method() != "gl_compatibility"
 	var shadow := clampi(int(settings_data.shadow_quality),0,4)
 	if not bool(settings_data.shadows): shadow = 0
 	var max_distance: float = [0.0,55.0,85.0,130.0,200.0][shadow]

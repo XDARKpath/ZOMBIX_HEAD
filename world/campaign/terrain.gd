@@ -294,12 +294,19 @@ func _ground(key: Vector2i, group: Node3D) -> void:
 	ground.create_trimesh_collision()
 
 ## Cosa ci sta su una tessera: stessa sequenza casuale su ogni macchina, poi si crea un pezzo alla volta.
+var _mix_noise:=_make_mix_noise()
+static func _make_mix_noise() -> FastNoiseLite:
+	var n:=FastNoiseLite.new()
+	n.seed=7731
+	n.frequency=0.012
+	return n
+
 func _plan(key: Vector2i) -> Array:
 	var plan: Array=[]
 	var rng:=RandomNumberGenerator.new()
 	rng.seed=absi(key.x*73856093 ^ key.y*19349663)+2026
 	# Più pini per settore: il bosco resta fitto ora che è di un solo tipo.
-	for i in range(70):
+	for i in range(95):
 		var x:=key.x*TILE+rng.randf_range(0,TILE)
 		var z:=key.y*TILE+rng.randf_range(0,TILE)
 		if absf(x)<75 and z> -90: continue
@@ -315,10 +322,13 @@ func _plan(key: Vector2i) -> Array:
 		if RoadNet.distance(Vector2(x,z))<9.0 or RoadNet.arena_distance(Vector2(x,z))<17.0: continue
 		if RoadNet.clearing_distance(Vector2(x,z))<4.0 or Layout.near_fence(x,z) or Village.inside(x,z): continue
 		var pick:=rng.randi_range(0,sources.size()-1)
-		# Un solo linguaggio visivo: pini a cono. Le chiome tonde (CommonTree) e gli
-		# alberi scheletrici (TwistedTree, DeadTree) stonavano con il bosco della mappa.
+		# Bosco misto: pini a cono e latifoglie tonde (CommonTree), niente alberi
+		# scheletrici. Le latifoglie crescono a macchie, non alternate ai pini.
 		var pines:=["Pine_1.gltf","Pine_2.gltf","Pine_3.gltf","Pine_4.gltf","Pine_5.gltf"]
-		if i%2==0:
+		var broad:=_mix_noise.get_noise_2d(x,z)>0.05
+		if broad and rng.randf()<0.6:
+			pick=source_names.find("CommonTree_%d.gltf"%rng.randi_range(1,5))
+		elif i%2==0:
 			pick=source_names.find(pines[posmod(key.x+key.y+i,5)])
 		elif _off_style(source_names[pick]):
 			pick=source_names.find(pines[rng.randi_range(0,pines.size()-1)])
@@ -328,9 +338,9 @@ func _plan(key: Vector2i) -> Array:
 		if Route.edge_rise(x,z)>38.0 or Route.zone_wall(x,z)>5.0: continue
 		plan.append({"pick":pick,"x":x,"z":z,"yaw":yaw,"scale":Vector3.ONE*size,"tree":"Tree" in source_names[pick] or "Pine" in source_names[pick],"body":i%5==0})
 	# Sottobosco: felci, cespugli, fiori, funghi e ciottoli vicino al terreno.
-	var undergrowth:=["Fern_1.gltf","Pebble_Round_1.gltf","Pebble_Square_2.gltf","Grass_Wispy_Tall.gltf","Grass_Common_Short.gltf"]
+	var undergrowth:=["Fern_1.gltf","Plant_1_Big.gltf","Plant_7_Big.gltf","Grass_Wispy_Tall.gltf","Fern_1.gltf"]
 	# Niente cespugli: né rossi né verdi chiaro, restano felci, erba e sassi.
-	for i in range(26):
+	for i in range(40):
 		var x:=key.x*TILE+rng.randf_range(0,TILE)
 		var z:=key.y*TILE+rng.randf_range(0,TILE)
 		if absf(x)<72 and z> -86: continue
@@ -775,7 +785,7 @@ func _mute_tree(node: Node) -> void:
 			if mat is StandardMaterial3D:
 				if not _mute_cache.has(mat):
 					var copy: StandardMaterial3D = mat.duplicate()
-					copy.albedo_color = copy.albedo_color.lerp(Color(0.20,0.36,0.17),0.80)
+					copy.albedo_color = copy.albedo_color.lerp(Color(0.30,0.46,0.20),0.45)
 					_mute_cache[mat]=copy
 				node.set_surface_override_material(i,_mute_cache[mat])
 	for child in node.get_children():
