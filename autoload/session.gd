@@ -3,7 +3,10 @@ signal roster_changed
 signal status_changed(message: String)
 signal game_started
 signal session_closed
+signal lan_changed
 const PORT := 27831
+## Porta UDP su cui l'host annuncia il campo nella rete locale.
+const LAN_PORT := 27832
 const MAX_PLAYERS := 4
 var online: bool = false
 var playing: bool = false
@@ -12,6 +15,11 @@ var nickname: String = "Survivor"
 var skin: int = 0
 var status: String = "Choose how to play"
 var endpoint_port: int = PORT
+## Partite trovate in LAN: ip -> {name, port, count, seen}.
+var lan_games: Dictionary = {}
+var _beacon: PacketPeerUDP
+var _listener: PacketPeerUDP
+var _beacon_wait := 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -19,6 +27,47 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(func() -> void: leave(Localization.t("Connection failed. Check the address and port.")))
 	multiplayer.server_disconnected.connect(func() -> void: leave(Localization.t("The host closed the session.")))
 	multiplayer.peer_disconnected.connect(_disconnected)
+
+## L'host manda un annuncio al secondo; chi cerca raccoglie gli annunci e scarta quelli vecchi.
+func _process(delta: float) -> void:
+	if _beacon and online and multiplayer.is_server() and not playing:
+		_beacon_wait -= delta
+		if _beacon_wait <= 0.0:
+			_beacon_wait = 1.0
+			_beacon.put_packet(JSON.stringify({"zx":1,"name":nickname,"port":endpoint_port,"count":roster.size()}).to_utf8_buffer())
+	if not _listener: return
+	var changed := false
+	while _listener.get_available_packet_count() > 0:
+		var data = JSON.parse_string(_listener.get_packet().get_string_from_utf8())
+		var ip := _listener.get_packet_ip()
+		if typeof(data) != TYPE_DICTIONARY or data.get("zx") != 1: continue
+		if not lan_games.has(ip): changed = true
+		lan_games[ip] = {"name":str(data.get("name","Survivor")).left(20),"port":int(data.get("port",PORT)),"count":int(data.get("count",1)),"seen":Time.get_ticks_msec()}
+	for ip in lan_games.keys():
+		if Time.get_ticks_msec() - lan_games[ip].seen > 3500:
+			lan_games.erase(ip)
+			changed = true
+	if changed: lan_changed.emit()
+
+## Accende o spegne la ricerca delle partite in LAN (pagina "Unisciti").
+func lan_search(on: bool) -> void:
+	if on == (_listener != null): return
+	lan_games.clear()
+	if on:
+		_listener = PacketPeerUDP.new()
+		if _listener.bind(LAN_PORT) != OK: _listener = null
+	else:
+		_listener.close()
+		_listener = null
+
+func _lan_announce(on: bool) -> void:
+	if _beacon: _beacon.close()
+	_beacon = null
+	if not on: return
+	_beacon = PacketPeerUDP.new()
+	_beacon.set_broadcast_enabled(true)
+	_beacon.set_dest_address("255.255.255.255", LAN_PORT)
+	_beacon_wait = 0.0
 
 func info(message: String) -> void:
 	status = message
@@ -36,6 +85,7 @@ func host(port: int = PORT) -> Error:
 	multiplayer.server_relay = false
 	online = true
 	roster[1] = {"name":nickname.left(20),"skin":skin,"ready":true}
+	_lan_announce(true)
 	info(Localization.t("Camp open / UDP {0}", [port]))
 	roster_changed.emit()
 	return OK
@@ -142,6 +192,7 @@ func launch() -> bool:
 				info(Localization.t("Wait until every survivor is ready."))
 				return false
 		multiplayer.multiplayer_peer.refuse_new_connections = true
+		_lan_announce(false)
 		for id in connected_peers(): begin.rpc_id(id)
 		begin()
 	else: begin()
@@ -159,6 +210,7 @@ func _disconnected(id: int) -> void:
 
 func leave(message: String = "Session closed") -> void:
 	var was_playing := playing
+	_lan_announce(false)
 	online = false
 	playing = false
 	if multiplayer.multiplayer_peer: multiplayer.multiplayer_peer.close()
