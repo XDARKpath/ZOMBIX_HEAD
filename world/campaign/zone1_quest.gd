@@ -81,11 +81,16 @@ func _check_ready() -> void:
 ## Fine del dialogo con lo sceriffo.
 func talk(actor: CharacterBody3D) -> void:
 	if not authority(): return
+	# L'arma presa dal tavolo o comprata altrove vale come "arma vera": con 5 teste l'esca arriva subito.
+	if stage == MORE_AND_WEAPON and actor.owned.any(func(w): return w != "axe"):
+		weapon_bought = true
+		_check_ready()
 	match stage:
 		TALK:
 			_go(KILL_TWO)
 		GET_BAIT:
 			actor.baits += 1
+			if world.get("survival"): world.survival.gesture(actor, "give")
 			_go(FOREST_BOSS)
 			world.announce(Localization.t("HAI L'ESCA · Accendila sull'altare di pietra nella radura del bosco"), 7)
 		FOREST_BOSS, VILLAGE_BOSS:

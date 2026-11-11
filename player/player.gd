@@ -46,6 +46,12 @@ var equipped:String="axe"
 # Zaino a slot come in How to Fish: si parte con quattro posti e se ne comprano
 # altri dall'armeria. Ogni arma occupa uno slot.
 var inventory_slots:int=4
+# Potenziamenti comprati nei negozi, come lo zaino: {zona: quanti}, al massimo UPGRADES_PER_ZONE per zona.
+const UPGRADES_PER_ZONE:=2
+const HEALTH_PER_UPGRADE:=15.0
+const STAMINA_PER_UPGRADE:=15.0
+var health_ups:Dictionary={}
+var stamina_ups:Dictionary={}
 var magazine:int=8
 # Colpi rimasti nelle armi da fuoco che non si hanno in mano (ognuna ha il suo caricatore).
 var mags:Dictionary={}
@@ -160,7 +166,7 @@ func _physics_process(delta: float) -> void:
 			if stamina <= 0:
 				exhausted = true
 	if not dodging and not sprinting and regen_delay <= 0:
-		stamina = minf(Balance.PLAYER_MAX_STAMINA, stamina + Balance.STAMINA_REGEN * delta)
+		stamina = minf(max_stamina(), stamina + Balance.STAMINA_REGEN * delta)
 	if not is_on_floor():
 		velocity.y -= Balance.GRAVITY * delta
 	elif velocity.y<=0:
@@ -272,8 +278,8 @@ func reset_at(point: Vector3) -> void:
 	velocity = Vector3.ZERO
 	if status: status.clear_all()
 	knock_left = 0.0
-	health = Balance.PLAYER_MAX_HEALTH
-	stamina = Balance.PLAYER_MAX_STAMINA
+	health = max_health()
+	stamina = max_stamina()
 	dead = false
 	sprinting = false
 	exhausted = false
@@ -404,7 +410,16 @@ func remove_one(id:String) -> void:
 func has_thing(id:String) -> bool:
 	return items.has(id) or owned.has(id)
 func reset_inventory() -> void:
-	credits=0;carried_heads=0;baits=0;heads_delivered=0;baits_earned=0;owned=["axe"];items={};hotbar.assign(["axe","","","","","","","",""]);slot=0;equipped="axe";magazine=8;mags={};arrows=0;reload_left=0;inventory_slots=4
+	credits=0;carried_heads=0;baits=0;heads_delivered=0;baits_earned=0;owned=["axe"];items={};hotbar.assign(["axe","","","","","","","",""]);slot=0;equipped="axe";magazine=8;mags={};arrows=0;reload_left=0;inventory_slots=4;health_ups={};stamina_ups={}
+
+func _ups(table:Dictionary) -> int:
+	var n:=0
+	for zone in table:n+=int(table[zone])
+	return n
+func max_health() -> float:
+	return Balance.PLAYER_MAX_HEALTH+HEALTH_PER_UPGRADE*_ups(health_ups)
+func max_stamina() -> float:
+	return Balance.PLAYER_MAX_STAMINA+STAMINA_PER_UPGRADE*_ups(stamina_ups)
 
 func free_slot() -> bool:
 	return owned.size() < inventory_slots
