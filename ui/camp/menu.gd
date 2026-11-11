@@ -1,14 +1,28 @@
 # CampMenu (Control) sotto Interface/CanvasLayer; costruisce UI nativa e riutilizzabile.
+# Stile: titolo grande a sinistra e pulsanti a cornice chiara in basso a sinistra (home);
+# Opzioni a schede in un pannello semitrasparente, righe scure a tutta larghezza (Grafica).
+# Mouse, tastiera e controller: focus visibile, Esc / B per tornare indietro.
 extends Control
-const FireButton := preload("res://ui/camp/fire_button.gd")
+const MenuChoice := preload("res://ui/camp/menu_choice.gd")
 const TYPE := preload("res://art/fonts/BarlowCondensed-Regular.ttf")
 const DISPLAY := preload("res://art/fonts/BarlowCondensed-SemiBold.ttf")
 const LOGO_TEXTURE := "res://art/zx_logo/T_ZX_Logo.png"
+const FRAME := Color("ece6d6")
+const TEXT := Color("ece6d6")
+const MUTED := Color(0.70,0.72,0.67,0.85)
+const ACCENT := Color("ffb703")
+const PANEL_BG := Color(0.03,0.045,0.04,0.66)
+const ROW_BG := Color(0.02,0.025,0.025,0.72)
+const TABS := [["game","GAME"],["graphics","GRAPHICS"],["audio","AUDIO"],["controls","CONTROLS"],["language","LANGUAGE"]]
+const KEYS := [["WASD","Move"],["MOUSE","First-person look"],["SHIFT","Sprint"],["SPACE","Jump"],["CTRL (hold)","Crouch"],["CLICK / HOLD","Strike / charged strike"],["E","Collect / activate"],["ESC","Pause menu"]]
+const CREDITS := [["A GAME BY","The ZOMBIX HEAD team"],["ENGINE","Godot Engine 4.5 · MIT license"],["FONT","Barlow Condensed · SIL Open Font License 1.1"],["ART","Original models and textures, CC0 assets"],["SOUND","CC0 sound libraries"],["THANKS","Everyone who sat by the fire and tested the camp"]]
 var world: Node3D
 var page: String = "home"
+var tab: String = "game"
 var page_root: Control
 var menu_list: VBoxContainer
 var status_label: Label
+var version_label: Label
 var roster_label: Label
 var ready_button: Button
 var context_label: Label
@@ -18,11 +32,10 @@ var graphics_pending: Dictionary = {}
 var graphics_status: Label
 var graphics_dirty := false
 var page_tween: Tween
-var context_tween: Tween
 var click_sound: AudioStreamPlayer
 var hover_sound: AudioStreamPlayer
-var language_return: String = "options"
 var connection_hosting: bool = true
+var keyboard_nav := false
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
@@ -47,21 +60,8 @@ func build(owner_world: Node3D) -> void:
 	page_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	page_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(page_root)
-	var version := _text(self,Localization.t("BUILD {0}  /  LAGO CENERE", [ProjectSettings.get_setting("application/config/version")]),Vector2.ZERO,15,Color(0.69,0.78,0.75,0.65))
-	version.name = "BuildBadge"
-	version.hide()
-	version.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	version.position = Vector2(1080,38)
-	version.size.x = 280
-	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	var badge := _text(self,Localization.t("CO-OP  /  UP TO 4 PLAYERS"),Vector2(79,852),15,Color(0.69,0.78,0.75,0.65))
-	badge.name = "CoopBadge"
-	badge.hide()
-	status_label = _text(self,"",Vector2(560,852),15,Color("b0bdb2"))
-	status_label.name = "SessionStatus"
-	status_label.size.x = 800
-	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	status_label.clip_text = true
+	version_label = _corner_label("VersionLabel",-44,MUTED)
+	status_label = _corner_label("SessionStatus",-72,Color("b0bdb2"))
 	var embers := Control.new()
 	embers.name = "ForegroundEmbers"
 	embers.set_script(preload("res://ui/camp/menu_embers.gd"))
@@ -81,81 +81,73 @@ func build(owner_world: Node3D) -> void:
 	Localization.language_changed.connect(func(_code: String) -> void: _rebuild_page())
 	home()
 
+## Etichetta in basso a destra (versione, stato della sessione).
+func _corner_label(node_name: String, top: float, color: Color) -> Label:
+	var node := _text(self,"",Vector2.ZERO,17,color)
+	node.name = node_name
+	node.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	node.offset_left = -720
+	node.offset_right = -30
+	node.offset_top = top
+	node.offset_bottom = top+26
+	node.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	node.clip_text = true
+	return node
+
 ## Rifà la pagina aperta: i testi passano di nuovo da Localization.t nella nuova lingua.
 func _rebuild_page() -> void:
-	var badge: Label = get_node_or_null("BuildBadge")
-	if badge: badge.text = Localization.t("BUILD {0}  /  LAGO CENERE", [ProjectSettings.get_setting("application/config/version")])
-	var coop: Label = get_node_or_null("CoopBadge")
-	if coop: coop.text = Localization.t("CO-OP  /  UP TO 4 PLAYERS")
 	match page:
-		"multiplayer": network_menu()
-		"options": options_menu()
-		"settings": settings()
-		"graphics":
-			# Le scelte non ancora applicate restano dopo il cambio lingua.
+		"options":
+			# Le scelte grafiche non ancora applicate restano dopo il cambio lingua.
 			var pending := graphics_pending.duplicate()
 			var dirty := graphics_dirty
-			graphics()
-			_restore_graphics_pending(pending, dirty)
-		"language": language(language_return)
-		"controls": controls()
+			options_menu(tab)
+			if tab == "graphics": _restore_graphics_pending(pending,dirty)
+		"multiplayer": network_menu()
+		"credits": credits()
 		"skins": skins()
 		"connect": connection(connection_hosting)
 		_: home()
 
-func clear(title: String, subtitle: String = "") -> void:
+func clear(title: String, centered: bool = false) -> void:
 	ready_button = null
 	roster_label = null
-	context_label = null
 	graphics_status = null
 	menu_list = null
 	entries.clear()
+	graphics_controls.clear()
 	if page_tween: page_tween.kill()
-	if context_tween: context_tween.kill()
 	for child in page_root.get_children():
 		page_root.remove_child(child)
 		child.queue_free()
-	var titles := VBoxContainer.new()
-	titles.name = "TitleBlock"
-	titles.position = Vector2(78,57)
-	titles.size.x = 360
-	titles.add_theme_constant_override("separation",-9)
-	page_root.add_child(titles)
 	if title == "ZOMBIX HEAD" and ResourceLoader.exists(LOGO_TEXTURE):
-		# Logo 3D stile POLYGON (art/zx_logo/T_ZX_Logo.png, renderizzato da SM_ZX_Logo.glb).
 		var art := TextureRect.new()
 		art.name = "ZombixLogo"
 		art.texture = load(LOGO_TEXTURE)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size = Vector2(330, 158)
+		art.position = Vector2(34,26)
+		art.size = Vector2(600,288)
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		titles.add_child(art)
-	elif title == "ZOMBIX HEAD":
-		var logo := _text(titles,"ZOMBIX",Vector2.ZERO,96,Color("e7dfcc"))
-		logo.name = "ZombixWordmark"
-		logo.add_theme_font_override("font",DISPLAY)
-		logo.add_theme_constant_override("shadow_offset_x",3)
-		logo.add_theme_constant_override("shadow_offset_y",5)
-		var ink := ShaderMaterial.new()
-		ink.shader = preload("res://ui/camp/logo_ink.gdshader")
-		logo.material = ink
-		var head := _text(titles,"H E A D",Vector2.ZERO,42,Color("c7a579"))
-		head.name = "HeadWordmark"
-		head.add_theme_font_override("font",DISPLAY)
-		head.material = ink
-	else:
-		var heading := _text(titles,title,Vector2.ZERO,64 if title.length()<12 else 51,Color("e7dfcc"))
+		page_root.add_child(art)
+	elif centered:
+		var heading := _text(page_root,title,Vector2.ZERO,64,TEXT)
+		heading.name = "Title"
 		heading.add_theme_font_override("font",DISPLAY)
-	if not subtitle.is_empty(): label(subtitle,Vector2(81,220),15,Color(0.76,0.69,0.57,0.78))
-	context_label = label("",Vector2(109,755),20,Color("c2b39b"))
-	context_label.name = "ContextHint"
-	context_label.size = Vector2(350,66)
-	context_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	context_label.modulate.a = 0
+		heading.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		heading.offset_left = -400
+		heading.offset_right = 400
+		heading.offset_top = 26
+		heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	else:
+		var heading := _text(page_root,"ZOMBIX" if title == "ZOMBIX HEAD" else title,Vector2(60,40),104,TEXT)
+		heading.name = "Title"
+		heading.add_theme_font_override("font",DISPLAY)
+		heading.add_theme_constant_override("shadow_offset_y",5)
+	version_label.text = Localization.t("VERSION {0}",[ProjectSettings.get_setting("application/config/version")]) if page == "home" else ""
 	page_root.modulate.a = 0
 	page_tween = create_tween()
-	page_tween.tween_property(page_root,"modulate:a",1.0,0.22).set_trans(Tween.TRANS_SINE)
+	page_tween.tween_property(page_root,"modulate:a",1.0,0.18).set_trans(Tween.TRANS_SINE)
 
 func _text(parent: Node, value: String, at: Vector2, font_size: int, color: Color) -> Label:
 	var node := Label.new()
@@ -169,149 +161,148 @@ func _text(parent: Node, value: String, at: Vector2, font_size: int, color: Colo
 	parent.add_child(node)
 	return node
 
-func label(value: String, at: Vector2, font_size: int, color: Color = Color("d4d6c9")) -> Label:
+func label(value: String, at: Vector2, font_size: int, color: Color = TEXT) -> Label:
 	return _text(page_root,value,at,font_size,color)
 
-func button(title: String, _y: float, callback: Callable, description: String = "", parent: Container = null, width: float = 370.0) -> Button:
-	var host: Container = parent if parent else _menu_container()
-	var slot := Control.new()
-	slot.name = "ButtonSlot%d" % entries.size()
-	slot.custom_minimum_size = Vector2(width,51)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_child(slot)
+func _box(bg: Color, border: Color, width: int) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = bg
+	box.border_color = border
+	box.set_border_width_all(width)
+	box.set_corner_radius_all(3)
+	box.content_margin_left = 14
+	box.content_margin_right = 14
+	return box
+
+## Pulsante a cornice chiara: hover e focus accendono bordo e testo ambra.
+func button(title: String, callback: Callable, parent: Node = null, width: float = 300.0, height: float = 52.0) -> Button:
 	var node := Button.new()
-	node.set_script(FireButton)
 	node.name = title.to_pascal_case()
 	node.text = Localization.t(title)
-	node.description = description
-	node.size = Vector2(width-20,51)
-	slot.add_child(node)
-	entries.append(node)
-	node.highlighted.connect(func(info: String) -> void:
-		_set_context(info)
+	node.custom_minimum_size = Vector2(width,height)
+	node.focus_mode = Control.FOCUS_ALL
+	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	node.add_theme_font_override("font",DISPLAY)
+	node.add_theme_font_size_override("font_size",27 if height >= 50 else 22)
+	node.add_theme_stylebox_override("normal",_box(Color(0.02,0.03,0.03,0.38),Color(FRAME,0.9),2))
+	node.add_theme_stylebox_override("hover",_box(Color(0.93,0.90,0.82,0.16),ACCENT,2))
+	node.add_theme_stylebox_override("pressed",_box(Color(1,0.72,0.1,0.28),ACCENT,2))
+	node.add_theme_stylebox_override("focus",_box(Color(0,0,0,0),ACCENT,3))
+	node.add_theme_stylebox_override("disabled",_box(Color(0.02,0.03,0.03,0.25),Color(FRAME,0.3),2))
+	node.add_theme_color_override("font_color",TEXT)
+	for state in ["font_hover_color","font_focus_color","font_hover_pressed_color"]: node.add_theme_color_override(state,ACCENT)
+	node.add_theme_color_override("font_pressed_color",Color.WHITE)
+	node.add_theme_color_override("font_disabled_color",Color(MUTED,0.4))
+	node.mouse_entered.connect(func() -> void:
 		if hover_sound and not node.disabled: hover_sound.play())
-	node.unhighlighted.connect(func() -> void:
-		var hot := false
-		for entry in entries:
-			if entry.pointer_inside or entry.has_focus(): hot = true
-		if not hot: _set_context(""))
 	node.pressed.connect(func() -> void:
 		if click_sound:
 			click_sound.pitch_scale = randf_range(0.93,1.06)
 			click_sound.play()
 		callback.call_deferred())
-	_link_focus()
+	(parent if parent else _menu_container()).add_child(node)
+	entries.append(node)
 	return node
 
-## Contenitore verticale del menu, creato alla prima voce.
+## Colonna dei pulsanti in basso a sinistra.
 func _menu_container() -> VBoxContainer:
 	if not menu_list:
 		menu_list = VBoxContainer.new()
 		menu_list.name = "MenuList"
-		menu_list.position = Vector2(78,294)
-		menu_list.size.x = 370
-		menu_list.add_theme_constant_override("separation",9)
+		menu_list.add_theme_constant_override("separation",12)
+		menu_list.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		menu_list.offset_left = 60
+		menu_list.offset_bottom = -46
+		menu_list.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		page_root.add_child(menu_list)
 	return menu_list
 
-## Riga orizzontale dentro la lista verticale: le voci restano nello stesso elenco
-## e mantengono focus e navigazione, ma vengono disposte affiancate.
-func button_row(separation: int = 8) -> HBoxContainer:
+## Riga orizzontale dentro la colonna (es. PRECEDENTE / SUCCESSIVO).
+func button_row(separation: int = 12) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.name = "ButtonRow"
 	row.add_theme_constant_override("separation",separation)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_menu_container().add_child(row)
 	return row
 
-func _link_focus() -> void:
-	# Raggruppa le voci per riga: in una VBox ogni pulsante è una riga,
-	# mentre i pulsanti dentro un'HBox condividono la stessa riga orizzontale.
-	var rows: Array = []
-	for entry in entries:
-		var slot: Node = entry.get_parent()
-		var host: Node = slot.get_parent()
-		var key: Node = host if host is HBoxContainer else slot
-		var row: Array = []
-		for candidate in entries:
-			var candidate_slot: Node = candidate.get_parent()
-			var candidate_host: Node = candidate_slot.get_parent()
-			var candidate_key: Node = candidate_host if candidate_host is HBoxContainer else candidate_slot
-			if candidate_key == key: row.append(candidate)
-		if not rows.has(row): rows.append(row)
-	for r in range(rows.size()):
-		var row: Array = rows[r]
-		for c in range(row.size()):
-			var entry: Button = row[c]
-			var above: Button = rows[(r-1+rows.size())%rows.size()][0]
-			var below: Button = rows[(r+1)%rows.size()][0]
-			entry.focus_neighbor_top = entry.get_path_to(above)
-			entry.focus_neighbor_bottom = entry.get_path_to(below)
-			if row.size() > 1:
-				entry.focus_neighbor_left = entry.get_path_to(row[(c-1+row.size())%row.size()])
-				entry.focus_neighbor_right = entry.get_path_to(row[(c+1)%row.size()])
-			else:
-				entry.focus_neighbor_left = NodePath()
-				entry.focus_neighbor_right = NodePath()
+## Indietro in basso a destra, con il tasto che lo richiama.
+func back_button(callback: Callable) -> Button:
+	var node := button("[Esc]  BACK",callback,page_root,230,52)
+	node.name = "Back"
+	node.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	node.offset_left = -290
+	node.offset_right = -60
+	node.offset_top = -98
+	node.offset_bottom = -46
+	return node
 
-func _set_context(value: String) -> void:
-	if page == "home":return
-	if not is_instance_valid(context_label): return
-	if context_tween: context_tween.kill()
-	if not value.is_empty(): context_label.text = Localization.t(value)
-	context_tween = create_tween()
-	context_tween.tween_property(context_label,"modulate:a",0.0 if value.is_empty() else 1.0,0.18)
+func go_back() -> void:
+	match page:
+		_: home()
+
+func _focus_first(preferred: Control = null) -> void:
+	if not keyboard_nav or entries.is_empty(): return
+	var target: Control = preferred if preferred else entries[0]
+	target.grab_focus.call_deferred()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion: keyboard_nav = false
+	elif event is InputEventKey or event is InputEventJoypadButton or event is InputEventJoypadMotion: keyboard_nav = true
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not is_visible_in_tree() or entries.is_empty(): return
-	if (event.is_action_pressed("ui_down") or event.is_action_pressed("ui_up")) and not get_viewport().gui_get_focus_owner():
-		var candidates := entries.duplicate()
-		if event.is_action_pressed("ui_up"): candidates.reverse()
-		for candidate in candidates:
-			if not candidate.disabled:
-				candidate.grab_focus()
-				break
+	if not is_visible_in_tree(): return
+	if page != "home" and (event.is_action_pressed("pause") or event.is_action_pressed("ui_cancel")):
+		go_back()
 		get_viewport().set_input_as_handled()
+		return
+	if entries.is_empty(): return
+	for action in ["ui_down","ui_up","ui_left","ui_right"]:
+		if event.is_action_pressed(action) and not get_viewport().gui_get_focus_owner():
+			for candidate in entries:
+				if not candidate.disabled:
+					candidate.grab_focus()
+					break
+			get_viewport().set_input_as_handled()
+			return
 
 func home() -> void:
 	page = "home"
-	clear("ZOMBIX HEAD" if not world.started else "PAUSED","")
+	clear("PAUSED" if world.started else "ZOMBIX HEAD")
 	if world.started:
-		label("Your squad keeps moving while you pause." if Session.online else "The woods can wait a moment.",Vector2(81,258),19)
-		menu_list = null
-		button("RESUME",300,func() -> void: world.set_paused(false))
-		button("SETTINGS",360,settings)
-		button("CONTROLS",420,controls)
-		button("RETURN TO CAMP",480,world.leave_game)
+		label("Your squad keeps moving while you pause." if Session.online else "The woods can wait a moment.",Vector2(66,168),22,MUTED)
+		button("RESUME",func() -> void: world.set_paused(false))
+		button("OPTIONS",options_menu)
+		button("RETURN TO CAMP",world.leave_game)
+	elif Session.online:
+		button("START EXPEDITION" if multiplayer.is_server() else "WAITING FOR HOST",func() -> void: Session.launch()).disabled = not multiplayer.is_server()
+		ready_button = button("READY UP",_toggle_ready)
+		button("CHARACTER",skins)
+		button("OPTIONS",options_menu)
+		if multiplayer.is_server():
+			button("COPY LOCAL ADDRESS",func() -> void:
+				DisplayServer.clipboard_set(Session.local_address())
+				Session.info(Localization.t("Local address copied / UDP {0}", [Session.endpoint_port])))
+		button("LEAVE LOBBY",func() -> void: Session.leave(); home())
 	else:
-		if Session.online:
-			button("START EXPEDITION" if multiplayer.is_server() else "WAITING FOR HOST",0,func() -> void: Session.launch()).disabled = not multiplayer.is_server()
-			ready_button = button("READY UP",0,_toggle_ready)
-			button("CHARACTER",0,skins)
-			button("SETTINGS",0,settings)
-			button("LEAVE LOBBY",0,func() -> void: Session.leave(); home())
-			if multiplayer.is_server():
-				button("COPY LOCAL ADDRESS",0,func() -> void:
-					DisplayServer.clipboard_set(Session.local_address())
-					Session.info(Localization.t("Local address copied / UDP {0}", [Session.endpoint_port])))
-			else: button("CONTROLS",0,controls)
-		else:
-			if not world.automated and SaveManager.has_save():
-				button("CONTINUE",0,func() -> void: world.continue_save())
-			button("PLAY",0,func() -> void: Session.launch())
-			button("MULTIPLAYER",0,network_menu)
-			button("CHARACTER",0,skins)
-			button("OPTIONS",0,options_menu)
-		button("EXIT GAME",0,func() -> void: Session.leave(); get_tree().quit())
-		roster_label = label("",Vector2(600,790),17,Color(0.72,0.78,0.72,0.65))
-		roster_label.name = "CampRoster"
-		roster_label.size = Vector2(740,70)
+		if not world.automated and SaveManager.has_save():
+			button("CONTINUE",func() -> void: world.continue_save())
+		button("PLAY",func() -> void: Session.launch())
+		button("HOST GAME",func() -> void: connection(true))
+		button("JOIN GAME",func() -> void: connection(false))
+		button("CHARACTER",skins)
+		button("OPTIONS",options_menu)
+		button("CREDITS",credits)
+		button("QUIT",func() -> void: Session.leave(); get_tree().quit())
+	roster_label = label("",Vector2(420,770),17,Color(0.72,0.78,0.72,0.75))
+	roster_label.name = "CampRoster"
+	roster_label.size = Vector2(740,70)
 	refresh()
+	_focus_first()
 
 func refresh() -> void:
 	if status_label:
 		status_label.text = "" if Session.status in ["Choose how to play","Session closed"] else Localization.t(Session.status)
-	if roster_label:
+	if roster_label and is_instance_valid(roster_label):
 		if Session.online:
 			var text := Localization.t("CONNECTED  {0} / 4\n", [Session.roster.size()])
 			var index := 0
@@ -320,14 +311,12 @@ func refresh() -> void:
 				text += "%s · %s     " % [profile.name,Localization.t("READY" if profile.ready else "PREPARING")]
 				index += 1
 				if index%2==0: text += "\n"
-			roster_label.position.y = 755
+			if multiplayer.is_server(): text += Localization.t("LOCAL  {0}  /  UDP {1}", [Session.local_address(),Session.endpoint_port])
 			roster_label.text = text
-			if multiplayer.is_server(): roster_label.text += Localization.t("LOCAL  {0}  /  UDP {1}", [Session.local_address(),Session.endpoint_port])
 		else: roster_label.text = ""
-	if ready_button and Session.roster.has(multiplayer.get_unique_id()):
+	if ready_button and is_instance_valid(ready_button) and Session.roster.has(multiplayer.get_unique_id()):
 		var ready: bool = Session.roster[multiplayer.get_unique_id()].ready
 		ready_button.text = Localization.t("READY" if ready else "READY UP")
-		ready_button.selected = ready
 
 func _toggle_ready() -> void:
 	if Session.roster.has(multiplayer.get_unique_id()): Session.set_ready(not Session.roster[multiplayer.get_unique_id()].ready)
@@ -335,171 +324,325 @@ func _toggle_ready() -> void:
 func field(at: Vector2, value: String, placeholder: String) -> LineEdit:
 	var line := LineEdit.new()
 	line.position = at
-	line.size = Vector2(330,42)
+	line.size = Vector2(380,46)
 	line.text = value
 	line.placeholder_text = Localization.t(placeholder)
 	line.max_length = 64
 	line.add_theme_font_size_override("font_size",22)
-	var base := StyleBoxFlat.new()
-	base.bg_color = Color(0.05,0.07,0.065,0.35)
-	base.border_width_bottom = 1
-	base.border_color = Color("8a8977")
-	base.content_margin_left = 8
-	line.add_theme_stylebox_override("normal",base)
-	var focus := base.duplicate()
-	focus.border_color = Color("ffb703")
-	line.add_theme_stylebox_override("focus",focus)
+	line.add_theme_stylebox_override("normal",_box(ROW_BG,Color(FRAME,0.6),2))
+	line.add_theme_stylebox_override("focus",_box(Color(0,0,0,0),ACCENT,3))
 	page_root.add_child(line)
 	return line
 
 func connection(hosting: bool) -> void:
 	page = "connect"
 	connection_hosting = hosting
-	clear("HOST GAME" if hosting else "JOIN FRIENDS","A FIRE IS BETTER SHARED")
-	label("SURVIVOR NAME",Vector2(81,270),16)
-	var username := field(Vector2(81,297),Session.nickname,"Your name")
+	clear("HOST GAME" if hosting else "JOIN GAME")
+	label("A FIRE IS BETTER SHARED",Vector2(66,168),20,MUTED)
+	label("SURVIVOR NAME",Vector2(66,230),18)
+	var username := field(Vector2(66,258),Session.nickname,"Your name")
 	username.max_length = 20
-	label("PORT",Vector2(81,365),16)
+	label("PORT",Vector2(66,326),18)
 	var port := SpinBox.new()
-	port.position = Vector2(81,392)
-	port.size = Vector2(330,42)
+	port.position = Vector2(66,354)
+	port.size = Vector2(380,46)
 	port.min_value = 1024
 	port.max_value = 65535
 	port.value = Session.PORT
 	page_root.add_child(port)
 	var address: LineEdit
 	if not hosting:
-		label("HOST ADDRESS",Vector2(81,460),16)
-		address = field(Vector2(81,487),"","e.g. 192.168.1.10")
-	else: label("Friends connect using your address\nand the port above.",Vector2(81,466),21)
-	button("OPEN CAMP" if hosting else "CONNECT",0,func() -> void:
+		label("HOST ADDRESS",Vector2(66,422),18)
+		address = field(Vector2(66,450),"","e.g. 192.168.1.10")
+	else: label("Friends connect using your address\nand the port above.",Vector2(66,428),21,MUTED)
+	label("DIRECT CONNECTION / NO ACCOUNT\nInternet play requires a reachable host UDP port.",Vector2(66,530),17,MUTED)
+	button("OPEN CAMP" if hosting else "CONNECT",func() -> void:
 		Session.profile(username.text,Session.skin)
 		world._save_preferences()
 		var result: Error = Session.host(int(port.value)) if hosting else Session.join(address.text,int(port.value))
 		if result==OK:
 			get_tree().paused = false
 			home())
-	button("BACK",0,home)
-	menu_list.position.y = 580
-	label("DIRECT CONNECTION / NO ACCOUNT\nInternet play requires a reachable host UDP port.",Vector2(81,746),17,Color("b4b8a9"))
+	back_button(home)
+	_focus_first()
 
 func skins() -> void:
 	page = "skins"
-	clear("CHARACTER","WHO WILL YOU BRING INTO THE DARK?")
-	# Dieci skin del ZX Player: il personaggio al falò cambia subito.
+	clear("CHARACTER")
+	label("WHO WILL YOU BRING INTO THE DARK?",Vector2(66,168),20,MUTED)
 	var names: Array = preload("res://ui/camp/camp.gd").NAMES
 	var count: int = names.size()
-	label("%02d / %02d" % [Session.skin+1,count],Vector2(81,252),15,Color("ffb703"))
-	label(str(names[Session.skin]),Vector2(81,272),40)
-	label(str(preload("res://art/zx_player/zx_player.gd").SKINS[Session.skin][1]),Vector2(81,326),19,Color(0.82,0.84,0.78,0.85))
-	var card := button_row()
-	var previous := button("◀  PREVIOUS",0,func() -> void: world.choose_skin(posmod(Session.skin-1,count)); skins(),"",card,181)
-	var next := button("NEXT  ▶",0,func() -> void: world.choose_skin(posmod(Session.skin+1,count)); skins(),"",card,181)
-	for entry in [previous,next]: entry.add_theme_font_size_override("font_size",26)
-	button("BACK",0,home)
-	menu_list.position.y = 400
+	label("%02d / %02d" % [Session.skin+1,count],Vector2(66,232),17,ACCENT)
+	label(str(names[Session.skin]),Vector2(66,254),44)
+	label(str(preload("res://art/zx_player/zx_player.gd").SKINS[Session.skin][1]),Vector2(66,312),20,MUTED)
+	var row := button_row()
+	button("◀  PREVIOUS",func() -> void: world.choose_skin(posmod(Session.skin-1,count)); skins(),row,180)
+	button("NEXT  ▶",func() -> void: world.choose_skin(posmod(Session.skin+1,count)); skins(),row,180)
+	back_button(home)
+	_focus_first()
 
-func settings() -> void:
-	page = "settings"
-	clear("SETTINGS","MAKE THE NIGHT YOUR OWN")
-	label("EFFECTS VOLUME",Vector2(81,270),18)
-	slider("volume",Vector2(81,308),0,100,1)
-	label("LOOK SENSITIVITY",Vector2(81,365),18)
-	slider("sensitivity",Vector2(81,403),0.3,2,0.05)
-	check("Blood effects","blood",469)
-	label("DISPLAY AND VISUAL QUALITY ARE IN\nOPTIONS  ›  GRAPHICS.",Vector2(81,540),19,Color("b4b8a9"))
-	button("GRAPHICS",0,graphics)
-	button("%s  ·  %s" % [Localization.t("LANGUAGE"), Localization.language_name()],0,func() -> void: language("settings"))
-	button("BACK",0,_options_or_home)
-	menu_list.position.y = 610
-	context_label.hide()
+func network_menu() -> void:
+	page = "multiplayer"
+	clear("MULTIPLAYER")
+	button("HOST GAME",func() -> void: connection(true))
+	button("JOIN GAME",func() -> void: connection(false))
+	back_button(home)
+	_focus_first()
 
-func slider(key: String, at: Vector2, minimum: float, maximum: float, step: float) -> void:
+func credits() -> void:
+	page = "credits"
+	clear("CREDITS",true)
+	var panel := _panel(Vector2(900,560),110)
+	var list := VBoxContainer.new()
+	list.alignment = BoxContainer.ALIGNMENT_CENTER
+	list.add_theme_constant_override("separation",6)
+	panel.add_child(list)
+	var logo := _text(list,"ZOMBIX HEAD",Vector2.ZERO,46,TEXT)
+	logo.add_theme_font_override("font",DISPLAY)
+	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	for line in CREDITS:
+		var head := _text(list,line[0],Vector2.ZERO,18,ACCENT)
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		head.add_theme_font_override("font",DISPLAY)
+		var body := _text(list,line[1],Vector2.ZERO,24,TEXT)
+		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	back_button(home)
+	_focus_first()
+
+## Pannello semitrasparente con cornice chiara, centrato in orizzontale.
+func _panel(size_px: Vector2, top: float) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.name = "Panel"
+	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	panel.offset_left = -size_px.x/2
+	panel.offset_right = size_px.x/2
+	panel.offset_top = top
+	panel.offset_bottom = top+size_px.y
+	var box := _box(PANEL_BG,Color(FRAME,0.85),2)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 14
+	box.content_margin_bottom = 14
+	panel.add_theme_stylebox_override("panel",box)
+	page_root.add_child(panel)
+	return panel
+
+# ------------------------------------------------------------------ opzioni a schede
+func options_menu(which: String = "") -> void:
+	if not which.is_empty(): tab = which
+	page = "options"
+	clear("OPTIONS",true)
+	var tabs := HBoxContainer.new()
+	tabs.name = "Tabs"
+	tabs.add_theme_constant_override("separation",10)
+	tabs.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	tabs.offset_left = -600
+	tabs.offset_right = 600
+	tabs.offset_top = 112
+	page_root.add_child(tabs)
+	var active: Button
+	for entry in TABS:
+		var key: String = entry[0]
+		var node := button(entry[1],func() -> void: options_menu(key),tabs,232,48)
+		node.name = "Tab" + key.to_pascal_case()
+		if key == tab:
+			active = node
+			node.add_theme_stylebox_override("normal",_box(Color(0.93,0.90,0.82,0.24),Color(FRAME,1.0),3))
+	var panel := _panel(Vector2(1200,588),172)
+	var body := VBoxContainer.new()
+	body.name = "TabBody"
+	body.add_theme_constant_override("separation",6)
+	panel.add_child(body)
+	match tab:
+		"game": _game_tab(body)
+		"graphics": _graphics_tab(body)
+		"audio": _audio_tab(body)
+		"controls": _controls_tab(body)
+		"language": _language_tab(body)
+	back_button(home)
+	_focus_first(active)
+
+## Vecchi punti d'ingresso: aprono la scheda giusta.
+func settings() -> void: options_menu("game")
+func graphics() -> void: options_menu("graphics")
+func controls() -> void: options_menu("controls")
+func language(_return_to: String = "") -> void: options_menu("language")
+
+func _section(parent: Control, title: String) -> void:
+	var node := _text(parent,title,Vector2.ZERO,32,TEXT)
+	node.add_theme_font_override("font",DISPLAY)
+	node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	node.custom_minimum_size.y = 50
+
+## Riga scura a tutta larghezza: etichetta maiuscola a sinistra, controllo a destra.
+func _row(parent: Control, title: String) -> HBoxContainer:
+	var panel := PanelContainer.new()
+	var box := _box(ROW_BG,Color(0,0,0,0),0)
+	box.content_margin_left = 22
+	box.content_margin_right = 22
+	box.content_margin_top = 4
+	box.content_margin_bottom = 4
+	panel.add_theme_stylebox_override("panel",box)
+	panel.custom_minimum_size.y = 46
+	parent.add_child(panel)
+	var row := HBoxContainer.new()
+	panel.add_child(row)
+	var name_label := _text(row,title,Vector2.ZERO,20,TEXT)
+	name_label.add_theme_font_override("font",DISPLAY)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return row
+
+func _choice(parent: Control, title: String, items: Array, selected: int, callback: Callable, key: String) -> MenuChoice:
+	var control := MenuChoice.new()
+	control.name = key.to_pascal_case()
+	for item in items: control.add_item(Localization.t(str(item)))
+	control.select(selected)
+	control.item_selected.connect(callback)
+	_row(parent,title).add_child(control)
+	graphics_controls[key] = control
+	return control
+
+func _slider(parent: Control, title: String, key: String, minimum: float, maximum: float, step: float, format: String) -> HSlider:
+	var row := _row(parent,title)
+	var value := _text(row,format % float(world.settings_data[key]),Vector2.ZERO,20,TEXT)
+	value.custom_minimum_size.x = 70
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	var control := HSlider.new()
-	control.position = at
-	control.size = Vector2(330,28)
+	control.name = key.to_pascal_case()
+	control.custom_minimum_size = Vector2(420,30)
+	control.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	control.min_value = minimum
 	control.max_value = maximum
 	control.step = step
-	control.value = world.settings_data[key]
-	control.modulate = Color("c6aa7d")
-	page_root.add_child(control)
-	control.value_changed.connect(func(value: float) -> void: world.settings_data[key]=value; world._apply_settings())
+	control.value = float(world.settings_data[key])
+	control.add_theme_stylebox_override("focus",_box(Color(0,0,0,0),ACCENT,2))
+	row.add_child(control)
+	control.value_changed.connect(func(v: float) -> void:
+		world.settings_data[key] = v
+		value.text = format % v
+		world._apply_settings())
+	graphics_controls[key] = control
+	return control
 
-func check(title: String, key: String, y: float) -> void:
-	var control := CheckButton.new()
-	control.position = Vector2(81,y)
-	control.text = Localization.t(title)
-	control.button_pressed = world.settings_data[key]
-	control.add_theme_font_size_override("font_size",23)
-	page_root.add_child(control)
-	control.toggled.connect(func(value: bool) -> void: world.settings_data[key]=value; world._apply_settings())
+func _game_tab(body: Control) -> void:
+	_section(body,"GAME")
+	_slider(body,"LOOK SENSITIVITY","sensitivity",0.3,2.0,0.05,"%.2f")
+	_choice(body,"BLOOD EFFECTS",["OFF","ON"],1 if bool(world.settings_data.blood) else 0,func(i: int) -> void:
+		world.settings_data.blood = i == 1
+		world._apply_settings(),"blood")
 
-func graphics() -> void:
-	page = "graphics"
-	clear("GRAPHICS","SO THE NIGHT RUNS AS WELL AS IT LOOKS")
-	graphics_controls.clear()
-	graphics_dirty = false
-	var data: Dictionary = world.settings_data
-	# Le scelte restano in sospeso: solo APPLY le passa al gioco e le salva.
-	graphics_pending = {
-		"display_mode":int(data.display_mode),
-		"resolution":str(data.resolution),
-		"vsync":int(data.vsync),
-		"quality":int(data.quality),
-		"textures":int(data.textures),
-		"shadow_quality":int(data.shadow_quality),
-		"anti_aliasing":int(data.anti_aliasing)
-	}
-	_graphic_option("DISPLAY MODE",264,["WINDOWED","BORDERLESS","FULLSCREEN"],int(graphics_pending.display_mode),func(index: int) -> void:
-		graphics_pending.display_mode = index
-		_mark_graphics_dirty(),"display_mode")
-	# Le risoluzioni arrivano dal monitor: niente voci fuori portata.
-	var sizes: Array = world.monitor_resolutions()
+func _audio_tab(body: Control) -> void:
+	_section(body,"AUDIO")
+	_slider(body,"EFFECTS VOLUME","volume",0,100,1,"%.0f")
+
+func _controls_tab(body: Control) -> void:
+	_section(body,"CONTROLS")
+	for pair in KEYS:
+		var row := _row(body,pair[1])
+		var key := _text(row,pair[0],Vector2.ZERO,20,ACCENT)
+		key.add_theme_font_override("font",DISPLAY)
+	var hint := _text(body,"MENU / arrows or D-pad · Enter or A to select · Esc or B to go back",Vector2.ZERO,17,MUTED)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+func _language_tab(body: Control) -> void:
+	_section(body,"LANGUAGE")
 	var names: Array = []
 	var selected := 0
+	for i in Localization.LANGUAGES.size():
+		names.append(str(Localization.LANGUAGES[i].name))
+		if Localization.LANGUAGES[i].code == Localization.current: selected = i
+	_choice(body,"LANGUAGE OF THE GAME",names,selected,func(i: int) -> void:
+		Localization.set_language(str(Localization.LANGUAGES[i].code)),"language")
+	var hint := _text(body,"THE CHANGE APPLIES IMMEDIATELY",Vector2.ZERO,17,MUTED)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+# ------------------------------------------------------------------ grafica
+func _graphics_tab(body: Control) -> void:
+	var data: Dictionary = world.settings_data
+	graphics_dirty = false
+	# Le scelte restano in sospeso: solo APPLICA le passa al gioco e le salva.
+	graphics_pending = {"display_mode":int(data.display_mode),"resolution":str(data.resolution),"vsync":int(data.vsync),
+		"quality":int(data.quality),"textures":int(data.textures),"shadow_quality":int(data.shadow_quality),"anti_aliasing":int(data.anti_aliasing)}
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation",6)
+	scroll.add_child(list)
+	_section(list,"DISPLAY")
+	_choice(list,"DISPLAY MODE",["WINDOWED","BORDERLESS","FULLSCREEN"],int(graphics_pending.display_mode),func(i: int) -> void: _pend("display_mode",i),"display_mode")
+	var sizes: Array = world.monitor_resolutions()
+	var resolution := OptionButton.new()
+	resolution.name = "Resolution"
+	resolution.custom_minimum_size = Vector2(220,36)
+	resolution.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	resolution.add_theme_font_size_override("font_size",19)
+	resolution.add_theme_stylebox_override("normal",_box(Color(0,0,0,0.2),Color(FRAME,0.5),1))
+	resolution.add_theme_stylebox_override("hover",_box(Color(0,0,0,0.3),ACCENT,1))
+	resolution.add_theme_stylebox_override("focus",_box(Color(0,0,0,0),ACCENT,2))
+	resolution.get_popup().add_theme_font_size_override("font_size",19)
 	var current: Vector2i = world.resolution_size()
-	for i in range(sizes.size()):
-		names.append("%d × %d" % [sizes[i].x,sizes[i].y])
-		if sizes[i] == current: selected = i
-	_graphic_option("RESOLUTION",316,names,selected,func(index: int) -> void:
-		var size: Vector2i = sizes[clampi(index,0,sizes.size()-1)]
-		graphics_pending.resolution = "%dx%d" % [size.x,size.y]
-		_mark_graphics_dirty(),"resolution")
-	_graphic_option("V-SYNC",368,["OFF","ON","ADAPTIVE"],int(graphics_pending.vsync),func(index: int) -> void:
-		graphics_pending.vsync = index
-		_mark_graphics_dirty(),"vsync")
-	_graphic_option("OVERALL QUALITY",420,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.quality),func(index: int) -> void:
-		var preset: Dictionary = world.quality_preset_values(index)
-		graphics_pending.quality = index
+	for i in sizes.size():
+		resolution.add_item("%d × %d" % [sizes[i].x,sizes[i].y])
+		if sizes[i] == current: resolution.select(i)
+	resolution.item_selected.connect(func(i: int) -> void:
+		var size: Vector2i = sizes[clampi(i,0,sizes.size()-1)]
+		_pend("resolution","%dx%d" % [size.x,size.y]))
+	_row(list,"RESOLUTION").add_child(resolution)
+	graphics_controls["resolution"] = resolution
+	_choice(list,"V-SYNC",["OFF","ON","ADAPTIVE"],int(graphics_pending.vsync),func(i: int) -> void: _pend("vsync",i),"vsync")
+	_section(list,"QUALITY")
+	_choice(list,"OVERALL QUALITY",["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.quality),func(i: int) -> void:
+		var preset: Dictionary = world.quality_preset_values(i)
+		graphics_pending.quality = i
 		graphics_pending.textures = int(preset.textures)
 		graphics_pending.shadow_quality = int(preset.shadow_quality)
 		graphics_pending.anti_aliasing = int(preset.anti_aliasing)
 		_sync_graphics_controls()
 		_mark_graphics_dirty(),"overall_quality")
-	_graphic_option("TEXTURE QUALITY",472,["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.textures),func(index: int) -> void:
-		graphics_pending.textures = index
-		_mark_graphics_dirty(),"texture_quality")
-	_graphic_option("SHADOW QUALITY",524,["OFF","LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.shadow_quality),func(index: int) -> void:
-		graphics_pending.shadow_quality = index
-		_mark_graphics_dirty(),"shadow_quality")
-	_graphic_option("ANTI-ALIASING",576,["OFF","FXAA","MSAA 2×","MSAA 4×","MSAA 8×"],int(graphics_pending.anti_aliasing),func(index: int) -> void:
-		graphics_pending.anti_aliasing = index
-		_mark_graphics_dirty(),"anti_aliasing")
-	graphics_status = label(Localization.t("ADJUST THE SETTINGS, THEN PRESS APPLY."),Vector2(81,618),15,Color(0.70,0.74,0.69,0.75))
+	_choice(list,"TEXTURE QUALITY",["LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.textures),func(i: int) -> void: _pend("textures",i),"texture_quality")
+	_choice(list,"SHADOW QUALITY",["OFF","LOW","MEDIUM","HIGH","ULTRA"],int(graphics_pending.shadow_quality),func(i: int) -> void: _pend("shadow_quality",i),"shadow_quality")
+	_choice(list,"ANTI-ALIASING",["OFF","FXAA","MSAA 2×","MSAA 4×","MSAA 8×"],int(graphics_pending.anti_aliasing),func(i: int) -> void: _pend("anti_aliasing",i),"anti_aliasing")
+	# Barra in basso: stato, Predefiniti, Applica, Annulla.
+	var bar := HBoxContainer.new()
+	bar.name = "GraphicsBar"
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_constant_override("separation",14)
+	body.add_child(bar)
+	graphics_status = _text(bar,"ADJUST THE SETTINGS, THEN PRESS APPLY.",Vector2.ZERO,17,MUTED)
 	graphics_status.name = "GraphicsStatus"
-	button("APPLY",0,_apply_graphics_pending)
-	button("BACK",0,func() -> void: graphics_pending.clear(); _options_or_home())
-	menu_list.position.y = 648
-	context_label.hide()
+	graphics_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graphics_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	button("DEFAULTS",_graphics_defaults,bar,170,44)
+	button("APPLY",_apply_graphics_pending,bar,170,44)
+	button("CANCEL",func() -> void: options_menu("graphics"),bar,170,44)
+
+func _pend(key: String, value: Variant) -> void:
+	graphics_pending[key] = value
+	_mark_graphics_dirty()
+
+func _graphics_defaults() -> void:
+	var native: Vector2i = world._native_resolution()
+	graphics_pending.display_mode = 0
+	graphics_pending.vsync = 1
+	graphics_pending.resolution = "%dx%d" % [native.x,native.y]
+	graphics_pending.quality = 2
+	var preset: Dictionary = world.quality_preset_values(2)
+	for key in ["textures","shadow_quality","anti_aliasing"]: graphics_pending[key] = int(preset[key])
+	_restore_graphics_pending(graphics_pending,true)
 
 func _restore_graphics_pending(pending: Dictionary, dirty: bool) -> void:
-	if pending.is_empty(): return
+	if pending.is_empty() or not graphics_controls.has("display_mode"): return
 	graphics_pending = pending
-	var picks := {"display_mode":int(pending.display_mode),"vsync":int(pending.vsync),"overall_quality":int(pending.quality)}
-	for key in picks: graphics_controls[key].select(picks[key])
+	graphics_controls.display_mode.select(int(pending.display_mode))
+	graphics_controls.vsync.select(int(pending.vsync))
+	graphics_controls.overall_quality.select(int(pending.quality))
 	var sizes: Array = world.monitor_resolutions()
-	for i in range(sizes.size()):
+	for i in sizes.size():
 		if "%dx%d" % [sizes[i].x,sizes[i].y] == str(pending.resolution): graphics_controls.resolution.select(i)
 	_sync_graphics_controls()
 	if dirty: _mark_graphics_dirty()
@@ -508,9 +651,9 @@ func _mark_graphics_dirty() -> void:
 	graphics_dirty = true
 	if graphics_status and is_instance_valid(graphics_status):
 		graphics_status.text = Localization.t("UNSAVED CHANGES  ·  PRESS APPLY")
-		graphics_status.add_theme_color_override("font_color",Color("ffb703"))
+		graphics_status.add_theme_color_override("font_color",ACCENT)
 
-## Passa al gioco tutte le scelte sospese della pagina Graphics in un colpo solo.
+## Passa al gioco tutte le scelte sospese della scheda Grafica in un colpo solo.
 func _apply_graphics_pending() -> void:
 	if graphics_pending.is_empty(): return
 	for key in graphics_pending:
@@ -523,104 +666,7 @@ func _apply_graphics_pending() -> void:
 		graphics_status.text = Localization.t("SETTINGS APPLIED")
 		graphics_status.add_theme_color_override("font_color",Color("8ecf9a"))
 
-func _graphic_option(title: String, y: float, items: Array, selected: int, callback: Callable, key: String = "") -> OptionButton:
-	label(title,Vector2(81,y),18)
-	var control := OptionButton.new()
-	control.name = key.to_pascal_case() if not key.is_empty() else title.to_pascal_case()
-	control.position = Vector2(248,y-5)
-	control.size = Vector2(200,38)
-	control.focus_mode = Control.FOCUS_ALL
-	control.add_theme_font_size_override("font_size",19)
-	_style_option(control)
-	for item in items: control.add_item(Localization.t(str(item)))
-	control.select(clampi(selected,0,maxi(items.size()-1,0)))
-	page_root.add_child(control)
-	control.item_selected.connect(callback)
-	if not key.is_empty(): graphics_controls[key] = control
-	return control
-
-func _style_option(control: OptionButton) -> void:
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.05,0.07,0.065,0.45)
-	normal.border_width_bottom = 1
-	normal.border_color = Color("8a8977")
-	normal.content_margin_left = 10
-	normal.content_margin_right = 10
-	var hover := normal.duplicate()
-	hover.bg_color = Color(0.09,0.11,0.095,0.75)
-	hover.border_color = Color("ffb703")
-	var focus := hover.duplicate()
-	focus.border_width_bottom = 2
-	for state in ["normal","hover","pressed","focus"]:
-		control.add_theme_stylebox_override(state,normal if state == "normal" else (focus if state == "focus" else hover))
-	control.add_theme_color_override("font_color",Color("d4d6c9"))
-	control.add_theme_color_override("font_hover_color",Color("ffb703"))
-	control.add_theme_color_override("font_focus_color",Color("ffb703"))
-	control.add_theme_color_override("font_pressed_color",Color("ff6b00"))
-	var popup := control.get_popup()
-	popup.add_theme_font_size_override("font_size",19)
-	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.035,0.05,0.045,0.98)
-	panel.set_border_width_all(1)
-	panel.border_color = Color(0.45,0.42,0.32,0.85)
-	popup.add_theme_stylebox_override("panel",panel)
-	popup.add_theme_color_override("font_color",Color("d4d6c9"))
-	popup.add_theme_color_override("font_hover_color",Color("ffb703"))
-
 func _sync_graphics_controls() -> void:
 	for pair in [["texture_quality",int(graphics_pending.textures)],["shadow_quality",int(graphics_pending.shadow_quality)],["anti_aliasing",int(graphics_pending.anti_aliasing)]]:
-		var control: OptionButton = graphics_controls.get(pair[0])
-		if control: control.select(clampi(int(pair[1]),0,control.item_count-1))
-
-func controls() -> void:
-	page = "controls"
-	clear("CONTROLS","STAY ALIVE. STAY TOGETHER.")
-	label("WASD\nMOUSE\nSHIFT\nSPACE\nCTRL (hold)\nCLICK / HOLD\nE\nESC",Vector2(81,277),25,Color("d4ad76"))
-	label("Move\nFirst-person look\nSprint\nJump\nCrouch\nStrike / charged strike\nCollect / activate\nPause menu",Vector2(267,277),25)
-	label("Collect the supplies. Defend the radio.\nThe world keeps moving while you pause online.\n\nMENU / arrows or D-pad · Enter or A to select",Vector2(81,600),19,Color("b4b8a9"))
-	button("BACK",0,_options_or_home)
-	menu_list.position.y = 740
-	context_label.hide()
-
-## Dalle pagine di Opzioni si torna a Opzioni; in pausa si torna al menu di pausa.
-func _options_or_home() -> void:
-	if world.started: home()
-	else: options_menu()
-
-func network_menu() -> void:
-	page="multiplayer"
-	clear("MULTIPLAYER")
-	button("HOST GAME",0,func() -> void: connection(true))
-	button("JOIN FRIENDS",0,func() -> void: connection(false))
-	button("BACK",0,home)
-
-func options_menu() -> void:
-	page="options"
-	clear("OPTIONS")
-	button("SETTINGS",0,settings)
-	button("GRAPHICS",0,graphics)
-	button("LANGUAGE",0,func() -> void: language("options"))
-	button("CONTROLS",0,controls)
-	button("BACK",0,home)
-
-## Selettore lingua: inglese predefinito, italiano disponibile; il cambio è immediato.
-func language(return_to: String = "options") -> void:
-	language_return = return_to
-	page = "language"
-	clear("LANGUAGE","CHOOSE THE LANGUAGE OF THE GAME")
-	for entry in Localization.LANGUAGES:
-		var code: String = str(entry.code)
-		var label_text: String = str(entry.name)
-		if code == Localization.current:
-			label_text += "  ·  " + Localization.t("SELECTED")
-		button(label_text,0,func() -> void: select_language(code))
-	label(Localization.t("THE CHANGE APPLIES IMMEDIATELY"),Vector2(81,520),18,Color("b4b8a9"))
-	button("BACK",0,func() -> void:
-		if language_return == "settings": settings()
-		else: options_menu())
-	menu_list.position.y = 294
-	context_label.hide()
-
-func select_language(code: String) -> void:
-	Localization.set_language(code)
-	language(language_return)
+		var control: MenuChoice = graphics_controls.get(pair[0])
+		if control: control.select(int(pair[1]))
