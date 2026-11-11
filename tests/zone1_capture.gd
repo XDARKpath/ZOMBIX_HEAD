@@ -19,6 +19,9 @@ const VIEWS := {
 	"boat": [Vector3(12.0, 1.4, 13.5), Vector3(8.7, 0.0, 17.0)],
 	"road-head": [Vector3(6.5, 1.7, -12.0), Vector3(6.0, 0.6, 6.0)],
 	"car": [Vector3(13.0, 1.8, 9.0), Vector3(19.5, 0.8, 3.0)],
+	# Prato all'altezza degli occhi, verso il bosco: confronto stile prima/dopo.
+	"meadow": [Vector3(-30.0, 1.9, -40.0), Vector3(-60.0, 3.0, -95.0)],
+	"meadow-sun": [Vector3(40.0, 1.9, -30.0), Vector3(80.0, 4.0, -80.0)],
 }
 func _initialize(): call_deferred("run")
 func run():

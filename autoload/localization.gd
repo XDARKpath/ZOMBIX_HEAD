@@ -97,6 +97,8 @@ const MESSAGES := {
 	"Why did the survivor cross the road? Exactly.": {"it": "Perché il sopravvissuto ha attraversato la strada? Esatto."},
 	"TEXTURE QUALITY": {"it": "QUALITÀ TEXTURE"},
 	"SHADOW QUALITY": {"it": "QUALITÀ OMBRE"},
+	"VEGETATION": {"it": "VEGETAZIONE"},
+	"ATMOSPHERE EFFECTS": {"it": "EFFETTI ATMOSFERA"},
 	"ANTI-ALIASING": {"it": "ANTIALIASING"},
 	"FXAA": {"it": "FXAA"},
 	"MSAA 2×": {"it": "MSAA 2×"},

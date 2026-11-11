@@ -17,8 +17,21 @@ uniform sampler2D density : filter_linear, repeat_disable;
 uniform vec4 bounds; // x0, z0, larghezza, profondità
 uniform vec2 scale_range = vec2(0.55, 1.2);
 uniform vec2 tall_range = vec2(0.75, 1.35);
+// Frazione di punti tenuti (fiori: pochi) e macchie irregolari a bassa frequenza,
+// così la vegetazione cresce a gruppi spontanei e non a scacchiera.
+uniform float keep = 1.0;
+uniform float patch_scale = 0.09;
+
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0)), f.x), f.y);
+}
+
 
 float corner(ivec2 c) {
 	return texelFetch(heights, clamp(c, ivec2(0), height_size - ivec2(1)), 0).r;
@@ -47,13 +60,17 @@ void process() {
 	float d = 0.0;
 	if (uv.x > 0.0 && uv.y > 0.0 && uv.x < 1.0 && uv.y < 1.0) d = texture(density, uv).r;
 	float fade = 1.0 - smoothstep(radius * 0.72, radius, length(p - center));
+	float patchy = vnoise(p * patch_scale) * 0.65 + vnoise(p * patch_scale * 3.1 + 5.0) * 0.35;
+	d *= keep < 1.0 ? smoothstep(0.55, 0.8, patchy) * keep * 6.0 : mix(0.7, 1.0, smoothstep(0.25, 0.6, patchy));
 	float s = hash(seed * 1.31 + 3.0) < d ? mix(scale_range.x, scale_range.y, hash(seed + 11.0)) * fade : 0.0;
 	float a = hash(seed + 5.0) * 6.2831853;
-	float tall = s * mix(tall_range.x, tall_range.y, hash(seed + 2.0));
+	// Altezza a macchie: ciuffi alti in gruppi, più bassi ai margini del prato.
+	s *= mix(0.55, 1.0, smoothstep(0.05, 0.6, d));
+	float tall = s * mix(tall_range.x, tall_range.y, hash(seed + 2.0)) * mix(0.6, 1.25, smoothstep(0.2, 0.75, patchy));
 	TRANSFORM = mat4(
 		vec4(cos(a) * s, 0.0, -sin(a) * s, 0.0),
 		vec4(0.0, tall, 0.0, 0.0),
 		vec4(sin(a) * s, 0.0, cos(a) * s, 0.0),
 		vec4(p.x, ground(p) + 0.03, p.y, 1.0));
-	COLOR = vec4(hash(seed + 9.0), d, hash(seed + 17.0), 1.0);
+	COLOR = vec4(hash(seed + 9.0), d, patchy, 1.0);
 }

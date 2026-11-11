@@ -9,7 +9,9 @@ const RoadNet := preload("res://world/zona1_rifugio/roadnet.gd")
 const Layout := preload("res://world/zona1_rifugio/refuge_layout.gd")
 const Village := preload("res://world/villaggio/villaggio_layout.gd")
 const ROWS := 170
-const SPACING := 0.42
+const SPACING := 0.34
+# Righe del prato per VEGETAZIONE (basso, medio, alto, ultra).
+const QUALITY_ROWS := [90, 120, 150, 190]
 # Prolungamento asfaltato verso il lago (terrain.gd, _road_end): non fa parte
 # della route, quindi va escluso esplicitamente dalla maschera dell'erba.
 const ROAD_END_A := Vector2(6.0, -6.5)
@@ -22,6 +24,8 @@ const MASK_STEP := 2.0
 var world: Node3D
 var particles: GPUParticles3D
 var density_texture: ImageTexture
+var flowers: GPUParticles3D
+var process: ShaderMaterial
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
@@ -29,7 +33,8 @@ func build(owner_world: Node3D) -> void:
 	var heights := _height_image()
 	var mask := _density_image()
 	density_texture = ImageTexture.create_from_image(mask)
-	var process := ShaderMaterial.new()
+	add_to_group("grass_field")
+	process = ShaderMaterial.new()
 	process.shader = preload("res://world/grass/grass_particles.gdshader")
 	process.set_shader_parameter("rows", ROWS)
 	process.set_shader_parameter("spacing", SPACING)
@@ -55,6 +60,9 @@ func build(owner_world: Node3D) -> void:
 	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	particles.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 120, 80))
 	add_child(particles)
+	_build_flowers(heights)
+	var settings = world.get("settings_data")
+	set_quality(int(settings.get("vegetation", 2)) if settings is Dictionary else 2)
 	# Il terreno usa la stessa maschera: dove manca l'erba compare terra battuta.
 	var ground: ShaderMaterial = world.terrain.ground_material
 	ground.set_shader_parameter("grass_mask", density_texture)
@@ -64,10 +72,44 @@ func _process(_delta: float) -> void:
 	if world and is_instance_valid(world.player):
 		global_position = world.player.global_position * Vector3(1, 0, 1)
 
-const TUFT_HEIGHT := 0.32
+# Fiori CC0 sparsi nel prato (pochi, a macchie): stessa griglia, maschera e altezze.
+func _build_flowers(heights: Image) -> void:
+	var p: ShaderMaterial = process.duplicate()
+	p.set_shader_parameter("rows", 64)
+	p.set_shader_parameter("spacing", 0.9)
+	p.set_shader_parameter("radius", 64 * 0.9 * 0.48)
+	p.set_shader_parameter("keep", 0.3)
+	var source: Node3D = load("res://art/nature/Flower_3_Group.gltf").instantiate()
+	var found: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0]
+	var mesh: Mesh = found.mesh
+	source.free()
+	p.set_shader_parameter("scale_range", Vector2(0.8, 1.2) * (0.6 / maxf(mesh.get_aabb().size.y, 0.01)))
+	p.set_shader_parameter("tall_range", Vector2(0.9, 1.1))
+	flowers = GPUParticles3D.new()
+	flowers.amount = 64 * 64
+	flowers.lifetime = 600.0
+	flowers.explosiveness = 1.0
+	flowers.local_coords = false
+	flowers.process_material = p
+	flowers.draw_pass_1 = mesh
+	flowers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	flowers.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 120, 80))
+	add_child(flowers)
+
+# VEGETAZIONE: meno ciuffi e raggio più corto sulle macchine lente; al minimo niente fiori.
+func set_quality(level: int) -> void:
+	var rows: int = QUALITY_ROWS[clampi(level, 0, QUALITY_ROWS.size() - 1)]
+	flowers.visible = level > 0
+	if particles.amount == rows * rows: return
+	process.set_shader_parameter("rows", rows)
+	process.set_shader_parameter("radius", rows * SPACING * 0.48)
+	particles.amount = rows * rows
+	particles.restart()
+
+const TUFT_HEIGHT := 0.62
 
 static func low_tuft() -> ArrayMesh:
-	var source: Node3D = load("res://art/nature/Grass_Common_Short.gltf").instantiate()
+	var source: Node3D = load("res://art/nature/Grass_Common_Tall.gltf").instantiate()
 	var found: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0]
 	var mesh: ArrayMesh = found.mesh.duplicate()
 	source.free()
@@ -75,7 +117,7 @@ static func low_tuft() -> ArrayMesh:
 		var mat := ShaderMaterial.new()
 		mat.shader = preload("res://world/grass/grass_lowpoly.gdshader")
 		var original := mesh.surface_get_material(s) as BaseMaterial3D
-		if original: mat.set_shader_parameter("base_color", original.albedo_color.lerp(Color(0.27, 0.36, 0.14), 0.85))
+		if original: mat.set_shader_parameter("base_color", original.albedo_color.lerp(Color(0.34, 0.46, 0.15), 0.85))
 		mat.set_shader_parameter("mesh_height", mesh.get_aabb().size.y)
 		mesh.surface_set_material(s, mat)
 	return mesh
