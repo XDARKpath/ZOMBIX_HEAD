@@ -23,11 +23,11 @@ const MASK_STEP := 2.0
 # pianta CC0 (art/nature), il suo colore, la sua altezza e le sue macchie (band =
 # fascia del rumore in cui cresce), così le specie si alternano a gruppi.
 const LAYERS := [
-	{"mesh": "Grass_Common_Tall", "rows": 120, "spacing": 0.42, "height": 0.62, "band": Vector2(0.0, 1.0), "keep": 1.0, "color": Color(0.30, 0.45, 0.13), "seed": 0.0},
-	{"mesh": "Grass_Wispy_Tall", "rows": 80, "spacing": 0.58, "height": 0.9, "band": Vector2(0.42, 1.0), "keep": 1.0, "color": Color(0.58, 0.58, 0.26), "seed": 0.17},
-	{"mesh": "Grass_Common_Short", "rows": 72, "spacing": 0.6, "height": 0.3, "band": Vector2(0.0, 0.55), "keep": 1.0, "color": Color(0.17, 0.30, 0.08), "seed": 0.31},
-	{"mesh": "Plant_1", "rows": 64, "spacing": 0.9, "height": 0.35, "band": Vector2(0.0, 1.0), "keep": 0.35, "color": Color(0.22, 0.38, 0.12), "seed": 0.53},
-	{"mesh": "Clover_1", "rows": 64, "spacing": 0.9, "height": 0.18, "band": Vector2(0.0, 0.6), "keep": 0.45, "color": Color(0.25, 0.42, 0.14), "seed": 0.71},
+	{"mesh": "Grass_Common_Tall", "rows": 120, "spacing": 0.4, "height": 0.7, "band": Vector2(0.0, 1.0), "keep": 1.0, "color": Color(0.50, 0.52, 0.27), "seed": 0.0},
+	{"mesh": "Grass_Wispy_Tall", "rows": 80, "spacing": 0.58, "height": 0.9, "band": Vector2(0.42, 1.0), "keep": 1.0, "color": Color(0.72, 0.67, 0.42), "seed": 0.17},
+	{"mesh": "Grass_Common_Short", "rows": 72, "spacing": 0.6, "height": 0.3, "band": Vector2(0.0, 0.55), "keep": 1.0, "color": Color(0.30, 0.36, 0.14), "seed": 0.31},
+	{"mesh": "Plant_1", "rows": 64, "spacing": 0.9, "height": 0.35, "band": Vector2(0.0, 1.0), "keep": 0.35, "color": Color(0.26, 0.32, 0.12), "seed": 0.53},
+	{"mesh": "Clover_1", "rows": 64, "spacing": 0.9, "height": 0.18, "band": Vector2(0.0, 0.6), "keep": 0.45, "color": Color(0.30, 0.34, 0.14), "seed": 0.71},
 ]
 # VEGETAZIONE (basso, medio, alto, ultra): moltiplica le righe di ogni strato.
 const QUALITY_SCALE := [0.55, 0.75, 0.9, 1.2]
@@ -128,7 +128,7 @@ static func tuft(id: String, color: Color) -> ArrayMesh:
 		var mat := ShaderMaterial.new()
 		mat.shader = preload("res://world/grass/grass_lowpoly.gdshader")
 		var original := mesh.surface_get_material(s) as BaseMaterial3D
-		mat.set_shader_parameter("base_color", original.albedo_color.lerp(color, 0.85) if original else color)
+		mat.set_shader_parameter("base_color", original.albedo_color.lerp(color, 0.95) if original else color)
 		mat.set_shader_parameter("mesh_height", mesh.get_aabb().size.y)
 		mesh.surface_set_material(s, mat)
 	return mesh
@@ -176,7 +176,7 @@ static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
 	d *= smoothstep(6.5, 8.0, p.distance_to(Vector2(RoadNet.SITES["dungeon"].x - 3.0, RoadNet.SITES["dungeon"].z)))
 	# Chiazze di terra e ciuffi più fitti: il prato non è un tappeto uniforme.
 	var n := clumps.get_noise_2d(x, z)
-	d *= smoothstep(-0.45, -0.05, n)
+	d *= smoothstep(-0.8, -0.55, n)
 	return clampf(d * (0.75 + 0.25 * smoothstep(0.1, 0.5, n)), 0.0, 1.0)
 
 static func _segment_distance(p: Vector2, a: Vector2, b: Vector2) -> float:

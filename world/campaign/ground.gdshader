@@ -40,7 +40,7 @@ void fragment() {
 	float broad = fbm(world_pos.xz * 0.045);
 	float medium = fbm(world_pos.xz * 0.30 + 12.0);
 	float fine = fbm(world_pos.xz * 2.1);
-	vec3 grass = mix(vec3(0.10, 0.17, 0.05), vec3(0.19, 0.26, 0.08), broad);
+	vec3 grass = mix(vec3(0.07, 0.075, 0.035), vec3(0.13, 0.13, 0.06), broad);
 	vec3 dry = mix(vec3(0.215, 0.198, 0.104), vec3(0.300, 0.268, 0.150), fine);
 	vec3 dirt = mix(vec3(0.130, 0.112, 0.086), vec3(0.230, 0.198, 0.152), fine);
 	vec3 albedo = mix(grass, dry, smoothstep(0.44, 0.78, medium) * 0.34);
@@ -50,7 +50,7 @@ void fragment() {
 		if (muv.x > 0.0 && muv.y > 0.0 && muv.x < 1.0 && muv.y < 1.0) {
 			float bare = 1.0 - texture(grass_mask, muv).r;
 			// Terra battuta e fango scuro, come il piazzale del concept.
-			vec3 mud = mix(vec3(0.16, 0.105, 0.060), vec3(0.26, 0.175, 0.10), fine);
+			vec3 mud = mix(vec3(0.11, 0.075, 0.045), vec3(0.19, 0.13, 0.08), fine);
 			albedo = mix(albedo, mud, smoothstep(0.35, 0.95, bare) * 0.65);
 		}
 	}

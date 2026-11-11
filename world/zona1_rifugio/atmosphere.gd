@@ -10,7 +10,7 @@ var weather: Environment
 var breeze: CPUParticles3D
 var nature_cache: Dictionary = {}
 var forest_cache: Dictionary = {}
-const FOG_BASE := 0.0035
+const FOG_BASE := 0.0018
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
@@ -23,12 +23,12 @@ func build(owner_world: Node3D) -> void:
 			sky.sky_material = sky_material
 			if RenderingServer.get_current_rendering_method()!="gl_compatibility": weather.sky = sky
 			weather.ambient_light_color = Color("b8cfe0")
-			weather.ambient_light_energy = 0.5
+			weather.ambient_light_energy = 0.32
 			# Foschia azzurra di profondità, leggera: il bosco sfuma, non sparisce.
 			weather.fog_light_color = Color("a9c3d6")
 			weather.fog_sun_scatter = 0.35
-			weather.fog_height_density = 0.03
-			weather.volumetric_fog_density = 0.004
+			weather.fog_height_density = 0.008
+			weather.volumetric_fog_density = 0.007
 			weather.volumetric_fog_albedo = Color("fff0d8")
 			weather.glow_intensity = 0.6
 			weather.glow_bloom = 0.08
@@ -40,16 +40,16 @@ func build(owner_world: Node3D) -> void:
 			weather.ssao_radius = 1.4
 			weather.ssao_intensity = 1.5
 			weather.adjustment_enabled = true
-			weather.adjustment_contrast = 1.10
+			weather.adjustment_contrast = 1.22
 			# Colori naturali pieni, come un pomeriggio d'estate.
 			weather.adjustment_saturation = 1.12
 		if child is DirectionalLight3D:
 			sun = child
-			sun.rotation_degrees = Vector3(-34,-32,0)
+			sun.rotation_degrees = Vector3(-22,-32,0)
 			sun.light_color = Color("ffe2b3")
 			sun.light_energy = 1.45
 			# Raggi nella foschia volumetrica e ombre morbide.
-			sun.light_volumetric_fog_energy = 2.5
+			sun.light_volumetric_fog_energy = 4.0
 			sun.light_angular_distance = 1.2
 	# Erba GPU con licenza MIT (art/grass/ATTRIBUTION.md) al posto del vecchio prato piatto.
 	var field := Node3D.new()

@@ -306,7 +306,7 @@ func _plan(key: Vector2i) -> Array:
 	var rng:=RandomNumberGenerator.new()
 	rng.seed=absi(key.x*73856093 ^ key.y*19349663)+2026
 	# Più pini per settore: il bosco resta fitto ora che è di un solo tipo.
-	for i in range(70):
+	for i in range(95):
 		var x:=key.x*TILE+rng.randf_range(0,TILE)
 		var z:=key.y*TILE+rng.randf_range(0,TILE)
 		if absf(x)<75 and z> -90: continue
@@ -326,7 +326,7 @@ func _plan(key: Vector2i) -> Array:
 		# scheletrici. Le latifoglie crescono a macchie, non alternate ai pini.
 		var pines:=["Pine_1.gltf","Pine_2.gltf","Pine_3.gltf","Pine_4.gltf","Pine_5.gltf"]
 		var broad:=_mix_noise.get_noise_2d(x,z)>0.05
-		if broad and rng.randf()<0.75:
+		if broad and rng.randf()<0.6:
 			pick=source_names.find("CommonTree_%d.gltf"%rng.randi_range(1,5))
 		elif i%2==0:
 			pick=source_names.find(pines[posmod(key.x+key.y+i,5)])
@@ -338,9 +338,9 @@ func _plan(key: Vector2i) -> Array:
 		if Route.edge_rise(x,z)>38.0 or Route.zone_wall(x,z)>5.0: continue
 		plan.append({"pick":pick,"x":x,"z":z,"yaw":yaw,"scale":Vector3.ONE*size,"tree":"Tree" in source_names[pick] or "Pine" in source_names[pick],"body":i%5==0})
 	# Sottobosco: felci, cespugli, fiori, funghi e ciottoli vicino al terreno.
-	var undergrowth:=["Fern_1.gltf","Pebble_Round_1.gltf","Pebble_Square_2.gltf","Grass_Wispy_Tall.gltf","Grass_Common_Short.gltf"]
+	var undergrowth:=["Fern_1.gltf","Plant_1_Big.gltf","Plant_7_Big.gltf","Grass_Wispy_Tall.gltf","Fern_1.gltf"]
 	# Niente cespugli: né rossi né verdi chiaro, restano felci, erba e sassi.
-	for i in range(26):
+	for i in range(40):
 		var x:=key.x*TILE+rng.randf_range(0,TILE)
 		var z:=key.y*TILE+rng.randf_range(0,TILE)
 		if absf(x)<72 and z> -86: continue
