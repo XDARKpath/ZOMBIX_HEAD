@@ -123,6 +123,9 @@ var _hit_mark: Control
 var _tool_w := 1.0
 var _mag: Node3D
 var _mag_base := Vector3.ZERO
+# Caricatore o cartuccia nella mano sinistra durante la ricarica: blocchetti originali, l'arma importata non li ha.
+var _carry_mag: MeshInstance3D
+var _carry_shell: MeshInstance3D
 
 
 func build(owner_player: CharacterBody3D) -> void:
@@ -158,6 +161,8 @@ func build(owner_player: CharacterBody3D) -> void:
 	_hand_socket = BoneAttachment3D.new()
 	_hand_socket.bone_name = "hand_l"
 	skeleton.add_child(_hand_socket)
+	_carry_mag = _carry_piece(BoxMesh.new(), Color("7a8087"), Vector3(0.024, 0.08, 0.034))
+	_carry_shell = _carry_piece(CylinderMesh.new(), Color("d23a2c"), Vector3(0.02, 0.055, 0.02))
 	if player.local_control: _build_hit_mark()
 	player.melee.impact.connect(func(_t, charged):
 		_show_hit(charged)
@@ -244,6 +249,7 @@ func _set_weapon(id: String) -> void:
 		_slide = item.find_child("*Slide*", true, false) as Node3D
 		if _slide: _slide_base = _slide.position
 		_mag = item.find_child("*_Mag*", true, false) as Node3D
+		if not _mag: _mag = item.find_child("Magazine*", true, false) as Node3D
 		if _mag: _mag_base = _mag.position
 	_motion = null
 	for side in ["r", "l"]:
@@ -395,7 +401,7 @@ func tick(delta: float, equipped: String) -> void:
 		_fidget_t = -1.0
 	elif _gun and player.reload_left > 0:
 		act = set_name + "_Reload"
-		var rs: float = RELOAD_SECONDS.get(set_name, 1.6)
+		var rs: float = maxf(player.reload_total, 0.1)
 		t = clampf((rs - player.reload_left) / rs, 0.0, 1.0) * _len(act)
 	elif _use_t >= 0.0:
 		act = set_name + "_Use"
@@ -500,13 +506,21 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 		row = [which, melee.attack_time, melee.active_windup, melee.active_seconds, melee.active_recovery]
 	var reload := -1.0
 	if _gun and player.reload_left > 0.0:
-		var rs: float = RELOAD_SECONDS.get(set_name, 1.6)
+		var rs: float = maxf(player.reload_total, 0.1)
 		reload = clampf((rs - player.reload_left) / rs, 0.0, 1.0)
 	_motion.tick(delta, row, melee.charge_fraction() if melee.charging and not _gun else 0.0, melee.blocking, _sprint_w > 0.5, melee.ads, reload, _inspect_t)
 	_tool_w = move_toward(_tool_w, 0.0 if _one_t >= 0.0 else 1.0, delta / 0.1)
 	if _mag:
-		_mag.position = _mag_base + Vector3(0, -0.3, 0) * _motion.mag_out
+		_mag.position = _mag_base + Vector3(0, -0.2, 0) * _motion.mag_out     # il vecchio scivola fuori dal pozzetto, si vede
 		_mag.visible = _motion.mag_out < 0.98
+	_carry_mag.visible = _motion.carry == "mag"
+	_carry_shell.visible = _motion.carry == "shell"
+	# Il pezzo sta davanti al palmo visto dalla camera (gli assi dell'osso della mano non aiutano): un po' sopra e verso la camera.
+	var cam := get_viewport().get_camera_3d()
+	if cam and (_carry_mag.visible or _carry_shell.visible):
+		var at: Vector3 = _hand_socket.global_position + cam.global_basis * Vector3(0.035, 0.075, 0.07)
+		_carry_mag.global_transform = Transform3D(cam.global_basis * Basis(Vector3.FORWARD, 0.35), at)
+		_carry_shell.global_transform = Transform3D(cam.global_basis * Basis(Vector3.FORWARD, 1.2), at)
 	if _tool_w <= 0.0: return
 	# Le spalle sono fuori dall'inquadratura: portarle avanti allunga il braccio senza che si veda, e la mano arriva sulla canna.
 	for side in ["r", "l"]:
@@ -668,8 +682,12 @@ func _feel(delta: float, speed: float, grounded: bool) -> void:
 	var dlook := (look - _last_look) / maxf(delta, 0.001)
 	_last_look = look
 	var goal := Vector2(clampf(dlook.x * 0.0055, -0.045, 0.045), clampf(-dlook.y * 0.0055, -0.04, 0.04))
-	_sway_v += ((goal - _sway_p) * 160.0 - _sway_v * 22.0) * delta
-	_sway_p += _sway_v * delta
+	# Molle rigide integrate a passo fisso: con un frame lungo (caricamento, scatto) Euler esplodeva in inf/NaN,
+	# il NaN restava per sempre e il motore stampava migliaia di errori instance_set_transform al minuto.
+	var dt := minf(delta, 1.0 / 60.0)
+	_sway_v += ((goal - _sway_p) * 160.0 - _sway_v * 22.0) * dt
+	_sway_p += _sway_v * dt
+	if not (_sway_p.is_finite() and _sway_v.is_finite()): _sway_p = Vector2.ZERO; _sway_v = Vector2.ZERO
 	var local_v: Vector3 = Basis(Vector3.UP, player.rig.yaw).inverse() * player.velocity
 	_tilt = lerpf(_tilt, clampf(-local_v.x / 4.0, -1.0, 1.0), 1.0 - exp(-delta * 6.0))
 	_air = move_toward(_air, 0.0 if grounded else 1.0, delta * 5.0)
@@ -677,8 +695,9 @@ func _feel(delta: float, speed: float, grounded: bool) -> void:
 		_land_v -= clampf(-_last_vy, 2.0, 12.0) * 0.06
 	_was_floor = grounded
 	_last_vy = player.velocity.y
-	_land_v += (-_land_p * 220.0 - _land_v * 18.0) * delta
-	_land_p += _land_v * delta
+	_land_v += (-_land_p * 220.0 - _land_v * 18.0) * dt
+	_land_p += _land_v * dt
+	if not (is_finite(_land_p) and is_finite(_land_v)): _land_p = 0.0; _land_v = 0.0
 	_kick = move_toward(_kick, 0.0, delta * 6.0)
 	var tremble := Vector3.ZERO
 	if melee.charging and melee.charge_fraction() >= 1.0:
@@ -716,8 +735,9 @@ func _weight(delta: float) -> void:
 		rig.rotation.x += 0.06 * _wind_env
 		rig.position += Vector3(0, 0.014 * _wind_env - 0.012 * _swing_env, 0.03 * _wind_env - 0.045 * _swing_env)
 	# La lama che entra nella carne si ferma di colpo e rimbalza sulle mani.
-	_bite_v += (-_bite_p * 240.0 - _bite_v * 17.0) * delta
-	_bite_p += _bite_v * delta
+	var bite_dt := minf(delta, 1.0 / 60.0)     # stessa ragione delle molle in _feel: niente NaN coi frame lunghi
+	_bite_v += (-_bite_p * 240.0 - _bite_v * 17.0) * bite_dt
+	_bite_p += _bite_v * bite_dt
 	rig.rotation.x += _bite_p * 0.55
 	rig.rotation.z -= side * _bite_p * 0.35
 	rig.position.z += _bite_p * 0.11
@@ -799,3 +819,20 @@ func _mix(a: Dictionary, b: Dictionary, w: float) -> void:
 		if b[bone][1] != null:
 			var p: Vector3 = a[bone][1] if a[bone][1] != null else _rest[bone][1]
 			a[bone][1] = p.lerp(b[bone][1], w)
+
+
+func _carry_piece(mesh: PrimitiveMesh, color: Color, size: Vector3) -> MeshInstance3D:
+	if mesh is BoxMesh: (mesh as BoxMesh).size = size
+	else:
+		(mesh as CylinderMesh).top_radius = size.x * 0.5; (mesh as CylinderMesh).bottom_radius = size.x * 0.5; (mesh as CylinderMesh).height = size.y
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = 0.6
+	mesh.material = mat
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0.0, 0.07, 0.03)      # nel palmo, verso le dita
+	mi.visible = false
+	_hand_socket.add_child(mi)
+	return mi

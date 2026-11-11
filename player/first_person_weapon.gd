@@ -239,7 +239,7 @@ func _choose_clip(delta: float) -> void:
 		action = ""
 	# Ricarica: la clip copre tutta la durata della ricarica.
 	if player.reload_left > 0 and d.has("reload"):
-		var total: float = 1.6 if weapon == "pistol" else Arsenal.clip_seconds(d.reload)
+		var total: float = maxf(player.reload_total, 0.1)
 		_set_clip(d.reload, false)
 		clip_time = clampf((total - player.reload_left) / total, 0.0, 1.0) * Arsenal.clip_seconds(d.reload)
 	elif action != "":

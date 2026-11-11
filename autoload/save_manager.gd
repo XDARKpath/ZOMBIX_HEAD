@@ -47,6 +47,8 @@ func write(world: Node) -> bool:
 		"hotbar": world.player.hotbar,
 		"slot": world.player.slot,
 		"arrows": world.player.arrows,
+		"magazine": world.player.magazine,
+		"mags": world.player.mags,
 		"threat": survival.threat if survival else 0,
 		"intro": survival.seen_intro if survival else false,
 		"road_started": roadblocks.triggered if roadblocks else [],
@@ -116,6 +118,8 @@ func apply(world: Node) -> bool:
 		for id in world.player.items: world.player.hotbar_add(id)
 	world.player.slot = clampi(int(data.get("slot", 0)), 0, 8)
 	if world.player.equipped != "" and world.player.hotbar.has(world.player.equipped): world.player.slot = world.player.hotbar.find(world.player.equipped)
+	world.player.mags = data.get("mags", {})
+	world.player.magazine = int(data.get("magazine", preload("res://weapons/zx_arsenal.gd").magazine(world.player.equipped)))
 	var survival = world.get("survival")
 	if survival:
 		survival.threat = int(data.get("threat", 0))

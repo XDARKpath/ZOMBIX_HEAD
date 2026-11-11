@@ -212,7 +212,7 @@ func _spawn_enemy(at: Vector3, enemy_id: int = -1) -> Node3D:
 	enemy.replica = Session.online and not multiplayer.is_server()
 	enemy.blood_enabled = blood_enabled
 	enemy.rotation.y = PI
-	enemy.defeated.connect(func(_body: Node3D) -> void: kills += 1)
+	enemy.defeated.connect(func(body: Node3D) -> void: kills += 1; _corpse(body))
 	targets.append(enemy)
 	return enemy
 
@@ -224,6 +224,20 @@ func nearest_player(at: Vector3) -> CharacterBody3D:
 			distance = body.position.distance_squared_to(at)
 			result = body
 	return result
+
+## Cadaveri: ognuno continua a fare fisica, ossa e righe nello snapshot di rete. Dopo un po' di gioco erano
+## decine (restavano 5 minuti) e gli FPS crollavano. Se ne tengono al massimo MAX_CORPSES, per CORPSE_SECONDS.
+const MAX_CORPSES := 8
+const CORPSE_SECONDS := 45.0
+var corpses: Array = []
+func _corpse(body: Node3D) -> void:
+	if body.get("brain") != null or int(body.get("kind")) == 5: return   # i boss restano finché la loro arena decide
+	corpses = corpses.filter(func(c): return is_instance_valid(c))
+	corpses.append(body)
+	(func(): if is_instance_valid(body): body.corpse_time = minf(body.corpse_time, CORPSE_SECONDS)).call_deferred()
+	while corpses.size() > MAX_CORPSES:
+		var old: Node3D = corpses.pop_front()
+		if is_instance_valid(old): old.queue_free()
 
 func _process(delta: float) -> void:
 	if not started: return
