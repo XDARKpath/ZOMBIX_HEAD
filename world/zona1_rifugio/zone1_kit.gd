@@ -358,7 +358,7 @@ func _open(p: Node3D, i: int) -> void:
 		p.credits += 30
 		world.announce(Localization.t("FORZIERE · +30 CREDITI"), 4)
 	else:
-		p.health = minf(p.health + 35.0, load("res://autoload/balance.gd").PLAYER_MAX_HEALTH)
+		p.health = minf(p.health + 35.0, p.max_health())
 		world.announce(Localization.t("FORZIERE · BENDE, +35 SALUTE"), 4)
 	if world.get("survival"): world.survival._publish()
 	push_chests()
