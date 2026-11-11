@@ -226,6 +226,7 @@ func _draw() -> void:
 	_draw_feed()
 	_draw_radar(now)
 	_draw_resources()
+	_draw_boss_bar()
 	if world.player.seated: _draw_vehicle()
 	else: _draw_hotbar()
 
@@ -274,16 +275,16 @@ func _center_text(center: Vector2, value: String, size_value: int, color: Color,
 # ---------------------------------------------------------------- vita e fiato
 func _draw_vitals(now: float) -> void:
 	var p = world.player
-	var hp: float = clampf(p.health/100.0,0.0,1.0)
-	var sp: float = clampf(p.stamina/100.0,0.0,1.0)
+	var hp: float = clampf(p.health/p.max_health(),0.0,1.0)
+	var sp: float = clampf(p.stamina/p.max_stamina(),0.0,1.0)
 	var hp_color: Color = C_HP.lerp(Color("d9573c"),clampf((0.5-hp)/0.5,0.0,1.0))
 	if hp < 0.30 and fmod(now,0.8) < 0.4: hp_color = hp_color.lerp(Color("ffa184"),0.45)
 	_heart(Vector2(52,48),hp_color)
-	_bar(Rect2(72,41,206,14),hp,clampf(display_health/100.0,0,1),hp_color,C_RUST,true)
+	_bar(Rect2(72,41,206,14),hp,clampf(display_health/p.max_health(),0,1),hp_color,C_RUST,true)
 	_text(Vector2(286,53),"%d" % ceili(p.health),15,C_RUST if hp < 0.3 else C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
 	_bolt(Vector2(52,74),C_RUST if p.exhausted else C_STAMINA)
 	var sp_color: Color = Color("e08a62") if p.exhausted else C_STAMINA
-	_bar(Rect2(72,70,206,8),sp,clampf(display_stamina/100.0,0,1),sp_color,Color(0.55,0.42,0.22),true)
+	_bar(Rect2(72,70,206,8),sp,clampf(display_stamina/p.max_stamina(),0,1),sp_color,Color(0.55,0.42,0.22),true)
 	_draw_noise()
 	if hp < 0.30:
 		_pill(Rect2(26,24,296,70),Color(0,0,0,0),Color(C_RUST.r,C_RUST.g,C_RUST.b,0.35+0.3*sin(now*5.0)),29.0,2)
@@ -337,17 +338,43 @@ func _draw_objective() -> void:
 		y += 13.0
 	if world.get("boss_hunt"):
 		var hunt = world.boss_hunt
-		var boss: Node3D = hunt.active_boss()
-		if boss:
-			_center_text(Vector2(size.x*0.5,y+10),boss.title,14,Color(0.96,0.86,0.68),bold)
-			_bar(Rect2(size.x*0.5-200,y+22,400,8),clampf(boss.health/boss.max_health,0,1),0,C_RUST,C_RUST)
-		elif world.get("quest") and world.quest.bosses_done() < 3:
+		# La vita del boss ha la sua barra grande in basso (_draw_boss_bar).
+		if not hunt.active_boss() and world.get("quest") and world.quest.bosses_done() < 3:
 			# pezzi del 4×4 recuperati come tre rombi, senza testo
 			var done: int = world.quest.bosses_done()
 			for i in 3:
 				var c := Vector2(size.x*0.5-12+i*12,y+4)
 				var pts := PackedVector2Array([c+Vector2(0,-4),c+Vector2(4,0),c+Vector2(0,4),c+Vector2(-4,0)])
 				draw_colored_polygon(pts,C_BRASS if i < done else Color(1,1,1,0.18))
+
+## Il boss più vicino (entro 60 m): nome, barra larga in basso e le tacche delle fasi (66% e 33%, come boss_brain).
+## Tutto viene da vita e nome già sincronizzati dall'host: uguale sui client.
+var boss_ghost := 1.0
+func _draw_boss_bar() -> void:
+	var boss: Node3D = null
+	var best := 60.0
+	for body in world.get("targets"):
+		if not is_instance_valid(body) or body.dead or body.kind != 5 or String(body.title) == "": continue
+		var d: float = body.global_position.distance_to(world.player.global_position)
+		if d < best:
+			best = d
+			boss = body
+	if boss == null:
+		boss_ghost = 1.0
+		return
+	var frac: float = clampf(boss.health/maxf(boss.max_health,1.0),0,1)
+	boss_ghost = maxf(frac,move_toward(boss_ghost,frac,get_process_delta_time()*0.35))
+	var phase: int = 3 if frac < 0.33 else (2 if frac < 0.66 else 1)
+	var w: float = minf(size.x*0.62,760.0)
+	var r := Rect2(size.x*0.5-w*0.5,size.y-150,w,16)
+	_pill(r.grow(5),Color(0,0,0,0.45),Color(C_BRASS.r,C_BRASS.g,C_BRASS.b,0.35),-1,1)
+	var color: Color = C_RUST.lerp(Color("ff2a2a"),float(phase-1)*0.5)
+	_bar(r,frac,boss_ghost,color,Color("f2c27a"))
+	for mark in [0.66,0.33]:
+		var x: float = r.position.x+r.size.x*mark
+		draw_line(Vector2(x,r.position.y-6),Vector2(x,r.end.y+6),C_BONE if frac > mark else Color(1,1,1,0.3),2.0)
+	_text(Vector2(r.position.x,r.position.y-10),String(boss.title),20,Color(0.96,0.86,0.68),HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
+	_text(Vector2(r.position.x,r.position.y-10),Localization.t("FASE {0}/3",[phase]),15,color.lightened(0.3),HORIZONTAL_ALIGNMENT_RIGHT,r.size.x,bold)
 
 ## Veleno, sangue, radiazioni e il resto, sotto la vita: cosa hai, quanto dura, con cosa si cura.
 func _draw_status() -> void:

@@ -748,7 +748,7 @@ func _do(actor: CharacterBody3D, action: String) -> void:
 			return
 		ch.looted = true
 		if ch.heal:
-			actor.health = load("res://autoload/balance.gd").PLAYER_MAX_HEALTH
+			actor.health = actor.max_health()
 			world.announce("Bende e acqua pulita: salute al massimo.", 3)
 		else:
 			actor.credits += ch.amount

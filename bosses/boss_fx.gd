@@ -25,6 +25,7 @@ static func play(world: Node, kind: String, at: Vector3, d: Dictionary) -> void:
 		"cage": _cage(world, at, d)
 		"pop": _pop(world, at, d)
 		"burn": _burn(world, d)
+		"rage": _rage(world, d)
 		"flash": _flash(world, d)
 		"plate": _plate(world, at)
 		"bolt": _bolt(world, at, d)
@@ -839,6 +840,44 @@ static func _enemy(world: Node, id: int) -> Node3D:
 	for body in world.get("targets"):
 		if is_instance_valid(body) and body.network_id == id: return body
 	return null
+
+
+## Fase nuova: aura rossa che resta attaccata al boss, più forte a ogni fase.
+static func _rage(world: Node, d: Dictionary) -> void:
+	var body := _enemy(world, int(d.get("id", -1)))
+	if body == null: return
+	var level: int = int(d.get("level", 1))
+	var old := body.get_node_or_null("BossRage")
+	if old: old.free()
+	var aura := CPUParticles3D.new()
+	aura.name = "BossRage"
+	body.add_child(aura)
+	aura.position = Vector3.UP * 1.8
+	aura.amount = 18 + level * 14
+	aura.lifetime = 0.9
+	aura.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	aura.emission_sphere_radius = 1.2
+	aura.direction = Vector3.UP
+	aura.spread = 25.0
+	aura.initial_velocity_min = 0.6
+	aura.initial_velocity_max = 1.6 + level * 0.6
+	aura.gravity = Vector3.ZERO
+	var mote := SphereMesh.new()
+	mote.radius = 0.07
+	mote.height = 0.14
+	mote.radial_segments = 6
+	mote.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.18, 0.1) if level < 2 else Color(1.0, 0.05, 0.25)
+	mote.material = mat
+	aura.mesh = mote
+	var light := OmniLight3D.new()
+	light.light_color = mat.albedo_color
+	light.light_energy = 0.8 + level * 0.7
+	light.omni_range = 6.0
+	aura.add_child(light)
+	aura.emitting = true
 
 
 ## Il corpo del boss brucia davvero: fiamme attaccate a lui.

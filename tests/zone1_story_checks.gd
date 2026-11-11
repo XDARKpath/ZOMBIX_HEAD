@@ -221,7 +221,8 @@ func _run() -> void:
 	var macellaio: Node3D = village.boss
 	check(is_instance_valid(macellaio) and macellaio.kind == 5, "Dal pozzo esce il boss")
 	await wait(5)
-	check(village._ui.visible, "C'è la barra del boss")
+	# La barra la disegna l'HUD per il boss con un nome entro 60 m (zombix_hud._draw_boss_bar).
+	check(is_instance_valid(macellaio) and String(macellaio.title) != "" and macellaio.global_position.distance_to(p.global_position) < 60.0, "C'è la barra del boss")
 	village._arena_reset()
 	check(village.arena == "idle" and p.baits == 1 and not village.barricade_up, "Scontro abbandonato: l'esca torna e le vie si riaprono")
 	check(village.request_use(p) and village.arena == "active", "Si può riprovare")

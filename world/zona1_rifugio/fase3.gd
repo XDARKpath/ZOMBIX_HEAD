@@ -11,6 +11,9 @@ var net_clock: float = 0
 var player_avatar: Node3D
 var snapshots_received: int = 0
 var ui_open: bool = true
+## Suggerimenti in coda (tutorial): uno alla volta, ciascuno quando il precedente è sparito. [testo, secondi]
+var tips: Array = []
+var tip_text := ""
 var profile_config := ConfigFile.new()
 var settings_data := {
 	"sensitivity":1.0,"volume":70.0,"blood":true,"shadows":true,
@@ -173,6 +176,19 @@ func _begin_play() -> void:
 	set_paused(false)
 	announce("Gli infetti sentono i colpi. Tieni libera la via del ritorno.",5)
 
+## Mette un suggerimento in coda: non copre l'avviso in corso e non arriva insieme agli altri.
+func tip(message: String, seconds: float = 5.0) -> void:
+	for row in tips:
+		if row[0] == message: return
+	tips.append([message, seconds])
+
+## Un avviso nuovo sostituisce subito quello in corso; se copriva un suggerimento, il suggerimento torna in coda.
+func announce(message: String, seconds: float = 3.0) -> void:
+	if notice_left > 0 and tip_text != "" and notice.text == tip_text and message != tip_text:
+		tips.push_front([tip_text, maxf(notice_left, 3.0)])
+	tip_text = ""
+	super.announce(message, seconds)
+
 func _spawn_targets() -> void:
 	for body in targets:
 		if is_instance_valid(body): body.queue_free()
@@ -196,7 +212,7 @@ func _spawn_enemy(at: Vector3, enemy_id: int = -1) -> Node3D:
 	enemy.replica = Session.online and not multiplayer.is_server()
 	enemy.blood_enabled = blood_enabled
 	enemy.rotation.y = PI
-	enemy.defeated.connect(func(_body: Node3D) -> void: kills += 1)
+	enemy.defeated.connect(func(body: Node3D) -> void: kills += 1; _corpse(body))
 	targets.append(enemy)
 	return enemy
 
@@ -208,6 +224,20 @@ func nearest_player(at: Vector3) -> CharacterBody3D:
 			distance = body.position.distance_squared_to(at)
 			result = body
 	return result
+
+## Cadaveri: ognuno continua a fare fisica, ossa e righe nello snapshot di rete. Dopo un po' di gioco erano
+## decine (restavano 5 minuti) e gli FPS crollavano. Se ne tengono al massimo MAX_CORPSES, per CORPSE_SECONDS.
+const MAX_CORPSES := 8
+const CORPSE_SECONDS := 45.0
+var corpses: Array = []
+func _corpse(body: Node3D) -> void:
+	if body.get("brain") != null or int(body.get("kind")) == 5: return   # i boss restano finché la loro arena decide
+	corpses = corpses.filter(func(c): return is_instance_valid(c))
+	corpses.append(body)
+	(func(): if is_instance_valid(body): body.corpse_time = minf(body.corpse_time, CORPSE_SECONDS)).call_deferred()
+	while corpses.size() > MAX_CORPSES:
+		var old: Node3D = corpses.pop_front()
+		if is_instance_valid(old): old.queue_free()
 
 func _process(delta: float) -> void:
 	if not started: return
@@ -221,8 +251,13 @@ func _process(delta: float) -> void:
 	objective.text = "LAGO CENERE\nInfetti vicini: %d  ·  Abbattuti: %d" % [alive,kills]
 	charge_bar.value = player.melee.charge_fraction()*100
 	charge_bar.visible = player.melee.charging
-	notice_left = maxf(0,notice_left-delta)
-	notice.visible = notice_left > 0
+	# Con un dialogo o un pannello aperto gli avvisi aspettano: compaiono quando si chiude.
+	if not ui_open: notice_left = maxf(0,notice_left-delta)
+	if notice_left <= 0 and not ui_open and not tips.is_empty():
+		var row: Array = tips.pop_front()
+		announce(row[0],row[1])
+		tip_text = notice.text
+	notice.visible = notice_left > 0 and not ui_open
 	if not Session.online or multiplayer.is_server():
 		if not has_method("activate_zone"): spawn_clock -= delta
 		if not has_method("activate_zone") and spawn_clock <= 0 and alive < 8 and targets.size()<24:

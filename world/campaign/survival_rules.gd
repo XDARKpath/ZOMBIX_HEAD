@@ -41,6 +41,8 @@ var shop_slot:Button
 var zx:Node3D
 var shop_npc:Node3D
 const MAX_SLOTS:=8
+## Consigli del primo incontro con lo sceriffo, in quest'ordine (world.tip li mostra uno dopo l'altro).
+const TUTORIAL_TIPS:=["Click: colpo rapido  ·  Tieni premuto: colpo caricato","Tasto destro: pari con le armi bianche, miri con quelle da fuoco","Armi da fuoco: click per sparare  ·  R per ricaricare","Infetto a terra: colpiscilo alla testa con l'ascia per staccarla","Testa in mano davanti allo sceriffo: V per venderla"]
 var wave_serial:int=0
 var sheriff_node:Node3D
 var dialogue:Control
@@ -149,6 +151,23 @@ func _near_sheriff(a:CharacterBody3D) -> bool:
 	if _near(a,Layout.SHERIFF_NPC,TRADE_DISTANCE):return true
 	return world.get("zone2")!=null and world.zone2.near_sheriff(a,TRADE_DISTANCE)
 
+## Vita e fiato massimi: come lo zaino, ma al massimo due per zona. kind "health" o "stamina".
+func upgrade_price(kind:String,a:CharacterBody3D=null) -> int:
+	if a==null:a=world.player
+	return 90+a._ups(a.health_ups if kind=="health" else a.stamina_ups)*60
+## Zona del negozio a portata dell'attore (-1 se non è da nessun negozio): la decide la posizione, non il client.
+func shop_zone(a:CharacterBody3D) -> int:
+	if not zx:return -1
+	var here:Dictionary=zx.near(a)
+	if here.is_empty():
+		for d in zx.displays:
+			if String(d.id).begins_with("up_") and is_instance_valid(d.node) and a.global_position.distance_to(d.node.global_position)<=zx.REACH+1.0:
+				return int(d.shop.zone) if d.shop else 0
+		return -1
+	return int(here.shop.zone) if here.shop else 0
+func upgrades_left(kind:String,a:CharacterBody3D,zone:int) -> int:
+	var table:Dictionary=a.health_ups if kind=="health" else a.stamina_ups
+	return a.UPGRADES_PER_ZONE-int(table.get(str(zone),0))
 func slot_price() -> int:
 	return 60+(world.player.inventory_slots-4)*40
 
@@ -294,6 +313,10 @@ func close_sheriff_dialogue() -> void:
 	if npc_choice.is_valid():
 		npc_choice=Callable();dialogue_ui.set_choices(DIALOGUE_OPTIONS);Input.mouse_mode=Input.MOUSE_MODE_CAPTURED;return
 	# Fine del discorso con lo sceriffo: la missione va avanti (esca, consegna della testa del custode...).
+	if world.get("quest") and world.quest.stage==world.quest.TALK and world.has_method("tip"):
+		# Primo incontro: il vecchio "parla con lo sceriffo" sparisce e i consigli arrivano uno alla volta.
+		world.notice_left=0.0
+		for row in TUTORIAL_TIPS:world.tip(Localization.t(row),5.5)
 	request("quest:talk")
 	if not seen_intro:
 		seen_intro=true
@@ -430,7 +453,7 @@ func act(peer:int,action:String) -> bool:
 	if action.begins_with("useitem:"):
 		var id:String=action.get_slice(":",1)
 		if not a.items.has(id) or int(ItemInfo.ITEMS.get(id,{}).get("heal",0))<=0:return false
-		a.health=minf(a.health+float(ItemInfo.ITEMS[id].heal),load("res://autoload/balance.gd").PLAYER_MAX_HEALTH)
+		a.health=minf(a.health+float(ItemInfo.ITEMS[id].heal),a.max_health())
 		# Le bende fermano il sangue e il veleno, il cibo aiuta col veleno, il kit medico cura tutto.
 		match id:
 			"item_bende":a.status.clear(["bleed","poison"])
@@ -478,6 +501,18 @@ func act(peer:int,action:String) -> bool:
 		if a.inventory_slots>=MAX_SLOTS or a.credits<cost:return false
 		a.credits-=cost;a.inventory_slots+=1;_publish()
 		world.announce(Localization.t("ZAINO PIÙ GRANDE · {0} SLOT",[a.inventory_slots]),4);return true
+	if action.begins_with("buyup:"):
+		var kind:String=action.get_slice(":",1)
+		var zone:int=shop_zone(a)
+		if not kind in ["health","stamina"] or zone<0:return false
+		var cost:int=upgrade_price(kind,a)
+		if upgrades_left(kind,a,zone)<=0 or a.credits<cost:return false
+		var table:Dictionary=a.health_ups if kind=="health" else a.stamina_ups
+		a.credits-=cost;table[str(zone)]=int(table.get(str(zone),0))+1
+		if kind=="health":a.health=minf(a.health+a.HEALTH_PER_UPGRADE,a.max_health())
+		else:a.stamina=minf(a.stamina+a.STAMINA_PER_UPGRADE,a.max_stamina())
+		_publish()
+		world.announce(Localization.t("VITA MASSIMA {0}",[int(a.max_health())]) if kind=="health" else Localization.t("FIATO MASSIMO {0}",[int(a.max_stamina())]),4);return true
 	if action=="drop":return _drop_weapon(a)
 	if action.begins_with("emote:"):
 		gesture(a,action.get_slice(":",1) if action.get_slice(":",1) in ["wave","dance"] else "wave")
@@ -528,7 +563,7 @@ func _publish() -> void:
 	_refresh_heads()
 	var inventory:Array=[]
 	for peer in world.actors:
-		var a:CharacterBody3D=world.actors[peer];inventory.append([peer,a.credits,a.carried_heads,a.owned,a.equipped,a.baits,a.arrows,a.items,a.hotbar,a.slot,a.inventory_slots])
+		var a:CharacterBody3D=world.actors[peer];inventory.append([peer,a.credits,a.carried_heads,a.owned,a.equipped,a.baits,a.arrows,a.items,a.hotbar,a.slot,a.inventory_slots,a.health_ups,a.stamina_ups])
 	if Session.online and multiplayer.is_server():
 		for peer in Session.connected_peers():sync.rpc_id(peer,heads,inventory,threat,world.roadblocks.triggered,world.roadblocks.cleared);thrown_sync.rpc_id(peer,_thrown_rows())
 @rpc("authority","call_remote","reliable")
@@ -545,6 +580,8 @@ func sync(items:Array,inventory:Array,tier:int,road_started:Array,road_open:Arra
 		if row.size()>6:a.arrows=row[6]
 		if row.size()>10:
 			a.items=row[7].duplicate();a.hotbar.assign(row[8]);a.slot=row[9];a.inventory_slots=row[10]
+		if row.size()>12:
+			a.health_ups=row[11].duplicate();a.stamina_ups=row[12].duplicate()
 func _build_shop() -> void:
 	shop_ui=Control.new()
 	shop_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

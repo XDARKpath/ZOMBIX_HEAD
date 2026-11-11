@@ -47,11 +47,12 @@ func run():
 	check(zx.target(p).get("id", "") == "machete", "Guardando il machete lo si punta (%s)" % zx.target(p).get("id", "nessuno"))
 	p.credits = 10
 	p.owned.assign(["axe"])
-	check(zx.context(p).contains("MANCANO"), "Senza crediti il cartellino dice quanto manca (%s)" % zx.context(p))
+	# Il testo segue la lingua del gioco (inglese predefinito, italiano selezionabile).
+	check(zx.context(p).contains("MANCANO") or zx.context(p).contains("SHORT"), "Senza crediti il cartellino dice quanto manca (%s)" % zx.context(p))
 	check(zx.request(p) and not "machete" in p.owned, "E senza crediti: niente acquisto")
 	await shot("poor")
 	p.credits = 500
-	check(zx.context(p).begins_with("E  COMPRA MACHETE"), "Con i crediti: E COMPRA (%s)" % zx.context(p))
+	check(zx.context(p).begins_with("E  COMPRA MACHETE") or zx.context(p).begins_with("E  BUY MACHETE"), "Con i crediti: E COMPRA (%s)" % zx.context(p))
 	check(zx.request(p) and "machete" in p.owned and p.equipped == "machete" and p.credits == 430, "E: machete comprato, 70 crediti scalati, in mano")
 	await shot("bought", 0.5)
 	check(zx.context(p).contains("GIÀ TUA"), "Poi il cartellino dice GIÀ TUA")
@@ -62,6 +63,13 @@ func run():
 	p.credits = 500
 	check(zx.target(p).get("id", "") == "pack" and zx.request(p) and p.inventory_slots == slots + 1, "Zaino comprato dal bancone: +1 slot")
 	await shot("pack")
+	# vita e fiato massimi sul bancone, due per zona
+	var up: Dictionary = find(zx, "up_health", null)
+	await face(p, zx, up, armory.global_basis.z.normalized() * 1.2)
+	p.credits = 500
+	var hp: float = p.max_health()
+	check(zx.target(p).get("id", "") == "up_health" and zx.request(p) and p.max_health() == hp + 15.0, "Vita +15 comprata dal bancone (%s)" % zx.target(p).get("id", "nessuno"))
+	await shot("up-health")
 	# negozio della zona 4 (Spaccio del Deposito)
 	var lmg: Dictionary = find(zx, "lmg", zx.shops[3])
 	await face(p, zx, lmg, zx.shops[3].global_basis.z.normalized() * 2.0)

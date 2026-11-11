@@ -108,7 +108,24 @@ func _dress() -> void:
 	avatar.configure(skin_path(), self, true)
 	if boss_weapon == "cleaver": _give_cleaver()
 	if boss_weapon == "lamp": _give_lamp()
-	if boss_weapon == "crown": _give_crown()
+	if boss_weapon.begins_with("crown"): _give_crown()
+	if boss_weapon.ends_with("machete"): _give_machete()
+
+## Il machete del Signore delle Teste: lo stesso modello dell'arma del giocatore, in mano destra.
+func _give_machete() -> void:
+	if not avatar.skeleton: return
+	var blade: Node3D = load("res://art/env/weapons/SM_Wep_Machete.glb").instantiate()
+	blade.name = "BossMachete"
+	var socket := "weapon_r" if avatar.skeleton.find_bone("weapon_r") != -1 else ""
+	if socket != "":
+		preload("res://art/env/scripts/weapon_item.gd").attach_node(blade, avatar, socket)
+	elif avatar.bone_ids.has("hand_r"):
+		var grip := BoneAttachment3D.new()
+		avatar.skeleton.add_child(grip)
+		grip.bone_name = avatar.skeleton.get_bone_name(avatar.bone_ids["hand_r"])
+		grip.add_child(blade)
+		blade.transform = Transform3D(preload("res://art/env/scripts/weapon_item.gd").SOCKET_BASIS, Vector3.ZERO)
+	blade.scale = Vector3.ONE * 1.25
 
 ## La corona del Signore delle Teste: tre teschi che gli girano attorno. set_crown toglie quelli tagliati.
 var crown_node:Node3D
@@ -211,10 +228,11 @@ func receive_hit(zone:String,amount:float,force:Vector3,weapon:String,heavy:bool
 		leg_damage+=amount*(1.6 if heavy else 1.0)
 		health=maxf(1 if not crawling else 0,health-amount*0.45)
 		if not crawling and leg_damage>=LEG_LIMIT[kind]:
-			crawling=true;heavy=true
+			crawling=true;heavy=true;reaction=""
 			body_shape.shape.height=0.64;body_shape.position.y=0.32
 	else:health=maxf(0,health-amount*(2.5 if zone=="head" else (1.3 if zone=="neck" else 1.0)))
-	velocity+=force;stagger=0.55 if heavy else 0.25
+	# Se è già a terra per una caduta non si accorcia: finisce caduta, terra e rialzata come sono.
+	velocity+=force;stagger=maxf(stagger,0.55 if heavy else 0.25)
 	_react()
 	bar.visible=true;bar.scale.x=health/max_health
 	if blood_enabled:_blood(global_position+Vector3.UP*(0.35 if low else 1.2))
@@ -240,6 +258,8 @@ func _react() -> void:
 	var kind := pending_reaction
 	pending_reaction = ""
 	if kind == "" or not REACTIONS.has(kind) or self.kind == 5: return     # il boss non si fa spostare
+	# Già a terra: un altro colpo non lo rimette in piedi né ricomincia la caduta a metà.
+	if reaction == "knockdown" and stagger > 0.0: return
 	# Il bruto non cade per un calcio e non cambia clip: indietreggia di poco e incassa col corpo.
 	if self.kind == 2:
 		var away := Vector3(reaction_dir.x, 0, reaction_dir.z).normalized()

@@ -55,6 +55,47 @@ func _shop_displays(shop: ZXShop) -> void:
 	pack.rotation.y = -0.4
 	register_display(pack, "pack", -1, pack.get_node("Tag"), shop)
 	add_counter_items(shop, Vector3(-1.72, 1.0, -0.22), Vector3(0, 0, 0.24), shop)
+	add_upgrades(shop, Vector3(1.1, 1.0, -0.2), Vector3(-0.42, 0, 0), shop)
+
+## Vita e fiato massimi sul bancone (id "up_health", "up_stamina"): si comprano guardandoli, due per zona.
+func add_upgrades(parent: Node3D, start: Vector3, step: Vector3, shop: Node3D = null) -> void:
+	var i := 0
+	for kind in ["health", "stamina"]:
+		var up := make_upgrade(kind)
+		parent.add_child(up)
+		up.position = start + step * i
+		register_display(up, "up_" + kind, -1, up.get_node("Tag"), shop)
+		i += 1
+
+## Cassetta rossa con la croce (vita) o lattina gialla (fiato), con il cartellino.
+static func make_upgrade(kind: String) -> Node3D:
+	var up := Node3D.new()
+	up.name = "Stock_up_" + kind
+	var body := StandardMaterial3D.new()
+	body.albedo_color = Color("9c2b22") if kind == "health" else Color("d9a521")
+	var mark := StandardMaterial3D.new()
+	mark.albedo_color = Color("efe8d8") if kind == "health" else Color("2a2a26")
+	var rows: Array = [[Vector3(0.26, 0.16, 0.18), Vector3(0, 0.08, 0), body], [Vector3(0.14, 0.04, 0.012), Vector3(0, 0.08, 0.091), mark], [Vector3(0.04, 0.12, 0.012), Vector3(0, 0.08, 0.091), mark]]
+	if kind != "health": rows = [[Vector3(0.1, 0.24, 0.1), Vector3(0, 0.12, 0), body], [Vector3(0.102, 0.06, 0.102), Vector3(0, 0.12, 0), mark]]
+	for row in rows:
+		var mi := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = row[0]
+		mi.mesh = box
+		mi.position = row[1]
+		mi.material_override = row[2]
+		up.add_child(mi)
+	var tag := Label3D.new()
+	tag.name = "Tag"
+	tag.text = Localization.t("Vita +15") if kind == "health" else Localization.t("Fiato +15")
+	tag.font_size = 24
+	tag.pixel_size = 0.0017
+	tag.outline_size = 8
+	tag.modulate = C_TAG
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.position = Vector3(0, 0.42, 0)
+	up.add_child(tag)
+	return up
 
 ## Bende, cibo e kit medico sul bancone: si comprano guardandoli, come le armi.
 func add_counter_items(parent: Node3D, start: Vector3, step: Vector3, shop: Node3D = null) -> void:
@@ -139,6 +180,7 @@ func offer(actor: Node3D, id: String) -> int:
 
 ## Prezzo mostrato: lo zaino costa sempre il prossimo slot.
 func price_of(d: Dictionary) -> int:
+	if String(d.id).begins_with("up_"): return survival.upgrade_price(String(d.id).substr(3))
 	return survival.slot_price() if d.id == "pack" else int(d.price)
 
 ## Oggetto esposto che il giocatore sta guardando, entro REACH: {} se nessuno.
@@ -169,6 +211,10 @@ func status(actor: CharacterBody3D, d: Dictionary) -> String:
 	if d.id == "pack":
 		if actor.inventory_slots >= survival.MAX_SLOTS: return "max"
 		return "ok" if actor.credits >= price_of(d) else "poor"
+	if String(d.id).begins_with("up_"):
+		var zone: int = int(d.shop.zone) if d.shop else 0
+		if survival.upgrades_left(String(d.id).substr(3), actor, zone) <= 0: return "max"
+		return "ok" if actor.credits >= price_of(d) else "poor"
 	var consumable: bool = ItemInfo.is_item(d.id) or ZXWeapons.get_def(d.id).get("class", "") == "consumable"
 	if not consumable and d.id in actor.owned: return "owned"
 	if actor.credits < price_of(d): return "poor"
@@ -179,9 +225,13 @@ func context(actor: Node3D) -> String:
 	var d := target(actor)
 	if not d.is_empty():
 		var label: String = "ZAINO +1 SLOT" if d.id == "pack" else ItemInfo.title(d.id).to_upper()
+		if d.id == "up_health": label = Localization.t("VITA MASSIMA +15")
+		elif d.id == "up_stamina": label = Localization.t("FIATO MASSIMO +15")
 		match status(actor, d):
 			"owned": return Localization.t("{0} · GIÀ TUA", [label])
-			"max": return Localization.t("ZAINO AL MASSIMO ({0} SLOT)", [actor.inventory_slots])
+			"max":
+				if String(d.id).begins_with("up_"): return Localization.t("{0} · GIÀ PRESI I DUE DI QUESTA ZONA", [label])
+				return Localization.t("ZAINO AL MASSIMO ({0} SLOT)", [actor.inventory_slots])
 			"poor": return Localization.t("{0} · {1} CR · TE NE MANCANO {2}", [label, price_of(d), price_of(d) - actor.credits])
 			"full": return Localization.t("{0} · TASCHE PIENE · X LASCIA QUELLO IN MANO", [label])
 		return Localization.t("E  COMPRA {0} · {1} CR", [label, price_of(d)])
@@ -198,8 +248,9 @@ func request(actor: CharacterBody3D) -> bool:
 		if why != "ok":
 			world.announce(context(actor), 2.5)
 			return true
-		aimed = d if d.id != "pack" else {}
-		survival.request("buyslot" if d.id == "pack" else "zxbuy:" + String(d.id))
+		aimed = d if d.id != "pack" and not String(d.id).begins_with("up_") else {}
+		if String(d.id).begins_with("up_"): survival.request("buyup:" + String(d.id).substr(3))
+		else: survival.request("buyslot" if d.id == "pack" else "zxbuy:" + String(d.id))
 		return true
 	for shop in shops:
 		if actor.global_position.distance_to(shop.to_global(Vector3(0, 0, 1.2))) <= DISTANCE and shop.npc:
@@ -233,6 +284,9 @@ func _process(_delta: float) -> void:
 		var base: String = d.text
 		if d.id == "pack":
 			base = Localization.t("Zaino +1 slot\n{0} CR", [price_of(d)]) if st != "max" else Localization.t("Zaino\nal massimo")
+		elif String(d.id).begins_with("up_"):
+			var what: String = Localization.t("Vita +15") if d.id == "up_health" else Localization.t("Fiato +15")
+			base = what + "\n" + (Localization.t("{0} CR", [price_of(d)]) if st != "max" else Localization.t("finiti in questa zona"))
 		tag.text = base + ("\n" + Localization.t("GIÀ TUA") if st == "owned" else "")
 		var c: Color = C_TAG_OWNED if st == "owned" or st == "max" else (C_TAG_POOR if st == "poor" else C_TAG)
 		var on: bool = not aim.is_empty() and aim.node == d.node
