@@ -84,5 +84,8 @@ func _physics_process(delta: float) -> void:
 	if is_instance_valid(stuck_on) and not stuck_on.get("dead") and stuck_on.get("dead") != null: return
 	if is_instance_valid(shooter) and shooter.global_position.distance_to(global_position) < PICKUP:
 		shooter.arrows += 1
+		# Online il conto delle frecce arriva ai client solo col publish dell'host.
+		var survival = shooter.get_parent().get("survival") if shooter.get_parent() else null
+		if survival and survival.has_method("_publish"): survival._publish()
 		AudioManager.arrow_pickup(global_position)
 		queue_free()

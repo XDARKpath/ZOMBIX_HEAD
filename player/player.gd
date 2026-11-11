@@ -46,10 +46,21 @@ var equipped:String="axe"
 # Zaino a slot come in How to Fish: si parte con quattro posti e se ne comprano
 # altri dall'armeria. Ogni arma occupa uno slot.
 var inventory_slots:int=4
+# Potenziamenti comprati nei negozi, come lo zaino: {zona: quanti}, al massimo UPGRADES_PER_ZONE per zona.
+const UPGRADES_PER_ZONE:=2
+const HEALTH_PER_UPGRADE:=15.0
+const STAMINA_PER_UPGRADE:=15.0
+var health_ups:Dictionary={}
+var stamina_ups:Dictionary={}
 var magazine:int=8
+# Colpi rimasti nelle armi da fuoco che non si hanno in mano (ognuna ha il suo caricatore).
+var mags:Dictionary={}
 # Frecce dell'arco (comprese quella incoccata): si comprano da Big Earl e si recuperano dove sono piantate.
 var arrows:int=0
 var reload_left:float=0
+# Durata della ricarica in corso (o della cartuccia in corso): serve alle animazioni e all'HUD.
+var reload_total:float=1.6
+var _reload_seen:float=0
 var health: float = Balance.PLAYER_MAX_HEALTH
 var stamina: float = Balance.PLAYER_MAX_STAMINA
 var dead: bool = false
@@ -93,9 +104,17 @@ func _ready() -> void:
 	vitals_changed.emit(health, stamina)
 
 func _physics_process(delta: float) -> void:
+	if reload_left>_reload_seen:reload_total=reload_left   # vale anche sui client, dove reload_left arriva dall'host
 	if reload_left>0:
 		reload_left=maxf(0,reload_left-delta)
-		if reload_left==0:magazine=preload("res://weapons/zx_arsenal.gd").magazine(equipped)
+		if reload_left==0:
+			var Arsenal=preload("res://weapons/zx_arsenal.gd")
+			if equipped in Arsenal.SHELL_RELOAD:
+				# Una cartuccia alla volta: si continua finché il tubo è pieno (sparare interrompe).
+				magazine=mini(magazine+1,Arsenal.magazine(equipped))
+				if magazine<Arsenal.magazine(equipped):reload_left=Arsenal.reload_seconds(equipped);reload_total=reload_left
+			else:magazine=Arsenal.magazine(equipped)
+	_reload_seen=reload_left
 	if seated: return
 	if dead:
 		return
@@ -147,7 +166,7 @@ func _physics_process(delta: float) -> void:
 			if stamina <= 0:
 				exhausted = true
 	if not dodging and not sprinting and regen_delay <= 0:
-		stamina = minf(Balance.PLAYER_MAX_STAMINA, stamina + Balance.STAMINA_REGEN * delta)
+		stamina = minf(max_stamina(), stamina + Balance.STAMINA_REGEN * delta)
 	if not is_on_floor():
 		velocity.y -= Balance.GRAVITY * delta
 	elif velocity.y<=0:
@@ -259,8 +278,8 @@ func reset_at(point: Vector3) -> void:
 	velocity = Vector3.ZERO
 	if status: status.clear_all()
 	knock_left = 0.0
-	health = Balance.PLAYER_MAX_HEALTH
-	stamina = Balance.PLAYER_MAX_STAMINA
+	health = max_health()
+	stamina = max_stamina()
 	dead = false
 	sprinting = false
 	exhausted = false
@@ -369,7 +388,14 @@ func hotbar_clear(id:String) -> void:
 		select_slot(-1)
 func select_slot(n:int) -> void:
 	slot=clampi(n,-1,inventory_slots-1)
-	equipped=hotbar[slot] if slot>=0 else ""
+	var next:String=hotbar[slot] if slot>=0 else ""
+	if next!=equipped:
+		# Cambiando arma il caricatore resta suo e una ricarica a metà si annulla.
+		var Arsenal=preload("res://weapons/zx_arsenal.gd")
+		if Arsenal.is_gun(equipped):mags[equipped]=magazine
+		reload_left=0
+		magazine=int(mags.get(next,Arsenal.magazine(next)))
+	equipped=next
 ## Mette in mano un'arma o un oggetto: resta nella sua tasca se ce l'ha, altrimenti in una libera o in quella attuale.
 func equip_id(id:String) -> void:
 	if not hotbar.has(id):
@@ -384,7 +410,16 @@ func remove_one(id:String) -> void:
 func has_thing(id:String) -> bool:
 	return items.has(id) or owned.has(id)
 func reset_inventory() -> void:
-	credits=0;carried_heads=0;baits=0;heads_delivered=0;baits_earned=0;owned=["axe"];items={};hotbar.assign(["axe","","","","","","","",""]);slot=0;equipped="axe";magazine=8;arrows=0;reload_left=0;inventory_slots=4
+	credits=0;carried_heads=0;baits=0;heads_delivered=0;baits_earned=0;owned=["axe"];items={};hotbar.assign(["axe","","","","","","","",""]);slot=0;equipped="axe";magazine=8;mags={};arrows=0;reload_left=0;inventory_slots=4;health_ups={};stamina_ups={}
+
+func _ups(table:Dictionary) -> int:
+	var n:=0
+	for zone in table:n+=int(table[zone])
+	return n
+func max_health() -> float:
+	return Balance.PLAYER_MAX_HEALTH+HEALTH_PER_UPGRADE*_ups(health_ups)
+func max_stamina() -> float:
+	return Balance.PLAYER_MAX_STAMINA+STAMINA_PER_UPGRADE*_ups(stamina_ups)
 
 func free_slot() -> bool:
 	return owned.size() < inventory_slots
@@ -392,9 +427,9 @@ func free_slot() -> bool:
 func reload_weapon() -> bool:
 	var Arsenal=preload("res://weapons/zx_arsenal.gd")
 	if dead or seated or not Arsenal.is_gun(equipped) or magazine>=Arsenal.magazine(equipped) or reload_left>0 or melee.attacking:return false
-	# La ricarica dura quanto la sua clip (Pistol_Reload, Rifle_Reload, Break_Reload...).
-	var clip:String=Arsenal.def(equipped).get("reload","Player_Pistol_Reload")
-	reload_left=Arsenal.clip_seconds(clip) if equipped!="pistol" else 1.6
+	# Ogni arma ha la sua durata (zx_arsenal.RELOAD_SECONDS); le armi a cartucce una cartuccia alla volta.
+	reload_left=Arsenal.reload_seconds(equipped)
+	reload_total=reload_left
 	AudioManager.weapon_reload(equipped)
 	return true
 

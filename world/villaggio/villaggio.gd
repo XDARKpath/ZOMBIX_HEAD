@@ -652,7 +652,8 @@ func _farm() -> void:
 	cap.mesh = cm
 	cap.position.y = 10.45
 	cap.material_override = Props.material(Color("4c5d5b"), 0.4)
-	_perch(tank, Vector3(1.3, 7.25, 1.3))
+	# Sul ballatoio, fuori dal cilindro (raggio 1.9): lo sputatore non deve comparire dentro il serbatoio.
+	_perch(tank, Vector3(1.85, 7.25, 1.85))
 	# campi coltivati (abbandonati) e balle di fieno
 	for row in 10:
 		box(f, Vector3(-22, 0.03, -14 + row * 2.6), Vector3(18, 0.05, 1.1), Color("4a3d2b"), false)
@@ -831,6 +832,7 @@ func _boss_ui() -> void:
 	_ui.visible = false
 
 
+var _boss_near := false
 func _update_boss_bar() -> void:
 	var b: Node3D = null
 	for e in world.targets:
@@ -838,17 +840,20 @@ func _update_boss_bar() -> void:
 			b = e
 			break
 	var p: CharacterBody3D = world.player
-	var was_visible: bool = _ui.visible
-	_ui.visible = b != null and is_instance_valid(p) and b.global_position.distance_to(p.global_position) < 50
-	if _ui.visible != was_visible:
-		if _ui.visible: AudioManager.start_boss(BOSS_MUSIC, BOSS_NAME)
+	# La barra la disegna l'HUD (ui/zombix_hud.gd); qui resta solo la musica del boss.
+	var near: bool = b != null and is_instance_valid(p) and b.global_position.distance_to(p.global_position) < 50
+	if near != _boss_near:
+		_boss_near = near
+		if near: AudioManager.start_boss(BOSS_MUSIC, BOSS_NAME)
 		else: AudioManager.end_boss(BOSS_MUSIC)
-	if _ui.visible:
-		_bar.max_value = b.max_health
-		_bar.value = b.health
+	_ui.visible = false
 
 
 # ================================================================== gioco (host)
+## Da qui (metri dal centro) il borgo si popola: poco oltre il bordo piatto (L.FLAT), cioè all'ingresso.
+const ARRIVE := 125.0
+
+
 func in_town(p: Vector3) -> bool:
 	return Vector2(p.x - L.CENTER.x, p.z - L.CENTER.z).length() < 95.0
 
@@ -1086,10 +1091,10 @@ func _do(actor: CharacterBody3D, index: int) -> void:
 	LootChest.set_open(ch.lid, true)
 	ch.tag.visible = false
 	if ch.heal and ch.free:
-		actor.health = minf(actor.health + 35.0, load("res://autoload/balance.gd").PLAYER_MAX_HEALTH)
+		actor.health = minf(actor.health + 35.0, actor.max_health())
 		world.announce("Forziere: bende, +35 salute.", 3)
 	elif ch.heal:
-		actor.health = load("res://autoload/balance.gd").PLAYER_MAX_HEALTH
+		actor.health = actor.max_health()
 		world.announce("Cassa medica: salute al massimo.", 3)
 	else:
 		actor.credits += ch.amount
@@ -1120,7 +1125,8 @@ func _process(delta: float) -> void:
 		var pos: Vector3 = a.global_position
 		if Vector2(pos.x - L.CENTER.x, pos.z - L.CENTER.z).length() < 170:
 			near = true
-		if in_town(pos):
+		# Gli infetti compaiono quando entri nel borgo, non a metà strada verso la piazza.
+		if Vector2(pos.x - L.CENTER.x, pos.z - L.CENTER.z).length() < ARRIVE:
 			town = true
 	if state == "idle" and town:
 		_populate_town()

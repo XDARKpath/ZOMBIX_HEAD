@@ -41,10 +41,14 @@ func write(world: Node) -> bool:
 		"owned": world.player.owned,
 		"equipped": world.player.equipped,
 		"slots": world.player.inventory_slots,
+		"health_ups": world.player.health_ups,
+		"stamina_ups": world.player.stamina_ups,
 		"items": world.player.items,
 		"hotbar": world.player.hotbar,
 		"slot": world.player.slot,
 		"arrows": world.player.arrows,
+		"magazine": world.player.magazine,
+		"mags": world.player.mags,
 		"threat": survival.threat if survival else 0,
 		"intro": survival.seen_intro if survival else false,
 		"road_started": roadblocks.triggered if roadblocks else [],
@@ -93,6 +97,10 @@ func apply(world: Node) -> bool:
 	world.player.owned.assign((data.get("owned", ["axe"]) as Array).filter(func(w): return not w in REMOVED))
 	world.player.equipped = "axe" if str(data.get("equipped", "axe")) in REMOVED else str(data.get("equipped", "axe"))
 	world.player.inventory_slots = int(data.get("slots", 4))
+	world.player.health_ups = (data.get("health_ups", {}) as Dictionary).duplicate()
+	world.player.stamina_ups = (data.get("stamina_ups", {}) as Dictionary).duplicate()
+	world.player.health = world.player.max_health()
+	world.player.stamina = world.player.max_stamina()
 	world.player.arrows = int(data.get("arrows", 0))
 	# Salvataggi di prima della barra rapida: la barra si ricostruisce dalle armi.
 	var saved_items: Dictionary = data.get("items", {})
@@ -110,6 +118,8 @@ func apply(world: Node) -> bool:
 		for id in world.player.items: world.player.hotbar_add(id)
 	world.player.slot = clampi(int(data.get("slot", 0)), 0, 8)
 	if world.player.equipped != "" and world.player.hotbar.has(world.player.equipped): world.player.slot = world.player.hotbar.find(world.player.equipped)
+	world.player.mags = data.get("mags", {})
+	world.player.magazine = int(data.get("magazine", preload("res://weapons/zx_arsenal.gd").magazine(world.player.equipped)))
 	var survival = world.get("survival")
 	if survival:
 		survival.threat = int(data.get("threat", 0))

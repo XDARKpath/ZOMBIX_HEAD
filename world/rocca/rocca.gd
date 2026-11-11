@@ -1449,7 +1449,7 @@ func take_pickup(i: int, actor: Node3D) -> void:
 	p.take()
 	if not host or actor == null:
 		return
-	var max_hp: float = load("res://autoload/balance.gd").PLAYER_MAX_HEALTH
+	var max_hp: float = actor.max_health()
 	match p.kind:
 		"bende":
 			actor.health = minf(actor.health + 35.0, max_hp)
@@ -1804,7 +1804,8 @@ func _update_ui() -> void:
 		for e in world.targets:
 			if is_instance_valid(e) and e.kind == 5 and not e.dead and not e.has_meta("borgo"):   # il boss del borgo ha la sua barra
 				boss = e
-	var b: bool = is_instance_valid(boss) and not boss.dead and _inside == "arena"
+	# La barra del boss ora è quella grande dell'HUD (ui/zombix_hud.gd): questa resta spenta.
+	var b: bool = false
 	_bar.visible = b
 	_bar_label.visible = b
 	if b:

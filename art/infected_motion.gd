@@ -86,10 +86,14 @@ static func apply(v: Node3D, delta: float) -> void:
 		st.hit = "Z_Stagger_Heavy" if a.stagger > 0.4 else HITS[(id + st.hits) % HITS.size()]
 	st.stag = stag
 	if a.dead:
-		clip = "Z_Crawl" if (a.crawling or a.death_style == 4) else DEATHS[a.death_style % DEATHS.size()]
-		if a.kind == 5 and not a.crawling:
+		clip = DEATHS[a.death_style % DEATHS.size()]
+		t = a.death_clock
+		if a.crawling or a.death_style == 4:
+			# Muore strisciando: solo la fine della caduta in avanti, così resta disteso a terra e non torna su.
+			clip = "Z_Death_Front"
+			t = float(d.clips[clip].frames) * 0.72 / d.fps + a.death_clock
+		elif a.kind == 5:
 			clip = "Z_Boss_Death_Collapse"
-		t = a.death_clock if clip != "Z_Crawl" else 0.0
 		rate = 0.0
 		fade = 0.12
 	elif a.get("reaction") != null and a.reaction != "":
@@ -159,10 +163,28 @@ static func apply(v: Node3D, delta: float) -> void:
 	_write(v, rig, pose)
 	if a.get("kind") == 2 or (a.get("kind") == 5 and a.get("custom_skin") == ""): _bulk(v)
 	v.skeleton.force_update_all_bone_transforms()
+	if a.dead: _ground_corpse(v, a)
 	v.head_piece.visible = not a.beheaded
 	if v.head_piece.visible:
 		v.head_piece.global_transform = v.skeleton.global_transform * v.skeleton.get_bone_global_pose(v.bone_ids["head"])
 	a.update_hitboxes()
+
+
+## Il cadavere sta a terra: finita la caduta, se il busto resta sollevato (colpo che l'ha alzato, clip che
+## finisce in aria) il modello scende finché la parte più bassa del busto tocca il pavimento.
+static func _ground_corpse(v: Node3D, a: Node3D) -> void:
+	var lowest := INF
+	for bone in ["pelvis", "spine_02", "spine_03", "head"]:
+		if v.bone_ids.has(bone):
+			lowest = minf(lowest, (v.skeleton.global_transform * v.skeleton.get_bone_global_pose(v.bone_ids[bone])).origin.y)
+	if lowest == INF: return
+	var ray := PhysicsRayQueryParameters3D.create(a.global_position + Vector3.UP * 0.5, a.global_position + Vector3.DOWN * 4.0, 1)
+	var hit: Dictionary = a.get_world_3d().direct_space_state.intersect_ray(ray)
+	var floor_y: float = (hit.position as Vector3).y if not hit.is_empty() else a.global_position.y
+	var drop: float = clampf(lowest - floor_y - 0.14, 0.0, 3.5) * clampf((float(a.death_clock) - 0.9) / 0.5, 0.0, 1.0)
+	if drop > 0.0:
+		v.global_position.y -= drop
+		v.skeleton.force_update_all_bone_transforms()
 
 
 ## Il bruto è grosso davvero: torace e spalle larghi, braccia e cosce spesse, testa della misura giusta.
