@@ -829,6 +829,7 @@ func _boss_ui() -> void:
 	_ui.visible = false
 
 
+var _boss_near := false
 func _update_boss_bar() -> void:
 	var b: Node3D = null
 	for e in world.targets:
@@ -836,14 +837,13 @@ func _update_boss_bar() -> void:
 			b = e
 			break
 	var p: CharacterBody3D = world.player
-	var was_visible: bool = _ui.visible
-	_ui.visible = b != null and is_instance_valid(p) and b.global_position.distance_to(p.global_position) < 50
-	if _ui.visible != was_visible:
-		if _ui.visible: AudioManager.start_boss(BOSS_MUSIC, BOSS_NAME)
+	# La barra la disegna l'HUD (ui/zombix_hud.gd); qui resta solo la musica del boss.
+	var near: bool = b != null and is_instance_valid(p) and b.global_position.distance_to(p.global_position) < 50
+	if near != _boss_near:
+		_boss_near = near
+		if near: AudioManager.start_boss(BOSS_MUSIC, BOSS_NAME)
 		else: AudioManager.end_boss(BOSS_MUSIC)
-	if _ui.visible:
-		_bar.max_value = b.max_health
-		_bar.value = b.health
+	_ui.visible = false
 
 
 # ================================================================== gioco (host)

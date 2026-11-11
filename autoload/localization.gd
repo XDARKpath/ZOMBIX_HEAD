@@ -372,6 +372,7 @@ const MESSAGES := {
 	"Doppietta a canne mozze": {"en": "Sawn-off shotgun"},
 	"Pistola lanciarazzi": {"en": "Flare gun"},
 	"Machete": {"en": "Machete"},
+	"FASE {0}/3": {"en": "PHASE {0}/3"},
 	"Piede di porco": {"en": "Crowbar"},
 	"Mazza chiodata": {"en": "Nail bat"},
 	"Fucile a leva": {"en": "Lever rifle"},

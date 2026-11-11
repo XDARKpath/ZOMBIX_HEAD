@@ -1459,6 +1459,13 @@ func _phase_changed() -> void:
 			if phase == 1: fx("burn", Vector3.ZERO, {"id": host.network_id, "t": 4.0})
 		"macellaio":
 			line = "IL MACELLAIO · Sente l'odore del sangue" if phase == 1 else "IL MACELLAIO · È furioso!"
+		_:
+			line = "%s · FASE %d" % [NAMES.get(style, ""), phase + 1]
 	if line != "": fx("say", Vector3.ZERO, {"text": line, "t": 4.0})
+	# Cambio di fase visibile a tutti: lampo rosso, onda, ruggito e un'aura che resta (più forte in fase 3).
+	fx("flash", Vector3.ZERO, {"id": host.network_id, "color": Color(1.0, 0.15, 0.1, 0.45), "t": 1.6})
+	fx("ring", host.global_position, {"r": 9.0 + phase * 3.0, "speed": 12.0, "color": "danger"})
+	fx("rage", Vector3.ZERO, {"id": host.network_id, "level": phase})
+	_sound("explosion", 0.0, 0.55)
 	# Il Carceriere ruggisce già da rocca.gd, il Macellaio dal paese: qui solo un attimo di pausa se è libero.
 	if move.is_empty() and stun <= 0.0 and style == "capomacello": host.alert_time = 1.3
