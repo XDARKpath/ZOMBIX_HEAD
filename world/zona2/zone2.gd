@@ -282,7 +282,7 @@ func _spawn_boss(style: String) -> void:
 	else:
 		boss.name = "SignoreDelleTeste"
 		boss.custom_skin = "res://art/zx_infected/BOSS_Subject_Zero.glb"
-		boss.boss_weapon = "crown+machete"
+		boss.boss_weapon = "crown"
 		boss.set_kind(5)
 		boss.title = "SIGNORE DELLE TESTE"
 		boss.epithet = "IL RE DEL CIMITERO"
