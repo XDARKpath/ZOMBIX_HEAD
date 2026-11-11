@@ -8,6 +8,7 @@ const Terrain := preload("res://world/campaign/terrain.gd")
 const Solid := preload("res://world/campaign/solid_props.gd")
 const ENV := "res://art/env/"
 const WEP := "res://art/env/weapons/"
+const LootChest := preload("res://world/campaign/loot_chest.gd")
 
 var world: Node3D
 var crates: Array = []
@@ -86,8 +87,6 @@ func _armory(o: Node3D) -> void:
 	put(o, ENV + "shop/SM_Prop_OilCan.glb", Vector3(2.45, 0.92, 1.55), -0.4, true)
 	put(o, ENV + "shop/SM_Prop_OilTin.glb", Vector3(2.65, 0.92, 1.62), 0.2, true)
 	put(o, ENV + "shop/SM_Prop_Rag.glb", Vector3(2.1, 0.92, 1.8), 1.1, true)
-	put(o, ENV + "shop/SM_Prop_AmmoCrate_Wood.glb", Vector3(-0.1, 0, 1.55), 0.15, true)
-	put(o, ENV + "shop/SM_Prop_AmmoCan_Military.glb", Vector3(-0.15, 0.37, 1.55), -0.2, true)
 	put(o, ENV + "shop/SM_Shop_SecurityShutter_Door.glb", Vector3(3.6, 0, 1.13), 0.0, true)
 	# Vetrina vuota: niente oggetti decorativi che trapassino il vetro.
 	put(o, ENV + "shop/SM_Shop_DisplayCase.glb", Vector3(-3.55, 0, 5.2), PI / 2, true)
@@ -189,8 +188,7 @@ func _cabin(corner: Vector3) -> void:
 	_tile(cabin, "SM_Bld_Pillar_Porch", Vector3(4.6, 0, -2.4), 0.0)
 	_tile(cabin, "SM_Bld_Pillar_Porch", Vector3(7.6, 0, -2.4), 0.0)
 	_tile(cabin, "SM_Bld_Beam_4m", Vector3(4.2, 2.95, -2.4), 0.0)
-	var chest := put(cabin, ENV + "interactive/SM_Int_Chest_Supply.glb", Vector3(1.5, 0.02, 6.6), 0.2)
-	chests.append({"node": chest, "loot": "supply", "opened": false})
+	_loot_chest(cabin, Vector3(1.5, 0.02, 6.6), 0.2, "bende")
 	put(cabin, ENV + "shop/SM_Prop_OilTin.glb", Vector3(6.5, 0.02, 6.8), 0.0)
 	put(cabin, ENV + "shop/SM_Prop_Rag.glb", Vector3(6.2, 0.02, 6.5), 0.5)
 
@@ -210,8 +208,7 @@ func _farm(corner: Vector3) -> void:
 	var truss := _tile(farm, "SM_Bld_Truss_4m", Vector3(2.0, 0.15, 3.0), 0.4)
 	truss.rotation.z = 0.35
 	_tile(farm, "SM_Bld_Roof_Corrugated_4x4", Vector3(4.0, 0.8, 4.0), 0.2).rotation.x = 0.45
-	var chest := put(farm, ENV + "interactive/SM_Int_Chest_Military.glb", Vector3(6.0, 0.02, 6.4), PI)
-	chests.append({"node": chest, "loot": "military", "opened": false})
+	_loot_chest(farm, Vector3(6.0, 0.02, 6.4), PI, "soldi")
 	# Allarme: la piastra alla porta accende la luce e fa rumore per 30 m.
 	var plate := put(farm, ENV + "interactive/SM_Int_PressurePlate.glb", Vector3(2.0, 0.03, 0.9), 0.0)
 	plate_light = put(farm, ENV + "interactive/SM_Int_StatusLight.glb", Vector3(3.6, 2.2, 0.25), 0.0)
@@ -317,28 +314,33 @@ func _crates() -> void:
 func _arena_chests() -> void:
 	for arena in preload("res://world/zona1_rifugio/roadnet.gd").arenas():
 		var at: Vector3 = ground(arena + Vector3(-3.0, 0, 5.5))
-		var chest := put(self, ENV + "interactive/SM_Int_Chest_Military.glb", at, 0.3)
-		chests.append({"node": chest, "loot": "military", "opened": false})
+		_loot_chest(self, at, 0.3, "soldi")
+
+## Forziere originale (loot_chest.gd): "soldi" = +30 crediti, "bende" = +35 salute. Si apre una volta.
+func _loot_chest(parent: Node3D, at: Vector3, yaw: float, loot: String) -> void:
+	var chest: Node3D = LootChest.make()
+	parent.add_child(chest)
+	chest.position = at
+	chest.rotation.y = yaw
+	chests.append({"node": chest, "loot": loot, "opened": false})
 
 func chest_context(p: Node3D) -> String:
 	for c in chests:
 		if not c["opened"] and p.global_position.distance_to(c["node"].global_position) < 2.2:
-			return Localization.t("E  APRI CASSA MILITARE" if c["loot"] == "military" else "E  APRI CASSA RIFORNIMENTI")
+			return Localization.t("E  APRI IL FORZIERE")
 	return ""
 
 func open_chest(p: Node3D) -> bool:
 	for c in chests:
 		if c["opened"] or p.global_position.distance_to(c["node"].global_position) >= 2.2: continue
 		c["opened"] = true
-		if c["node"].has_method("open"): c["node"].open()
-		if c["loot"] == "military":
+		LootChest.set_open(c["node"], true)
+		if c["loot"] == "soldi":
 			p.credits += 30
-			world.zone_life.food["can"] = int(world.zone_life.food["can"]) + 1
-			world.announce(Localization.t("CASSA MILITARE · +30 CREDITI, UNA SCATOLETTA"), 4)
+			world.announce(Localization.t("FORZIERE · +30 CREDITI"), 4)
 		else:
-			world.zone_life.food["can"] = int(world.zone_life.food["can"]) + 2
-			world.zone_life.food["mushroom"] = int(world.zone_life.food["mushroom"]) + 1
-			world.announce(Localization.t("RIFORNIMENTI · DUE SCATOLETTE E FUNGHI SECCHI"), 4)
+			p.health = minf(p.health + 35.0, load("res://autoload/balance.gd").PLAYER_MAX_HEALTH)
+			world.announce(Localization.t("FORZIERE · BENDE, +35 SALUTE"), 4)
 		if world.get("survival"): world.survival._publish()
 		return true
 	return false

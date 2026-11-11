@@ -340,10 +340,6 @@ func _zone_dressing() -> void:
 	# Idranti ai lati della strada: uno per lato.
 	city(dressing,"firehydrant",Vector3(9.95,DressingY,-14.30),0.3,1.0,true)
 	city(dressing,"firehydrant",Vector3(2.05,DressingY,-14.30),-0.4,1.0,true)
-	# Accanto al portico dello sceriffo: cassa di munizioni e cassetta militare del kit ambiente.
-	for row in [["shop/SM_Prop_AmmoCrate_Wood",Vector3(11.2,DressingY,-13.1),0.18],["shop/SM_Prop_AmmoCan_Military",Vector3(11.1,DressingY+0.37,-13.1),-0.3]]:
-		var item:Node3D=load("res://art/env/%s.glb"%row[0]).instantiate()
-		dressing.add_child(item);item.position=row[1];item.rotation.y=row[2]
 	_streetlight(dressing,Vector3(10.75,DressingY,-1.60),0.0)
 
 func _bench(parent:Node3D,at:Vector3,yaw:float) -> void:

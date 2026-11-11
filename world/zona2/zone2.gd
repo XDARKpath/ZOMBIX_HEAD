@@ -416,9 +416,7 @@ func _town() -> void:
 	kit.call("SM_Prop_Woodstack_01", -29.0, -9.0, 0.2)
 	kit.call("SM_Borgo_Barrel_Water", -24.0, -19.0)
 	kit.call("SM_Borgo_Barrel_Water_Open", -25.2, -18.2, 0.6)
-	# La cisterna del paese e i container del porto.
-	kit.call("SM_Prop_Container_01", 22.0, 16.0, 0.2)
-	kit.call("SM_Prop_Container_01", 24.0, 25.0, 1.5)
+	# La cisterna del paese.
 	kit.call("SM_Prop_Pallet_01", 17.0, 14.0, 0.8)
 	kit.call("SM_Prop_GasCan_01", 15.8, 13.2, 0.3)
 	kit.call("SM_Borgo_Truck_Wreck", 30.0, 2.0, 2.3)

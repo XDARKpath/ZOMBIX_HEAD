@@ -74,7 +74,7 @@ func run():
 	var chest: Dictionary = kit.chests[kit.chests.size() - 1]
 	p.global_position = chest["node"].global_position + Vector3(0.8, 0.2, 0)
 	var credits: int = p.credits
-	check(kit.chest_context(p).begins_with("E  APRI") and kit.open_chest(p) and p.credits == credits + 30, "La cassa militare si apre e dà crediti e cibo")
+	check(kit.chest_context(p).begins_with("E  APRI") and kit.open_chest(p) and p.credits == credits + 30, "Il forziere dell'arena si apre una volta e dà 30 crediti")
 	var counter := false
 	for child in world.landscape.get_node("RefugeBuildings/Armory").get_children():
 		if child.scene_file_path.ends_with("SM_Shop_SalesCounter.glb"): counter = true
