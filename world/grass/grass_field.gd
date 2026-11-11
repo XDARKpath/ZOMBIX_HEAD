@@ -10,8 +10,6 @@ const Layout := preload("res://world/zona1_rifugio/refuge_layout.gd")
 const Village := preload("res://world/villaggio/villaggio_layout.gd")
 const ROWS := 170
 const SPACING := 0.34
-# Righe del prato per VEGETAZIONE (basso, medio, alto, ultra).
-const QUALITY_ROWS := [90, 120, 150, 190]
 # Prolungamento asfaltato verso il lago (terrain.gd, _road_end): non fa parte
 # della route, quindi va escluso esplicitamente dalla maschera dell'erba.
 const ROAD_END_A := Vector2(6.0, -6.5)
@@ -21,8 +19,21 @@ const ORIGIN := Vector2(-296, -560)    # multipli di 8: coincide con la griglia 
 const SIZE := Vector2(560, 600)
 const MASK_STEP := 2.0
 
+# Specie del prato, come un prato vero e non un tappeto: ogni strato ha la sua
+# pianta CC0 (art/nature), il suo colore, la sua altezza e le sue macchie (band =
+# fascia del rumore in cui cresce), così le specie si alternano a gruppi.
+const LAYERS := [
+	{"mesh": "Grass_Common_Tall", "rows": 120, "spacing": 0.42, "height": 0.62, "band": Vector2(0.0, 1.0), "keep": 1.0, "color": Color(0.30, 0.45, 0.13), "seed": 0.0},
+	{"mesh": "Grass_Wispy_Tall", "rows": 80, "spacing": 0.58, "height": 0.9, "band": Vector2(0.42, 1.0), "keep": 1.0, "color": Color(0.58, 0.58, 0.26), "seed": 0.17},
+	{"mesh": "Grass_Common_Short", "rows": 72, "spacing": 0.6, "height": 0.3, "band": Vector2(0.0, 0.55), "keep": 1.0, "color": Color(0.17, 0.30, 0.08), "seed": 0.31},
+	{"mesh": "Plant_1", "rows": 64, "spacing": 0.9, "height": 0.35, "band": Vector2(0.0, 1.0), "keep": 0.35, "color": Color(0.22, 0.38, 0.12), "seed": 0.53},
+	{"mesh": "Clover_1", "rows": 64, "spacing": 0.9, "height": 0.18, "band": Vector2(0.0, 0.6), "keep": 0.45, "color": Color(0.25, 0.42, 0.14), "seed": 0.71},
+]
+# VEGETAZIONE (basso, medio, alto, ultra): moltiplica le righe di ogni strato.
+const QUALITY_SCALE := [0.55, 0.75, 0.9, 1.2]
+
 var world: Node3D
-var particles: GPUParticles3D
+var layers: Array[GPUParticles3D] = []
 var density_texture: ImageTexture
 var flowers: GPUParticles3D
 var process: ShaderMaterial
@@ -36,31 +47,25 @@ func build(owner_world: Node3D) -> void:
 	add_to_group("grass_field")
 	process = ShaderMaterial.new()
 	process.shader = preload("res://world/grass/grass_particles.gdshader")
-	process.set_shader_parameter("rows", ROWS)
-	process.set_shader_parameter("spacing", SPACING)
-	process.set_shader_parameter("radius", ROWS * SPACING * 0.48)
 	process.set_shader_parameter("heights", ImageTexture.create_from_image(heights))
 	process.set_shader_parameter("height_origin", ORIGIN)
 	process.set_shader_parameter("height_cell", CELL)
 	process.set_shader_parameter("height_size", Vector2i(heights.get_width(), heights.get_height()))
 	process.set_shader_parameter("density", density_texture)
 	process.set_shader_parameter("bounds", Vector4(ORIGIN.x, ORIGIN.y, SIZE.x, SIZE.y))
-	# Ciuffo basso Quaternius (art/nature, CC0) al posto della texture alta: niente più
-	# erba che arriva al ginocchio e ondeggia. La griglia GPU resta quella del porting MIT.
-	var mesh := low_tuft()
-	process.set_shader_parameter("scale_range", Vector2(0.75, 1.15) * (TUFT_HEIGHT / maxf(mesh.get_aabb().size.y, 0.01)))
-	process.set_shader_parameter("tall_range", Vector2(0.85, 1.1))
-	particles = GPUParticles3D.new()
-	particles.amount = ROWS * ROWS
-	particles.lifetime = 600.0
-	particles.explosiveness = 1.0
-	particles.local_coords = false
-	particles.process_material = process
-	particles.draw_pass_1 = mesh
-	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	particles.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 120, 80))
-	add_child(particles)
-	_build_flowers(heights)
+	for spec in LAYERS:
+		var mesh := tuft(spec.mesh, spec.color)
+		var p: ShaderMaterial = process.duplicate()
+		p.set_shader_parameter("spacing", spec.spacing)
+		p.set_shader_parameter("keep", spec.keep)
+		p.set_shader_parameter("patch_band", spec.band)
+		p.set_shader_parameter("seed_shift", spec.seed)
+		p.set_shader_parameter("scale_range", Vector2(0.75, 1.25) * (spec.height / maxf(mesh.get_aabb().size.y, 0.01)))
+		p.set_shader_parameter("tall_range", Vector2(0.7, 1.25))
+		var view := _particles(p, mesh)
+		view.set_meta("spec", spec)
+		layers.append(view)
+	_build_flowers()
 	var settings = world.get("settings_data")
 	set_quality(int(settings.get("vegetation", 2)) if settings is Dictionary else 2)
 	# Il terreno usa la stessa maschera: dove manca l'erba compare terra battuta.
@@ -68,48 +73,54 @@ func build(owner_world: Node3D) -> void:
 	ground.set_shader_parameter("grass_mask", density_texture)
 	ground.set_shader_parameter("mask_bounds", Vector4(ORIGIN.x, ORIGIN.y, SIZE.x, SIZE.y))
 
+func _particles(p: ShaderMaterial, mesh: Mesh) -> GPUParticles3D:
+	var view := GPUParticles3D.new()
+	view.lifetime = 600.0
+	view.explosiveness = 1.0
+	view.local_coords = false
+	view.process_material = p
+	view.draw_pass_1 = mesh
+	view.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	view.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 120, 80))
+	add_child(view)
+	return view
+
 func _process(_delta: float) -> void:
 	if world and is_instance_valid(world.player):
 		global_position = world.player.global_position * Vector3(1, 0, 1)
 
 # Fiori CC0 sparsi nel prato (pochi, a macchie): stessa griglia, maschera e altezze.
-func _build_flowers(heights: Image) -> void:
+func _build_flowers() -> void:
 	var p: ShaderMaterial = process.duplicate()
 	p.set_shader_parameter("rows", 64)
 	p.set_shader_parameter("spacing", 0.9)
 	p.set_shader_parameter("radius", 64 * 0.9 * 0.48)
 	p.set_shader_parameter("keep", 0.3)
+	p.set_shader_parameter("seed_shift", 0.89)
 	var source: Node3D = load("res://art/nature/Flower_3_Group.gltf").instantiate()
 	var found: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0]
 	var mesh: Mesh = found.mesh
 	source.free()
 	p.set_shader_parameter("scale_range", Vector2(0.8, 1.2) * (0.6 / maxf(mesh.get_aabb().size.y, 0.01)))
 	p.set_shader_parameter("tall_range", Vector2(0.9, 1.1))
-	flowers = GPUParticles3D.new()
+	flowers = _particles(p, mesh)
 	flowers.amount = 64 * 64
-	flowers.lifetime = 600.0
-	flowers.explosiveness = 1.0
-	flowers.local_coords = false
-	flowers.process_material = p
-	flowers.draw_pass_1 = mesh
-	flowers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	flowers.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 120, 80))
-	add_child(flowers)
 
-# VEGETAZIONE: meno ciuffi e raggio più corto sulle macchine lente; al minimo niente fiori.
+# VEGETAZIONE: meno piante e raggio più corto sulle macchine lente; al minimo niente fiori.
 func set_quality(level: int) -> void:
-	var rows: int = QUALITY_ROWS[clampi(level, 0, QUALITY_ROWS.size() - 1)]
+	var factor: float = QUALITY_SCALE[clampi(level, 0, QUALITY_SCALE.size() - 1)]
 	flowers.visible = level > 0
-	if particles.amount == rows * rows: return
-	process.set_shader_parameter("rows", rows)
-	process.set_shader_parameter("radius", rows * SPACING * 0.48)
-	particles.amount = rows * rows
-	particles.restart()
+	for view in layers:
+		var spec: Dictionary = view.get_meta("spec")
+		var rows := int(spec.rows * factor)
+		if view.amount == rows * rows: continue
+		view.process_material.set_shader_parameter("rows", rows)
+		view.process_material.set_shader_parameter("radius", rows * spec.spacing * 0.48)
+		view.amount = rows * rows
+		view.restart()
 
-const TUFT_HEIGHT := 0.62
-
-static func low_tuft() -> ArrayMesh:
-	var source: Node3D = load("res://art/nature/Grass_Common_Tall.gltf").instantiate()
+static func tuft(id: String, color: Color) -> ArrayMesh:
+	var source: Node3D = load("res://art/nature/" + id + ".gltf").instantiate()
 	var found: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0]
 	var mesh: ArrayMesh = found.mesh.duplicate()
 	source.free()
@@ -117,7 +128,7 @@ static func low_tuft() -> ArrayMesh:
 		var mat := ShaderMaterial.new()
 		mat.shader = preload("res://world/grass/grass_lowpoly.gdshader")
 		var original := mesh.surface_get_material(s) as BaseMaterial3D
-		if original: mat.set_shader_parameter("base_color", original.albedo_color.lerp(Color(0.34, 0.46, 0.15), 0.85))
+		mat.set_shader_parameter("base_color", original.albedo_color.lerp(color, 0.85) if original else color)
 		mat.set_shader_parameter("mesh_height", mesh.get_aabb().size.y)
 		mesh.surface_set_material(s, mat)
 	return mesh

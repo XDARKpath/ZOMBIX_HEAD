@@ -21,6 +21,9 @@ uniform vec2 tall_range = vec2(0.75, 1.35);
 // così la vegetazione cresce a gruppi spontanei e non a scacchiera.
 uniform float keep = 1.0;
 uniform float patch_scale = 0.09;
+// Ogni specie ha la sua griglia sfalsata e cresce solo nella sua fascia di macchie.
+uniform float seed_shift = 0.0;
+uniform vec2 patch_band = vec2(0.0, 1.0);
 
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -53,8 +56,8 @@ void process() {
 	int i = int(INDEX);
 	vec2 cell = vec2(float(i % rows), float(i / rows)) - float(rows) * 0.5;
 	vec2 center = EMISSION_TRANSFORM[3].xz;
-	vec2 p = floor(center / spacing) * spacing + cell * spacing;
-	vec2 seed = p;
+	vec2 p = floor(center / spacing) * spacing + cell * spacing + seed_shift * spacing;
+	vec2 seed = p + seed_shift * 31.7;
 	p += (vec2(hash(seed), hash(seed + 7.13)) - 0.5) * spacing * 0.9;
 	vec2 uv = (p - bounds.xy) / bounds.zw;
 	float d = 0.0;
@@ -62,6 +65,7 @@ void process() {
 	float fade = 1.0 - smoothstep(radius * 0.72, radius, length(p - center));
 	float patchy = vnoise(p * patch_scale) * 0.65 + vnoise(p * patch_scale * 3.1 + 5.0) * 0.35;
 	d *= keep < 1.0 ? smoothstep(0.55, 0.8, patchy) * keep * 6.0 : mix(0.7, 1.0, smoothstep(0.25, 0.6, patchy));
+	d *= smoothstep(patch_band.x - 0.08, patch_band.x + 0.08, patchy) * (1.0 - smoothstep(patch_band.y - 0.08, patch_band.y + 0.08, patchy));
 	float s = hash(seed * 1.31 + 3.0) < d ? mix(scale_range.x, scale_range.y, hash(seed + 11.0)) * fade : 0.0;
 	float a = hash(seed + 5.0) * 6.2831853;
 	// Altezza a macchie: ciuffi alti in gruppi, più bassi ai margini del prato.
