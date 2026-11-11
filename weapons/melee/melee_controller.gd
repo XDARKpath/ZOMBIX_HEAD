@@ -184,6 +184,9 @@ func perform_attack(charged: bool) -> bool:
 			attack_rejected.emit("Riprendi fiato.")
 			return false
 		return _start_tool(charged, cost)
+	if player.reload_left>0 and tier=="gun" and player.magazine>0 and player.equipped in Arsenal.SHELL_RELOAD:
+		player.reload_left=0      # pompa e leva: il grilletto interrompe la ricarica, il colpo parte al clic dopo
+		return false
 	if player.seated or player.reload_left>0:return false
 	if tier=="gun" and player.magazine<=0:
 		# A caricatore vuoto il grilletto fa cilecca e parte da solo la ricarica.
