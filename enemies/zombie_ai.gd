@@ -298,12 +298,7 @@ func _physics_process(delta: float) -> void:
 		if chasing:
 			var straight: Vector3 = (target.global_position - global_position) * Vector3(1, 0, 1)
 			# Se la strada dritta è libera (ginocchia e petto) si va dritti: niente giri lunghi della navigazione.
-			_open_clock -= delta
-			if _open_clock <= 0.0:
-				_open_clock = 0.3
-				_open_way = straight.length() < 30.0 and _hit_at(global_position + Vector3.UP * 0.4, target.global_position + Vector3.UP * 0.4).is_empty() and _hit_at(global_position + Vector3.UP * 1.2, target.global_position + Vector3.UP * 1.2).is_empty()
-				if _open_way: _detour_side = 0.0
-			if _open_way:
+			if way_open(delta):
 				# verso il suo punto di accerchiamento, non tutti sulla stessa linea
 				var flank: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
 				if flank.length() > 0.5: direction = flank.normalized()
@@ -356,6 +351,23 @@ func _physics_process(delta: float) -> void:
 ## Passo che cambia: rallenta e accelera a ondate, e ogni tanto uno scatto quando la preda è a pochi metri.
 var _open_clock := 0.0
 var _open_way := false
+var _open_hold := 0.0
+## Strada dritta libera fino al bersaglio (ginocchia e petto, entro 30 m)? La usano zombie e boss.
+## Isteresi: cambia modo (dritto / navigazione) al massimo ogni 1,5 s, così non ondeggia fra i due.
+func way_open(delta: float) -> bool:
+	_open_clock -= delta
+	if _open_clock <= 0.0 and is_instance_valid(target):
+		_open_clock = 0.3
+		_open_hold -= 0.3
+		var lift: float = 0.6 if kind == 5 else 0.0
+		var open: bool = global_position.distance_to(target.global_position) < 30.0 and _hit_at(global_position + Vector3.UP * (0.4 + lift), target.global_position + Vector3.UP * 0.4).is_empty() and _hit_at(global_position + Vector3.UP * (1.2 + lift), target.global_position + Vector3.UP * 1.2).is_empty()
+		if open != _open_way and _open_hold <= 0.0:
+			_open_way = open
+			_open_hold = 1.5
+			if open: _detour_side = 0.0
+	return _open_way
+
+
 var _burst := 0.0
 var _burst_wait := 0.0
 func _surge(delta: float) -> float:

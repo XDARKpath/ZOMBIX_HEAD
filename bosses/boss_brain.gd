@@ -304,7 +304,9 @@ func _walk(delta: float) -> void:
 	if burning > 0.0: speed *= 1.15
 	var dir := Vector3.ZERO
 	host.agent.target_position = target.global_position
-	if NavigationServer3D.map_get_iteration_id(host.get_world_3d().navigation_map) > 0 and not host.agent.is_navigation_finished() and host.agent.is_target_reachable():
+	# Strada dritta libera: dritto (come gli zombie), senza i giri della navigazione.
+	if host.way_open(delta): dir = flat
+	elif NavigationServer3D.map_get_iteration_id(host.get_world_3d().navigation_map) > 0 and not host.agent.is_navigation_finished() and host.agent.is_target_reachable():
 		dir = (host.agent.get_next_path_position() - host.global_position) * Vector3(1, 0, 1)
 	if dir.length_squared() < 0.01: dir = flat
 	if dir.length_squared() > 0.01: dir = dir.normalized()

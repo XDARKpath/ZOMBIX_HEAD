@@ -10,6 +10,26 @@ func _initialize() -> void:
 	call_deferred("run")
 
 
+## Punto di comparsa valido: a terra all'aperto, alla quota del giocatore, il corpo non tocca solidi,
+## sopra il navmesh e con un percorso fino al giocatore.
+func _good_spot(hit: Dictionary, at: Vector3, goal: Vector3) -> bool:
+	if hit.is_empty() or absf(at.y - goal.y) > 1.2: return false
+	var shape := CapsuleShape3D.new()
+	shape.radius = 0.4
+	shape.height = 1.7
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = shape
+	q.collision_mask = 1
+	q.transform = Transform3D(Basis.IDENTITY, at + Vector3.UP * 1.0)
+	if not root.get_world_3d().direct_space_state.intersect_shape(q, 1).is_empty(): return false
+	var nav: RID = root.get_world_3d().navigation_map
+	if NavigationServer3D.map_get_iteration_id(nav) == 0: return true
+	var on: Vector3 = NavigationServer3D.map_get_closest_point(nav, at)
+	if Vector2(on.x - at.x, on.z - at.z).length() > 0.6: return false
+	var path := NavigationServer3D.map_get_path(nav, on, NavigationServer3D.map_get_closest_point(nav, goal), true)
+	return path.size() > 0 and path[path.size() - 1].distance_to(goal) < 2.5
+
+
 func run() -> void:
 	world = load("res://world/zona1_rifugio/zombix.tscn").instantiate()
 	root.add_child(world)
@@ -36,7 +56,7 @@ func run() -> void:
 		if not hit.is_empty(): at = hit.position + Vector3.UP * 0.1
 		# Niente tetti né interni chiusi: solo punti all'aperto, a terra.
 		var tries := 0
-		while (hit.is_empty() or absf(at.y - goal.y) > 1.2) and tries < 12:
+		while not _good_spot(hit, at, goal) and tries < 24:
 			tries += 1
 			a += 0.25
 			at = goal + Vector3(cos(a), 0, sin(a)) * (16.0 + float(i % 3) * 5.0)
@@ -57,7 +77,11 @@ func run() -> void:
 			var z = row[0]
 			# il giocatore fa rumore: tutti sanno dov'è (si prova lo sblocco, non la vista)
 			if int(clock * 60.0) % 60 == 0: z.hear(p, 80)
-			if not arrived.has(z) and z.global_position.distance_to(p.global_position) < 3.0: arrived[z] = clock
+			if not arrived.has(z) and z.global_position.distance_to(p.global_position) < 3.0:
+				arrived[z] = clock
+				# chi è arrivato esce: la ressa attorno al giocatore non deve tenere lontani gli ultimi
+				z.set_physics_process(false)
+				z.global_position += Vector3(0, -300, 0)
 	for row in zs:
 		var z = row[0]
 		print("  zombie da %.0f m: %s" % [row[1], ("arrivato in %.1f s" % arrived[z]) if arrived.has(z) else ("FERMO a %.1f m" % z.global_position.distance_to(p.global_position))])
