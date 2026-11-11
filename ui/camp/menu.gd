@@ -23,6 +23,8 @@ var click_sound: AudioStreamPlayer
 var hover_sound: AudioStreamPlayer
 var language_return: String = "options"
 var connection_hosting: bool = true
+var lan_box: VBoxContainer
+var lan_name: LineEdit
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
@@ -79,6 +81,7 @@ func build(owner_world: Node3D) -> void:
 		add_child(hover_sound)
 	Session.status_changed.connect(func(_message: String) -> void: refresh())
 	Localization.language_changed.connect(func(_code: String) -> void: _rebuild_page())
+	Session.lan_changed.connect(func() -> void: if page == "connect" and not connection_hosting: _lan_list())
 	home()
 
 ## Rifà la pagina aperta: i testi passano di nuovo da Localization.t nella nuova lingua.
@@ -110,6 +113,8 @@ func clear(title: String, subtitle: String = "") -> void:
 	graphics_status = null
 	menu_list = null
 	entries.clear()
+	lan_box = null
+	Session.lan_search(page == "connect" and not connection_hosting)
 	if page_tween: page_tween.kill()
 	if context_tween: context_tween.kill()
 	for child in page_root.get_children():
@@ -371,6 +376,14 @@ func connection(hosting: bool) -> void:
 	if not hosting:
 		label("HOST ADDRESS",Vector2(81,460),16)
 		address = field(Vector2(81,487),"","e.g. 192.168.1.10")
+		label("LAN GAMES",Vector2(560,270),16)
+		lan_box = VBoxContainer.new()
+		lan_box.name = "LanGames"
+		lan_box.position = Vector2(557,297)
+		lan_box.add_theme_constant_override("separation",9)
+		page_root.add_child(lan_box)
+		lan_name = username
+		_lan_list()
 	else: label("Friends connect using your address\nand the port above.",Vector2(81,466),21)
 	button("OPEN CAMP" if hosting else "CONNECT",0,func() -> void:
 		Session.profile(username.text,Session.skin)
@@ -382,6 +395,30 @@ func connection(hosting: bool) -> void:
 	button("BACK",0,home)
 	menu_list.position.y = 580
 	label("DIRECT CONNECTION / NO ACCOUNT\nInternet play requires a reachable host UDP port.",Vector2(81,746),17,Color("b4b8a9"))
+
+## Una voce per ogni campo annunciato nella rete locale: un clic e si entra.
+func _lan_list() -> void:
+	if not is_instance_valid(lan_box): return
+	for child in lan_box.get_children():
+		for entry in entries.duplicate():
+			if child.is_ancestor_of(entry): entries.erase(entry)
+		child.queue_free()
+	if Session.lan_games.is_empty():
+		var wait := Label.new()
+		wait.text = Localization.t("Searching the local network…")
+		wait.add_theme_font_size_override("font_size",19)
+		wait.modulate = Color("b4b8a9")
+		lan_box.add_child(wait)
+		return
+	for ip in Session.lan_games:
+		var game: Dictionary = Session.lan_games[ip]
+		var title := Localization.t("JOIN {0}  ·  {1}/4", [game.name, game.count])
+		button(title,0,func() -> void:
+			Session.profile(lan_name.text if is_instance_valid(lan_name) else Session.nickname,Session.skin)
+			world._save_preferences()
+			if Session.join(ip,game.port)==OK:
+				get_tree().paused = false
+				home(),"",lan_box,420)
 
 func skins() -> void:
 	page = "skins"
