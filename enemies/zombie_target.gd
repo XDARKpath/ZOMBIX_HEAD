@@ -109,23 +109,6 @@ func _dress() -> void:
 	if boss_weapon == "cleaver": _give_cleaver()
 	if boss_weapon == "lamp": _give_lamp()
 	if boss_weapon.begins_with("crown"): _give_crown()
-	if boss_weapon.ends_with("machete"): _give_machete()
-
-## Il machete del Signore delle Teste: lo stesso modello dell'arma del giocatore, in mano destra.
-func _give_machete() -> void:
-	if not avatar.skeleton: return
-	var blade: Node3D = load("res://art/env/weapons/SM_Wep_Machete.glb").instantiate()
-	blade.name = "BossMachete"
-	var socket := "weapon_r" if avatar.skeleton.find_bone("weapon_r") != -1 else ""
-	if socket != "":
-		preload("res://art/env/scripts/weapon_item.gd").attach_node(blade, avatar, socket)
-	elif avatar.bone_ids.has("hand_r"):
-		var grip := BoneAttachment3D.new()
-		avatar.skeleton.add_child(grip)
-		grip.bone_name = avatar.skeleton.get_bone_name(avatar.bone_ids["hand_r"])
-		grip.add_child(blade)
-		blade.transform = Transform3D(preload("res://art/env/scripts/weapon_item.gd").SOCKET_BASIS, Vector3.ZERO)
-	blade.scale = Vector3.ONE * 1.25
 
 ## La corona del Signore delle Teste: tre teschi che gli girano attorno. set_crown toglie quelli tagliati.
 var crown_node:Node3D

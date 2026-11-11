@@ -74,16 +74,16 @@ func run() -> void:
 	root.add_child(cam)
 	cam.current = true
 
-	# --- 1. Signore delle Teste: machete in mano, fasi, barra grande.
+	# --- 1. Signore delle Teste: a mani nude (niente machete), fasi, barra grande.
 	var boss = world._spawn_enemy(SPOT + Vector3(0, 0, -7))
 	boss.custom_skin = "res://art/zx_infected/BOSS_Subject_Zero.glb"
-	boss.boss_weapon = "crown+machete"
+	boss.boss_weapon = "crown"
 	boss.set_kind(5)
 	boss.title = "SIGNORE DELLE TESTE"
 	boss.max_health = 1300.0
 	boss.health = 1300.0
 	boss.use_brain("signore")
-	check(boss.find_child("BossMachete", true, false) != null, "Il Signore delle Teste tiene il machete")
+	check(boss.find_child("BossMachete", true, false) == null, "Il Signore delle Teste non ha il machete")
 	check(boss.crown_node != null, "La corona c'è ancora")
 	await frames(200)
 	look(boss.global_position + Vector3.UP * 2.2, boss.global_position + Vector3(3.5, 3.0, 5.0))
