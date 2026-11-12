@@ -30,7 +30,7 @@ func translatable(text: String) -> bool:
 	var letters := RegEx.create_from_string("[A-Za-z]{2,}")
 	if letters.search(text) == null: return false
 	if RegEx.create_from_string("^\\d+ × \\d+$").search(text) or text.contains("English"): return false  # "LINGUA  ·  Italiano" è composto
-	return not text in ["ZOMBIX", "H E A D", "English", "Italiano", "FXAA", "MSAA 2×", "MSAA 4×", "MSAA 8×", "WASD", "E", "ESC", "ULTRA"]
+	return not text in ["ZOMBIX", "H E A D", "English", "Italiano", "FXAA", "MSAA 2×", "MSAA 4×", "MSAA 8×", "WASD", "E", "ESC", "ULTRA", "MOUSE", "SHIFT", "ZOMBIX HEAD", "AUDIO"] and not text.begins_with("VERSION")
 
 
 func _run() -> void:
@@ -42,8 +42,8 @@ func _run() -> void:
 	var menu: Control = world.menu
 	var names: Array = load("res://ui/camp/camp.gd").NAMES
 	var skins: Array = load("res://art/zx_player/zx_player.gd").SKINS
-	var pages := {"home": menu.home, "multiplayer": menu.network_menu, "options": menu.options_menu, "settings": menu.settings,
-		"graphics": menu.graphics, "language": menu.language, "controls": menu.controls, "skins": menu.skins,
+	var pages := {"home": menu.home, "multiplayer": menu.network_menu, "game": menu.settings, "audio": menu.options_menu.bind("audio"),
+		"graphics": menu.graphics, "language": menu.language, "controls": menu.controls, "skins": menu.skins, "credits": menu.credits,
 		"host": menu.connection.bind(true), "join": menu.connection.bind(false)}
 	for page in pages:
 		loc.set_language("en")
@@ -64,11 +64,11 @@ func _run() -> void:
 	menu.settings()
 	loc.set_language("it")
 	await process_frame
-	check(menu.page == "settings" and page_texts(menu).has("IMPOSTAZIONI"), "Cambio lingua: la pagina aperta si aggiorna subito")
+	check(menu.page == "options" and menu.tab == "game" and page_texts(menu).has("OPZIONI"), "Cambio lingua: la pagina aperta si aggiorna subito")
 	# Le scelte grafiche non applicate restano dopo il cambio lingua.
 	menu.graphics()
-	var vsync: OptionButton = menu.graphics_controls.vsync
-	var wanted := (vsync.selected + 1) % vsync.item_count
+	var vsync = menu.graphics_controls.vsync
+	var wanted: int = (vsync.selected + 1) % vsync.item_count
 	vsync.select(wanted)
 	vsync.item_selected.emit(wanted)
 	loc.set_language("en")

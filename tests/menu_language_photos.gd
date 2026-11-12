@@ -16,11 +16,11 @@ func _run() -> void:
 	await create_timer(3.0).timeout
 	for code in ["it", "en"]:
 		loc.set_language(code)
-		for page in ["home", "options", "settings", "graphics", "language"]:
+		for page in ["home", "options", "graphics", "credits", "language"]:
 			match page:
 				"home": world.menu.home()
-				"options": world.menu.options_menu()
-				"settings": world.menu.settings()
+				"options": world.menu.options_menu("game")
+				"credits": world.menu.credits()
 				"graphics": world.menu.graphics()
 				"language": world.menu.language()
 			await create_timer(0.8).timeout

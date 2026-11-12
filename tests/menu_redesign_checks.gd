@@ -6,14 +6,13 @@ func run():
  world.automated=true
  await create_timer(0.4).timeout
  world.menu.home()
- assert(world.menu.entries.size()<=6)
- assert(not world.menu.get_node("BuildBadge").visible)
- assert(not world.menu.get_node("CoopBadge").visible)
+ assert(world.menu.entries.size()==7)
+ assert(not world.menu.version_label.text.is_empty())
  assert(world.menu.roster_label.text.is_empty())
  world.menu.network_menu()
  assert(world.menu.entries.size()==3)
  world.menu.options_menu()
- assert(world.menu.entries.size()==5)
+ assert(world.menu.entries.size()==6)
  world.menu.home()
  for avatar in world.camp.avatars:
   assert(avatar.find_children("SourceHand_*","",true,false).is_empty())
@@ -26,6 +25,7 @@ func run():
    avatar._pose(0)
    for side in ["l","r"]:assert(avatar._bone_frame("hand_"+side).is_finite())
  print("PASS menu home, multiplayer/options navigation, four Batch2 skins, native hands and poses")
+ if DisplayServer.get_name()=="headless": quit(); return
  await create_timer(1.0).timeout
  await RenderingServer.frame_post_draw
  root.get_texture().get_image().save_png(ProjectSettings.globalize_path("res://../screenshots/menu-redesign.png"))
