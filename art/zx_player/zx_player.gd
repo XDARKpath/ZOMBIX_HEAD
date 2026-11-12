@@ -310,14 +310,18 @@ func set_move(dir: Vector2, running := false, metres := 0.0) -> void:
 	if tree == null:
 		return
 	var v := dir.limit_length(1.0)
-	if running and v.y > 0.5 and not _crouched:
+	# Fino a 2,4 m/s solo la camminata lenta, accelerata dal Pace: mescolata alla corsetta (passo più lungo) i piedi pattinano.
+	if not _crouched and absf(v.x) < 0.3 and v.y > SLOW_Y and v.y <= 1.0:
+		v.y = SLOW_Y if v.y < 0.6 else remap(v.y, 0.6, 1.0, SLOW_Y, 1.0)
+	if running and dir.y > 0.5 and not _crouched:
 		v.y = 2.0
 	tool_rig.sprint = v.y >= 2.0
 	tool_rig.motion.walk = 0.0 if _crouched else clampf(dir.length(), 0.0, 1.0)
 	tool_rig.relax_free = not _dead and _seat < 0 and _repair == ""
 	tool_rig.enabled = tool_rig.relax_free and (weapon == null or weapon.visible)
 	tree.set("parameters/Movement/Locomotion_BlendSpace2D/blend_position", v)
-	tree.set("parameters/Movement/Crouch_BlendSpace2D/blend_position", dir.limit_length(1.0))
+	# Accucciato la clip del passo va a peso pieno appena ci si muove: la velocità la dà il Pace (a 0,45 era metà ferma).
+	tree.set("parameters/Movement/Crouch_BlendSpace2D/blend_position", dir.normalized() * clampf(metres / 0.6, 0.0, 1.0) if metres > 0.05 else Vector2.ZERO)
 	tree.set("parameters/Pace/scale", _pace(v, metres))
 
 
