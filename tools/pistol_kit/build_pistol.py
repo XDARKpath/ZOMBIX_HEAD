@@ -46,10 +46,10 @@ def material(name, color, metal, rough):
     return m
 
 
-M_STEEL = material("M_Pistol_Acciaio", (0.075, 0.08, 0.085), 0.85, 0.34)
-M_DARK = material("M_Pistol_Scuro", (0.022, 0.024, 0.026), 0.6, 0.45)
-M_POLY = material("M_Pistol_Polimero", (0.035, 0.036, 0.034), 0.0, 0.72)
-M_GRIP = material("M_Pistol_Zigrino", (0.018, 0.018, 0.017), 0.0, 0.9)
+M_STEEL = material("M_Pistol_Acciaio", (0.16, 0.17, 0.18), 0.6, 0.38)
+M_DARK = material("M_Pistol_Scuro", (0.05, 0.052, 0.056), 0.55, 0.42)
+M_POLY = material("M_Pistol_Polimero", (0.06, 0.062, 0.06), 0.0, 0.7)
+M_GRIP = material("M_Pistol_Zigrino", (0.036, 0.036, 0.035), 0.0, 0.9)
 M_BRASS = material("M_Pistol_Ottone", (0.55, 0.4, 0.14), 0.9, 0.35)
 M_DOT = material("M_Pistol_Tacche", (0.75, 0.74, 0.62), 0.0, 0.6)
 MATS = [M_STEEL, M_DARK, M_POLY, M_GRIP, M_BRASS, M_DOT]
