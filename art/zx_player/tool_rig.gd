@@ -21,6 +21,12 @@ const ROLL := {"index": [0.5, 0.65, 0.4], "middle": [0.6, 0.7, 0.45], "ring": [0
 ## Altre armi: canna o lama lungo le dita piegate di 90 gradi, in alto il dorso (asse +Z dell'arma).
 const OTHER_GRIP := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
 const ARM_REACH := 0.55
+## Arco (non è in ToolMotion): nella sinistra. A riposo lungo il fianco; tendendo sale davanti alla spalla e la destra
+## aggancia la corda. Spazio dello scheletro (+X sinistra del personaggio, +Z avanti). Il modello ha la corda a +Z.
+const BOW_LOW := Vector3(0.26, 0.96, 0.10)
+const BOW_HIGH := Vector3(0.08, 1.40, 0.56)
+const BOW_GRIP := {"c": Vector3(0, 0, -0.075), "t": Vector3(0, 1, 0)}
+const BOW_DRAW_LEN := 0.05                 # la corda del modello è rigida: la destra resta sulla corda, non a mezz'aria
 const BANDAGE_SECONDS := 2.6
 const BANDAGE_TURNS := 3.0
 const OFFER_SECONDS := 1.3
@@ -33,10 +39,10 @@ var sprint := false
 var aim := false
 var charge := 0.0
 var weapon: Node3D
-var _mag: Node3D
-var _mag_base := Vector3.ZERO
-var _slide: Node3D
-var _slide_base := Vector3.ZERO
+var _bow := false
+var _bow_w := 0.0
+var _parts := {}
+var loaded := true                       # c'è un dardo sulla balestra (lo dice zx_avatar_driver)
 var _swing := []
 var _swing_t := 0.0
 var _combo := 0
@@ -85,17 +91,15 @@ func set_weapon(id: String, item: Node3D) -> void:
 	kind = id if ToolMotion.handles(id) else ""
 	_swing = []
 	_reload = -1.0
-	_mag = null
-	_slide = null
+	_parts = {}
+	_bow = id == "bow" and item != null
+	if _bow: item.transform = Transform3D.IDENTITY     # niente SOCKET_BASIS: l'arco lo mette _bow_pose
 	if kind == "": return
 	motion.outside = true
 	motion.setup(kind)
 	if item:
 		motion.place_item(item)
-		_mag = item.find_child("*_Mag*", true, false) as Node3D
-		_slide = item.find_child("*_Slide*", true, false) as Node3D
-		if _mag: _mag_base = _mag.position
-		if _slide: _slide_base = _slide.position
+		_parts = ToolMotion.find_parts(item, kind)
 
 
 func swing(heavy: bool) -> void:
@@ -110,10 +114,11 @@ func shot() -> void:
 	if kind != "" and motion.is_gun(): motion.shot(aim)
 
 
-func reload(seconds: float = 1.6) -> void:
-	if kind != "" and motion.is_gun():
-		_reload = 0.0
-		_reload_len = seconds
+## La ricarica vista da fuori segue quella vera del giocatore (frazione 0-1, -1 ferma), non un timer suo:
+## dura quanto la sua, si ferma quando lui la interrompe e sta al passo anche per chi arriva a metà.
+func set_reload(fraction: float, total: float) -> void:
+	_reload = fraction if kind != "" and motion.is_gun() else -1.0
+	_reload_len = total
 
 
 func _process(delta: float) -> void:
@@ -124,6 +129,7 @@ func _process(delta: float) -> void:
 		if _care_t >= length: _care = ""
 	var want: float = 1.0 if _care != "" and _care_t < (BANDAGE_SECONDS if _care == "bandage" else OFFER_SECONDS) - 0.3 else 0.0
 	_care_w = move_toward(_care_w, want, delta / 0.28)
+	_bow_w = move_toward(_bow_w, 1.0 if _bow and charge > 0.0 else 0.0, delta / 0.25)
 	if kind == "": return
 	var row := []
 	if not _swing.is_empty():
@@ -133,18 +139,13 @@ func _process(delta: float) -> void:
 		var r: float = (_swing[3] - _swing[2]) / 30.0
 		if _swing_t >= w + a + r: _swing = []
 		else: row = [_swing[0], _swing_t, w, a, r]
-	if _reload >= 0.0:
-		_reload += delta / _reload_len
-		if _reload >= 1.0: _reload = -1.0
+	motion.reload_total = _reload_len
 	# I colpi leggeri sono a una mano: la sinistra lascia il manico e torna appena il colpo è finito.
 	var one_hand: bool = motion.grip("l").is_empty() or (motion.kind == "axe" and not row.is_empty() and row[0] != "H" and _swing_t < float(row[2]) + float(row[3]) + 0.25)
 	_left_w = move_toward(_left_w, 0.0 if one_hand else 1.0, delta / (0.07 if one_hand else 0.2))
 	motion.tick(delta, row, charge, guard, sprint, aim, _reload, -1.0)
 	_body_follow(row, delta)
-	if _mag:
-		_mag.position = _mag_base + Vector3(0, -0.3, 0) * motion.mag_out
-		_mag.visible = motion.mag_out < 0.98
-	if _slide: _slide.position = _slide_base + Vector3(0, 0, 0.03) * motion.slide_back
+	motion.pose_parts(_parts, 0.0, loaded)
 
 
 func _process_modification() -> void:
@@ -164,6 +165,9 @@ func _process_modification() -> void:
 	_care_pose(sk, chest, rest, turn)
 	_head(sk, turn)
 	_keep_item(sk)
+	if _bow and _pause <= 0.0 and _care_w <= 0.01:
+		_bow_pose(sk, chest, rest, turn)
+		return
 	if (kind == "" or weapon == null) and _pause <= 0.0 and _care_w <= 0.01:
 		_relax(sk, "l")
 		_relax(sk, "r")
@@ -258,6 +262,31 @@ func _keep_item(sk: Skeleton3D) -> void:
 		inside = sk.get_bone_global_pose(sk.get_bone_parent(_anchor)).affine_inverse() * w
 	else:
 		return
+	sk.set_bone_pose_position(_anchor, inside.origin)
+	sk.set_bone_pose_rotation(_anchor, inside.basis.get_rotation_quaternion())
+
+
+## Arco nella sinistra, la destra sulla corda mentre tende. weapon_anchor segue la mano sinistra vera.
+func _bow_pose(sk: Skeleton3D, chest: Transform3D, rest: Transform3D, turn: Basis) -> void:
+	var k := smoothstep(0.0, 1.0, _bow_w)
+	var at := BOW_LOW.lerp(BOW_HIGH, k)
+	# A riposo la punta va un poco avanti; teso è dritto, appena inclinato verso destra come chi tira d'istinto.
+	var tilt := Basis(Vector3.RIGHT, 0.3 * (1.0 - k)) * Basis(Vector3.BACK, 0.18 * k)
+	var w := Transform3D(turn * tilt * Basis(Vector3.UP, PI), rest.origin + turn * (at - rest.origin) + (chest.origin - rest.origin))
+	var left: Array = ToolMotion.fist_for(w, BOW_GRIP, "l", sk.get_bone_global_pose(_ids["upperarm_l"]).origin, turn * Vector3.UP, 0.095, 0.035, 2.0, Vector3.ZERO, 0.0)
+	_reach(sk, "l", left[0], left[1], left[2], Vector3(0.6, -1.0, -0.2), 1.0)
+	_fingers(sk, "l", POWER)
+	if k > 0.05:
+		var nock: Vector3 = w * Vector3(0, 0, 0.095 + BOW_DRAW_LEN * charge)
+		var fingers: Vector3 = (w.origin - nock).normalized()
+		var palm: Vector3 = turn * Vector3.RIGHT
+		_reach(sk, "r", nock - fingers * 0.085 - turn * Vector3.RIGHT * 0.03, fingers, palm, Vector3(-1.0, 0.1, -0.6), k)
+		_fingers(sk, "r", ROLL)
+	else:
+		_relax(sk, "r")
+	var real := sk.get_bone_global_pose(_ids["hand_l"])
+	var final := Transform3D(real.basis.orthonormalized(), real.origin) * (Transform3D(_hand_basis(sk, "l", left[1], left[2]), left[0]).affine_inverse() * w)
+	var inside := sk.get_bone_global_pose(sk.get_bone_parent(_anchor)).affine_inverse() * final
 	sk.set_bone_pose_position(_anchor, inside.origin)
 	sk.set_bone_pose_rotation(_anchor, inside.basis.get_rotation_quaternion())
 

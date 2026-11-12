@@ -114,7 +114,7 @@ func tick(_delta: float) -> void:
 			# Chi guarda vede lo sparo di quell'arma; il giocatore locale lo vede già in prima persona.
 			if actor.get("local_control") != true and model.weapon:
 				var way: Vector3 = model.weapon.global_basis * Vector3.FORWARD
-				var mouth: Vector3 = model.weapon.global_position + way * 0.3
+				var mouth: Vector3 = model.weapon.get_muzzle_global() if model.weapon.has_method("get_muzzle_global") else model.weapon.global_position + way * 0.3
 				preload("res://weapons/gun_fx.gd").fire(actor.get_parent(), weapon, mouth, [mouth + way * 35.0], way, model.weapon.global_basis.x)
 				AudioManager.weapon_fire_at(str(actor.get("equipped")), mouth)
 		else:
@@ -125,6 +125,7 @@ func tick(_delta: float) -> void:
 	var reloading: bool = actor.get("reload_left") != null and actor.reload_left > 0
 	if reloading and not was_reloading: model.reload()
 	was_reloading = reloading
+	_reload_view(reloading)
 	# Gambe: blend space di zx_player (y 1 = cammina, 2 = corre), nello spazio dell'avatar che guarda +Z.
 	model.set_crouched(actor.get("crouching") == true)
 	var velocity: Vector3 = actor.velocity if actor.get("velocity") != null else Vector3.ZERO
@@ -175,3 +176,20 @@ func _hold_item(id: String) -> void:
 	skeleton.add_child(hand_item)
 	hand_item.add_child(thing)
 	thing.position = Vector3(0, 0.09, 0.02)
+
+
+## Ricarica di chi vedi: il gesto segue la sua frazione vera, i suoni meccanici arrivano dal suo corpo
+## (il tuo li senti già dalla prima persona).
+const Arsenal := preload("res://weapons/zx_arsenal.gd")
+var reload_seen := -1.0
+
+func _reload_view(reloading: bool) -> void:
+	var total: float = maxf(float(actor.get("reload_total")) if actor.get("reload_total") != null else 1.6, 0.1)
+	var r: float = clampf((total - actor.reload_left) / total, 0.0, 1.0) if reloading else -1.0
+	var equipped := str(actor.get("equipped"))
+	if r >= 0.0 and actor.get("local_control") != true:
+		for step in Arsenal.reload_crossed(equipped, total, reload_seen if r >= reload_seen else 0.0, r):
+			AudioManager.reload_step(equipped, step, actor.global_position + Vector3.UP * 1.2)
+	reload_seen = r
+	model.tool_rig.set_reload(r, total)
+	model.tool_rig.loaded = actor.get("magazine") == null or int(actor.magazine) > 0

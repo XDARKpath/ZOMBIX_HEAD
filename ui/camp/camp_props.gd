@@ -119,6 +119,27 @@ static func cigarette(parent: Node3D) -> Node3D:
 	smoke(prop,Vector3(0,0,0.052),0.12,0.16,18)
 	return prop
 
+## Sigaro dello sceriffo: più grosso e lungo della sigaretta, la punta da bocca allo stesso punto del filtro
+## (z = -0.0475), così hand_pose.cigarette_frame lo tiene uguale. Primitive a facce piatte, arte originale.
+static func cigar(parent: Node3D) -> Node3D:
+	var prop := Node3D.new()
+	prop.name = "Cigar"
+	parent.add_child(prop)
+	var leaf := cylinder(prop,Vector3(0,0,0.0185),0.0085,0.132,Color("5a3820"))
+	leaf.rotation.x = PI/2
+	var band := cylinder(prop,Vector3(0,0,-0.022),0.0088,0.012,Color("b0262a"))
+	band.rotation.x = PI/2
+	var ash := cylinder(prop,Vector3(0,0,0.081),0.0083,0.008,Color("8a8580"))
+	ash.rotation.x = PI/2
+	var ember := cylinder(prop,Vector3(0,0,0.0855),0.0078,0.002,Color("ff641b"))
+	ember.rotation.x = PI/2
+	var mat := ember.material_override as StandardMaterial3D
+	mat.emission_enabled = true
+	mat.emission = Color("ff4812")
+	mat.emission_energy_multiplier = 1.5
+	smoke(prop,Vector3(0,0,0.088),0.16,0.18,20)
+	return prop
+
 static func stone(parent: Node3D) -> MeshInstance3D:
 	var view := MeshInstance3D.new()
 	view.name = "Whetstone"

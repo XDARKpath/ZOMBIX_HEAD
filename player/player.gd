@@ -121,14 +121,19 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if reload_left>_reload_seen:reload_total=reload_left   # vale anche sui client, dove reload_left arriva dall'host
 	if reload_left>0:
-		reload_left=maxf(0,reload_left-delta)
-		if reload_left==0:
-			var Arsenal=preload("res://weapons/zx_arsenal.gd")
-			if equipped in Arsenal.SHELL_RELOAD:
-				# Una cartuccia alla volta: si continua finché il tubo è pieno (sparare interrompe).
-				magazine=mini(magazine+1,Arsenal.magazine(equipped))
-				if magazine<Arsenal.magazine(equipped):reload_left=Arsenal.reload_seconds(equipped);reload_total=reload_left
-			else:magazine=Arsenal.magazine(equipped)
+		var Arsenal=preload("res://weapons/zx_arsenal.gd")
+		if dead or seated:reload_left=0      # morte e veicolo annullano: niente caricatore pieno da morti
+		else:
+			# I colpi salgono al gesto (zx_arsenal.RELOAD_STEPS: caricatore dentro, cartuccia nel tubo), non a fine clip:
+			# interrotta prima resta vuota, dopo resta carica.
+			var fill:float=reload_total*(1.0-Arsenal.reload_fill(equipped,reload_total))
+			var was:=reload_left
+			reload_left=maxf(0,reload_left-delta)
+			if was>fill and reload_left<=fill:
+				magazine=mini(magazine+1,Arsenal.magazine(equipped)) if equipped in Arsenal.SHELL_RELOAD else Arsenal.magazine(equipped)
+			# Una cartuccia alla volta: si continua finché il tubo è pieno (sparare interrompe).
+			if reload_left==0 and equipped in Arsenal.SHELL_RELOAD and magazine<Arsenal.magazine(equipped):
+				reload_left=Arsenal.reload_seconds(equipped);reload_total=reload_left
 	_reload_seen=reload_left
 	if seated: return
 	if dead:
@@ -321,6 +326,7 @@ func reset_at(point: Vector3) -> void:
 	health = max_health()
 	stamina = max_stamina()
 	dead = false
+	reload_left = 0.0
 	sprinting = false
 	exhausted = false
 	dodging = false
@@ -501,10 +507,9 @@ func reload_weapon() -> bool:
 	var Arsenal=preload("res://weapons/zx_arsenal.gd")
 	if dead or seated or not Arsenal.is_gun(equipped) or magazine>=Arsenal.magazine(equipped) or reload_left>0 or melee.attacking:return false
 	# Ogni arma ha la sua durata (zx_arsenal.RELOAD_SECONDS); le armi a cartucce una cartuccia alla volta.
-	reload_left=Arsenal.reload_seconds(equipped)
+	reload_left=Arsenal.reload_seconds(equipped,magazine<=0)   # tattica più corta: c'è già un colpo in canna
 	reload_total=reload_left
-	AudioManager.weapon_reload(equipped)
-	return true
+	return true      # i suoni li danno gli eventi della ricarica (fp_arms per te, zx_avatar_driver per gli altri)
 
 func _shadow_body() -> void:
 	for mesh in visual.find_children("*", "MeshInstance3D", true, false):

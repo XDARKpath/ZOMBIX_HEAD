@@ -1,7 +1,7 @@
 extends SceneTree
 # Avatar visto da fuori (zx_avatar_driver.gd + tool_rig.gd): pistola, fucile, ascia, mani vuote, fermo e in cammino.
 # Foto: res://../screenshots/hands-<tag>-front.png e -side.png. Controlla anche che le ossa non restino nella posa di riposo (T-pose).
-# godot --path . -s res://tests/hand_pose_shots.gd -- <tag>
+# godot --path . -s res://tests/hand_pose_shots.gd -- <tag> [--weapons=bow,axe,...]
 const ACTOR := """extends CharacterBody3D
 signal damaged(amount)
 var equipped := "axe"
@@ -20,10 +20,13 @@ var charging := false
 var ads := false
 var blocking := false
 var attack_clip := ""
-func charge_fraction() -> float: return 0.0
+var draw := 0.0
+func charge_fraction() -> float: return draw
 """
-const WEAPONS := ["pistol", "assault_rifle", "axe", "", "pistol", "assault_rifle", "axe"]
+var WEAPONS := ["pistol", "assault_rifle", "axe", "", "pistol", "assault_rifle", "axe"]
 var fails := 0
+var close := -1                                  # --close=N: la foto vicina guarda l'attore N
+var draw := 0.0                                  # --draw=0.8: chi cammina (dal quinto) tende l'arco o carica
 
 func _initialize(): call_deferred("run")
 
@@ -40,6 +43,10 @@ func source(code: String) -> GDScript:
 
 func run():
 	var tag: String = OS.get_cmdline_user_args()[0] if OS.get_cmdline_user_args().size() > 0 else "now"
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--weapons="): WEAPONS = Array(arg.trim_prefix("--weapons=").split(","))
+		if arg.begins_with("--draw="): draw = float(arg.trim_prefix("--draw="))
+		if arg.begins_with("--close="): close = int(arg.trim_prefix("--close="))
 	DisplayServer.window_set_size(Vector2i(1800, 700))
 	var s := Node3D.new()
 	root.add_child(s)
@@ -75,6 +82,9 @@ func run():
 		actors.append(actor)
 	for i in range(4, WEAPONS.size()):
 		actors[i].velocity = Vector3(0, 0, -2.6)      # gli ultimi tre camminano verso la camera
+		if draw > 0.0:
+			actors[i].melee.charging = true
+			actors[i].melee.draw = draw
 	var t := 0.0
 	while t < 1.4:
 		for a in actors:
@@ -98,8 +108,9 @@ func run():
 	cam.position = Vector3(-9.0, 1.4, -2.0)
 	cam.look_at(Vector3(0, 1.0, 0))
 	await shot(tag + "-side")
-	cam.position = Vector3(-2.2, 1.5, -3.6)
-	cam.look_at(Vector3(-3.6, 1.15, 0))
+	var near: Vector3 = Vector3(-3.6, 0, 0) if close < 0 else actors[close].position
+	cam.position = near + Vector3(1.4, 1.5, -3.6)
+	cam.look_at(near + Vector3(0, 1.15, 0))
 	await shot(tag + "-close")
 	print("HAND POSE %s (%d errori)" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(fails)

@@ -13,6 +13,8 @@ const ARMS := preload("res://art/zx_fp/SM_FP_Arms.glb")
 const ToolMotion := preload("res://player/tool_motion.gd")
 const ArmIk := preload("res://player/arm_ik.gd")
 const GunFx := preload("res://weapons/gun_fx.gd")
+const Arsenal := preload("res://weapons/zx_arsenal.gd")
+const Balance := preload("res://autoload/balance.gd")
 const SET := {"axe": "Axe", "knife": "Knife", "pistol": "Pistol"}
 const CLASS_SET := {"melee1h": "Melee1H", "axe": "Axe2H", "sword": "Sword", "pistol": "Pistol", "rifle": "Rifle"}
 ## Armi del registro con un set proprio invece di quello della loro classe.
@@ -87,8 +89,7 @@ var _was_floor := true
 var _kick := 0.0
 var _kick_w := 0.0
 var _ads := 0.0
-var _slide: Node3D
-var _slide_base := Vector3.ZERO
+var _parts := {}                  # parti mobili dell'arma (ToolMotion.find_parts)
 var _slide_back := 0.0
 var _swing_env := 0.0
 var _wind_env := 0.0
@@ -121,11 +122,12 @@ var _tip_y := 0.0
 var _trail_last: Array = []
 var _hit_mark: Control
 var _tool_w := 1.0
-var _mag: Node3D
-var _mag_base := Vector3.ZERO
 # Caricatore o cartuccia nella mano sinistra durante la ricarica: blocchetti originali, l'arma importata non li ha.
 var _carry_mag: MeshInstance3D
 var _carry_shell: MeshInstance3D
+var _reload_r := -1.0
+var _reload_dry := false
+var _recoil := Vector2.ZERO       # quanto il rinculo ha alzato e girato la vista: torna da solo, il mouse del giocatore no
 
 
 func build(owner_player: CharacterBody3D) -> void:
@@ -193,6 +195,7 @@ static func handles(id: String) -> bool:
 
 ## Quale set di clip e quale modello: armi storiche (ascia, pala, coltello, pistola), armi ZX, oggetti.
 func _set_weapon(id: String) -> void:
+	_reload_r = -1.0
 	weapon = id
 	if item: item.queue_free()
 	item = null
@@ -243,14 +246,7 @@ func _set_weapon(id: String) -> void:
 		for mi in item.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			(mi as MeshInstance3D).extra_cull_margin = 2
-	_slide = null
-	_mag = null
-	if item and _gun:
-		_slide = item.find_child("*Slide*", true, false) as Node3D
-		if _slide: _slide_base = _slide.position
-		_mag = item.find_child("*_Mag*", true, false) as Node3D
-		if not _mag: _mag = item.find_child("Magazine*", true, false) as Node3D
-		if _mag: _mag_base = _mag.position
+	_parts = ToolMotion.find_parts(item, id) if item and _gun else {}
 	_motion = null
 	for side in ["r", "l"]:
 		var shoulder := skeleton.find_bone("upperarm_" + side)
@@ -360,6 +356,12 @@ func _start_one(kind: String, clip: String) -> bool:
 
 func tick(delta: float, equipped: String) -> void:
 	clock += delta
+	if _recoil != Vector2.ZERO:
+		var back := _recoil * (1.0 - exp(-delta * 6.0))
+		if _recoil.length() < 0.0005: back = _recoil
+		_recoil -= back
+		player.rig.pitch = clampf(player.rig.pitch - back.x, Balance.CAMERA_PITCH_MIN, Balance.CAMERA_PITCH_MAX)
+		player.rig.yaw -= back.y
 	if weapon != equipped: _set_weapon(equipped)
 	if _empty:
 		_tick_empty(delta)
@@ -498,6 +500,18 @@ func tick(delta: float, equipped: String) -> void:
 
 
 ## L'arma va dove dice ToolMotion e le braccia la raggiungono. Lancio e oggetti della sinistra riprendono le loro clip.
+## Eventi della ricarica (zx_arsenal.RELOAD_STEPS) passati da un fotogramma all'altro: ognuno suona una volta.
+## Pompa e leva da vuote, a tubo pieno, armano il colpo.
+func _reload_events(r: float) -> void:
+	if r >= 0.0 and _reload_r < 0.0: _reload_dry = player.magazine <= 0
+	if r >= 0.0:
+		if r < _reload_r: _reload_r = 0.0            # nuova cartuccia: il giro riparte
+		for step in Arsenal.reload_crossed(weapon, player.reload_total, _reload_r, r): AudioManager.reload_step(weapon, step)
+	elif _reload_r >= 0.0 and _reload_dry and player.magazine >= Arsenal.magazine(weapon) and _motion.chamber():
+		AudioManager.reload_step(weapon, "chamber")
+	_reload_r = r
+
+
 func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 	var melee = player.melee
 	var row := []
@@ -508,13 +522,12 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 	if _gun and player.reload_left > 0.0:
 		var rs: float = maxf(player.reload_total, 0.1)
 		reload = clampf((rs - player.reload_left) / rs, 0.0, 1.0)
+	_reload_events(reload)
+	_motion.reload_total = player.reload_total
 	_motion.tick(delta, row, melee.charge_fraction() if melee.charging and not _gun else 0.0, melee.blocking, _sprint_w > 0.5, melee.ads, reload, _inspect_t)
 	_tool_w = move_toward(_tool_w, 0.0 if _one_t >= 0.0 else 1.0, delta / 0.1)
-	if _mag:
-		_mag.position = _mag_base + Vector3(0, -0.2, 0) * _motion.mag_out     # il vecchio scivola fuori dal pozzetto, si vede
-		_mag.visible = _motion.mag_out < 0.98
-	_carry_mag.visible = _motion.carry == "mag"
-	_carry_shell.visible = _motion.carry == "shell"
+	_carry_mag.visible = _motion.carry == "mag" and _inter == ""     # raccogliendo la sinistra lascia la ricarica
+	_carry_shell.visible = _motion.carry == "shell" and _inter == ""
 	# Il pezzo sta davanti al palmo visto dalla camera (gli assi dell'osso della mano non aiutano): un po' sopra e verso la camera.
 	var cam := get_viewport().get_camera_3d()
 	if cam and (_carry_mag.visible or _carry_shell.visible):
@@ -746,41 +759,49 @@ func _weight(delta: float) -> void:
 	var aim: float = smoothstep(0.0, 1.0, _ads)
 	if not _motion: rig.position += ADS_SHIFT.get(set_name, Vector3(-0.1, 0.05, 0.02)) * aim
 	player.rig.aim_amount = aim
-	if _slide:
-		var empty: bool = player.magazine <= 0 and player.reload_left <= 0.0
+	if _motion and not _parts.is_empty():
+		# Carrello: indietro allo sparo, bloccato aperto a caricatore vuoto (pompa, leva e otturatore li muove Wep_Fire).
+		var empty: bool = player.magazine <= 0 and player.reload_left <= 0.0 and not ToolMotion.WEAPONS[weapon].has("cycle")
 		_slide_back = move_toward(_slide_back, 1.0 if empty else 0.0, delta * 16.0)
-		_slide.position = _slide_base + Vector3(0, 0, 0.03) * maxf(_slide_back, _motion.slide_back if _motion else 0.0)
+		_motion.pose_parts(_parts, _slide_back, player.magazine > 0)
 
 
 ## Sparo: vampa, bossolo, scia del proiettile, l'arma scalcia e la vista sale di poco.
 func _gun_fired(at: Vector3) -> void:
 	_kick = 1.0
-	_slide_back = 1.0
 	if _motion:
 		_motion.shot(player.melee.ads)
-		# Pompa, leva, otturatore: i pezzi dell'arma si muovono da soli.
-		for found in (item.find_children("*", "AnimationPlayer", true, false) if item else []):
+		# Pompa, leva, otturatore, cane e tamburo: li muove la clip Wep_Fire del modello; il carrello lo muoviamo noi.
+		var own_clip: bool = ToolMotion.WEAPONS[weapon].has("cycle") or weapon == "revolver"
+		if not own_clip: _slide_back = 1.0
+		for found in (item.find_children("*", "AnimationPlayer", true, false) if item and own_clip else []):
 			if (found as AnimationPlayer).has_animation("Wep_Fire"): (found as AnimationPlayer).play("Wep_Fire")
 	if player.local_control:
 		# Ogni arma scalcia a modo suo: la vista sale e devia di quanto vale il colpo.
 		var kick_row: Array = ToolMotion.WEAPONS.get(weapon, {}).get("rec", [1.6, 2.6])
 		var soft: float = 0.5 if player.melee.ads else 1.0
-		player.rig.pitch += float(kick_row[1]) * 0.0055 * soft
-		player.rig.yaw += randf_range(-1.0, 1.0) * float(kick_row[1]) * 0.002 * soft
+		var up: float = minf(float(kick_row[1]) * 0.0055 * soft, Balance.CAMERA_PITCH_MAX - player.rig.pitch)
+		var side: float = randf_range(-1.0, 1.0) * float(kick_row[1]) * 0.002 * soft
+		player.rig.pitch += up
+		player.rig.yaw += side
+		_recoil += Vector2(up, side)
 		player.rig.add_shake(float(kick_row[0]) * 0.07)
 	if item == null: return
 	var view: Camera3D = player.rig.camera
 	var forward: Vector3 = -view.global_basis.z
 	var muzzle: Vector3 = view.global_position + forward * 0.5
 	var best := -INF
-	for mesh in item.find_children("*", "MeshInstance3D", true, false):
-		var mi := mesh as MeshInstance3D
-		var box := mi.global_transform * mi.get_aabb()
-		for i in 8:
-			var corner := box.get_endpoint(i)
-			if corner.dot(forward) > best:
-				best = corner.dot(forward)
-				muzzle = corner
+	if item.has_method("get_muzzle_global"):
+		muzzle = item.get_muzzle_global()       # la volata vera del modello (weapon_item.MUZZLES), non uno spigolo
+	else:
+		for mesh in item.find_children("*", "MeshInstance3D", true, false):
+			var mi := mesh as MeshInstance3D
+			var box := mi.global_transform * mi.get_aabb()
+			for i in 8:
+				var corner := box.get_endpoint(i)
+				if corner.dot(forward) > best:
+					best = corner.dot(forward)
+					muzzle = corner
 	GunFx.fire(player.get_parent(), weapon, muzzle, player.melee.last_ends if not player.melee.last_ends.is_empty() else [at], forward, view.global_basis.x)
 
 

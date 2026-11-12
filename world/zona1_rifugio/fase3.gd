@@ -320,7 +320,7 @@ func _send_snapshot() -> void:
 	var people: Array = []
 	for id in actors:
 		var body: CharacterBody3D = actors[id]
-		people.append([id,body.position,body.visual.rotation.y,body.velocity,body.health,body.stamina,body.dead,body.melee.attacking,body.melee.attack_time,body.melee.charged_attack,body.dodging,body.dodge_elapsed,body.crouching,body.equipped,body.magazine,body.reload_left,body.credits,body.carried_heads,body.owned,body.items,body.hotbar,body.slot,body.status.packed(),body.melee.blocking,body.rig.pitch,body.melee.attack_clip])
+		people.append([id,body.position,body.visual.rotation.y,body.velocity,body.health,body.stamina,body.dead,body.melee.attacking,body.melee.attack_time,body.melee.charged_attack,body.dodging,body.dodge_elapsed,body.crouching,body.equipped,body.magazine,body.reload_left,body.credits,body.carried_heads,body.owned,body.items,body.hotbar,body.slot,body.status.packed(),body.melee.blocking,body.rig.pitch,body.melee.attack_clip,body.melee.charging,body.melee.charge_time])
 	var enemies: Array = []
 	for body in targets:
 		if is_instance_valid(body): enemies.append([body.network_id,body.position,body.rotation.y,body.velocity,body.health,body.dead,int(body.state),body.visual.rotation.x,body.visual.position.y,body.stagger,body.attack_clock,body.kind,body.max_health,body.crawling,body.beheaded,body.death_style,body.death_clock,body.attack_clip,body.attack_serial,body.alert_time,body.reaction,body.reaction_time,body.hit_serial,body.hit_zone,body.hit_dir,body.hit_power,body.custom_skin,body.boss_weapon,body.anim_scale,body.title])
@@ -362,6 +362,7 @@ func snapshot(people: Array, enemies: Array, count: int) -> void:
 				body.melee.remote_block=row[23]
 				body.rig.pitch=row[24]
 				if row.size()>25: body.melee.attack_clip=row[25]
+				if row.size()>27: body.melee.charging=row[26];body.melee.charge_time=row[27]   # arco teso e carica dell'ascia visti dagli altri
 		body.health = row[4]
 		body.stamina = row[5]
 		body.dead = row[6]

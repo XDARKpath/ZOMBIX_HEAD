@@ -57,9 +57,10 @@ static func _rest_fingers(skel: Skeleton3D, ids: Dictionary, side: String) -> Ve
 	return (_rest(skel, ids["middle_01_" + side]).origin - _rest(skel, ids["hand_" + side]).origin).normalized()
 
 static func _rest_palm(skel: Skeleton3D, ids: Dictionary, side: String) -> Vector3:
-	# Con la curvatura positiva attorno a X la falange scende verso +Z locale: lì c'è il palmo.
+	# Sui rig ZX (posa a T con i palmi in giù, pollice avanti) il palmo è -Z locale delle falangi:
+	# la curvatura negativa attorno a X le chiude lì, come in tool_rig.gd.
 	var fingers := _rest_fingers(skel, ids, side)
-	var palm := _rest(skel, ids["middle_01_" + side]).basis * Vector3.BACK
+	var palm := _rest(skel, ids["middle_01_" + side]).basis * Vector3.FORWARD
 	return (palm - fingers * palm.dot(fingers)).normalized()
 
 ## Polso in `wrist`, dita verso `fingers`, palmo verso `palm`, gomito dalla parte di `pole`.
@@ -154,9 +155,9 @@ static func smoke_arm(skel: Skeleton3D, ids: Dictionary, sip: float, breath: flo
 	grip(skel, ids, "r", "cigarette", breath)
 	var right := shoulder(skel, ids, "r")
 	var pole := right + Vector3(-pole_out, -1, pole_forward)
-	var up_wrist := wrist_to_mouth(skel, ids, "r", mouth(skel, ids), pole, PI)
+	var up_wrist := wrist_to_mouth(skel, ids, "r", mouth(skel, ids), pole, 0.0)
 	# Anche il punto di partenza resta un po' più largo del fianco.
-	reach_arm(skel, ids, "r", (right + Vector3(-0.18, -0.45, 0.14)).lerp(up_wrist, sip), pole, PI)
+	reach_arm(skel, ids, "r", (right + Vector3(-0.18, -0.45, 0.14)).lerp(up_wrist, sip), pole, 0.0)
 
 ## Ciclo di 14 s del menu: sale tra 1 e 2,8 s, resta alla bocca, scende tra 5 e 6,8 s.
 static func sip_at(time: float) -> float:
@@ -172,7 +173,7 @@ static func grip(skel: Skeleton3D, ids: Dictionary, side: String, kind: String, 
 			var id: int = ids.get("%s_0%d_%s" % [digit, joint, side], -1)
 			if id < 0: continue
 			var rest := skel.get_bone_rest(id).basis
-			var turn := Basis(Vector3.RIGHT, curls[joint - 1] + breath * 0.03 * joint)
+			var turn := Basis(Vector3.RIGHT, -(curls[joint - 1] + breath * 0.03 * joint))
 			if joint == 1 and digit in ["index", "middle"] and g["spread"] > 0.0:
 				# Indice e medio si aprono a V per tenere la sigaretta.
 				turn = _spread(skel, ids, side, digit, g["spread"]) * turn

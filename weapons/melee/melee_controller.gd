@@ -24,6 +24,7 @@ var attacking: bool = false
 var charged_attack: bool = false
 var attack_time: float = 0
 var hit_ids: Dictionary = {}
+var _wall_at := -1.0                     # quando la lama ha toccato l'ambiente l'ultima volta (un suono per colpo)
 var stopping: bool = false
 var swing_side: float = 1
 # Fendente in corso: 0 schiacciata, 1 diagonale, 2 strisciata. Cicla a ogni colpo.
@@ -368,7 +369,12 @@ func _blade_strike() -> void:
 		var query := PhysicsRayQueryParameters3D.create(origin, origin + (d as Vector3) * reach, 17, [player.get_rid()])
 		query.collide_with_areas = true
 		var result := get_world_3d().direct_space_state.intersect_ray(query)
-		if result.is_empty() or not result.collider.has_meta("target"): continue
+		if result.is_empty() or not result.collider.has_meta("target"):
+			# Lama su muro, legno o metallo: un suono per colpo (solo corpi fissi, non aree, compagni o cadaveri).
+			if kind != "kick" and not result.is_empty() and result.collider is StaticBody3D and _clock - _wall_at > 0.5:
+				_wall_at = _clock
+				AudioManager.surface_hit(player.equipped, result.collider, result.position)
+			continue
 		var victim: Node = result.collider.get_meta("target")
 		var zone: String = result.collider.get_meta("zone")
 		# Reazione direzionale: il fendente da destra a sinistra spinge verso la sinistra di chi colpisce.
