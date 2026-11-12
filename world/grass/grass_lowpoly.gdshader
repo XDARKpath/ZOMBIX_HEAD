@@ -7,7 +7,7 @@ uniform vec3 base_color : source_color = vec3(0.30, 0.38, 0.17);
 uniform vec3 dry : source_color = vec3(0.74, 0.68, 0.44);
 uniform vec3 lush : source_color = vec3(0.34, 0.40, 0.17);
 uniform vec3 fresh : source_color = vec3(0.36, 0.52, 0.20);
-uniform float sway = 0.11;
+uniform float sway = 0.07;
 uniform float mesh_height = 1.0;
 
 varying vec3 tint;

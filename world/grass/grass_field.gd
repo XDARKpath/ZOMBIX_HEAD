@@ -33,7 +33,7 @@ const LAYERS := [
 	{"mesh": "Plant_1_Big", "rows": 36, "spacing": 1.7, "height": 0.55, "keep": 0.07, "color": Color(0.28, 0.40, 0.16), "seed": 0.41, "offset": 81.0, "lean": 0.08},
 	{"mesh": "Plant_7_Big", "rows": 40, "spacing": 1.4, "height": 0.14, "keep": 0.12, "color": Color(0.30, 0.42, 0.18), "seed": 0.59, "offset": 123.0, "lean": 0.0},
 	# Piccoli cespugli a gruppetti (il modello è rosso: qui prende il verde del prato). Non fermano chi cammina.
-	{"look": "bush", "mesh": "Bush_Common", "rows": 30, "spacing": 2.4, "height": 0.7, "keep": 0.07, "color": Color(0.20, 0.33, 0.13), "seed": 0.63, "offset": 211.0, "lean": 0.05},
+	{"look": "bush", "mesh": "Bush_Common", "rows": 30, "spacing": 2.4, "height": 0.7, "keep": 0.07, "color": Color(0.20, 0.33, 0.13), "seed": 0.63, "offset": 211.0, "lean": 0.05, "stiff": 0.3},
 	# Fiori CC0 con i loro colori: pochi, a macchie.
 	{"look": "flower", "mesh": "Flower_3_Group", "rows": 64, "spacing": 0.9, "height": 0.5, "keep": 0.3, "seed": 0.89, "lean": 0.1},
 	{"look": "flower", "mesh": "Flower_4_Single", "rows": 44, "spacing": 1.3, "height": 0.42, "keep": 0.18, "seed": 0.47, "offset": 150.0, "lean": 0.1},
@@ -42,6 +42,10 @@ const LAYERS := [
 ]
 # VEGETAZIONE (basso, medio, alto, ultra): moltiplica le righe di ogni strato.
 const QUALITY_SCALE := [0.55, 0.75, 0.9, 1.2]
+# Chi apre l'erba camminando: giocatori e gli zombie più vicini (raggio in metri).
+const PUSHERS := 8
+const PLAYER_PUSH := 0.8
+const ZOMBIE_PUSH := 0.65
 
 var world: Node3D
 var layers: Array[GPUParticles3D] = []
@@ -73,6 +77,7 @@ func build(owner_world: Node3D) -> void:
 		p.set_shader_parameter("patch_offset", spec.get("offset", 0.0))
 		p.set_shader_parameter("lean", spec.get("lean", 0.22))
 		p.set_shader_parameter("inner", spec.get("inner", 0.0))
+		p.set_shader_parameter("stiff", spec.get("stiff", 1.0))
 		p.set_shader_parameter("scale_range", Vector2(0.75, 1.25) * (spec.height / maxf(mesh.get_aabb().size.y, 0.01)))
 		p.set_shader_parameter("tall_range", Vector2(0.7, 1.25))
 		var view := _particles(p, mesh)
@@ -87,8 +92,12 @@ func build(owner_world: Node3D) -> void:
 
 func _particles(p: ShaderMaterial, mesh: Mesh) -> GPUParticles3D:
 	var view := GPUParticles3D.new()
-	view.lifetime = 600.0
+	# Mai rinascere (a fine vita il prato lampeggiava) e calcolo a ogni fotogramma, senza
+	# interpolare: la piega intorno a chi cammina segue liscia anche oltre i 30 fps.
+	view.lifetime = 86400.0
 	view.explosiveness = 1.0
+	view.fixed_fps = 0
+	view.interpolate = false
 	view.local_coords = false
 	view.process_material = p
 	view.draw_pass_1 = mesh
@@ -100,6 +109,32 @@ func _particles(p: ShaderMaterial, mesh: Mesh) -> GPUParticles3D:
 func _process(_delta: float) -> void:
 	if world and is_instance_valid(world.player):
 		global_position = world.player.global_position * Vector3(1, 0, 1)
+		_update_pushers()
+
+## Giocatori e zombie vicini piegano l'erba: solo grafica, ogni macchina usa le posizioni che già vede.
+func _update_pushers() -> void:
+	var list := PackedVector4Array()
+	var me: Vector3 = world.player.global_position
+	var actors = world.get("actors")
+	var bodies: Array = actors.values() if actors is Dictionary and not actors.is_empty() else [world.player]
+	for body in bodies:
+		if list.size() < PUSHERS and is_instance_valid(body) and body.is_inside_tree():
+			list.append(_pusher(body.global_position, PLAYER_PUSH))
+	var near: Array = []
+	for t in world.get("targets") if world.get("targets") is Array else []:
+		if is_instance_valid(t) and t.is_inside_tree():
+			var d: float = me.distance_squared_to(t.global_position)
+			if d < 900.0: near.append([d, t.global_position])
+	near.sort_custom(func(a, b): return a[0] < b[0])
+	for z in near:
+		if list.size() >= PUSHERS: break
+		list.append(_pusher(z[1], ZOMBIE_PUSH))
+	list.resize(PUSHERS)
+	for view in layers:
+		view.process_material.set_shader_parameter("pushers", list)
+
+static func _pusher(at: Vector3, radius: float) -> Vector4:
+	return Vector4(at.x, at.y, at.z, radius)
 
 ## La mesh di uno strato: ciuffo a colore piatto, fiore con i suoi materiali, cespuglio a foglie, filo d'erba lontano.
 func _mesh_for(spec: Dictionary) -> Mesh:
