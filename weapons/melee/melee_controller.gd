@@ -49,7 +49,12 @@ const TIRED_STAMINA := 10.0                      # sotto il 10% il colpo è più
 const TIRED_SLOW := 0.7
 const DAMAGE := {"light": 25.0, "heavy": 80.0, "kick": 5.0}
 const HIT_STOP := {"light": 0.05, "heavy": 0.08, "kick": 0.04}
-const KICK_RANGE := 1.0                          # zombie più vicino di così: calcio invece del fendente
+const KICK_RANGE := 1.0                          # zombie vivo nel mirino più vicino di così: calcio invece del fendente
+const KICK_COST := 6.0                           # stamina; sotto KICK_MIN_STAMINA esce il fendente (anche stanco)
+const KICK_MIN_STAMINA := 4.0
+## Dal calcio al prossimo: lo zombie finisce la spinta (Z_React_Pushed, ~1,8 s) e torna ad attaccare prima.
+## Intanto il clic da vicino è un fendente: niente zombie tenuto a calci per sempre.
+const KICK_COOLDOWN := 3.0
 ## Reazione dello zombie per colpo (direzione del fendente rispetto a chi lo riceve).
 const REACTION := {"Axe_Light1": "hit_right", "Axe_Light2": "hit_left", "Axe_Light3": "stagger", "Axe_Tired": "hit_left",
 	"Axe_HeavySwing": "knockdown", "Kick": "pushed"}
@@ -75,6 +80,7 @@ var _queued := false
 var _clock := 0.0
 var _last_end := -10.0
 var _last_dir := Vector3.ZERO
+var _last_kick := -10.0
 
 
 func tool_in_hand() -> bool:
@@ -163,8 +169,11 @@ func begin_charge() -> bool:
 		charge_started.emit()
 		AudioManager.bow_draw()
 		return true
-	# Zombie addosso (meno di 1 m): calcio frontale per riprendere la distanza giusta dell'ascia.
-	if tool_in_hand() and _kick_target():
+	# Zombie vivo nel mirino a meno di 1 m: calcio frontale per riprendere la distanza giusta dell'ascia.
+	# Si decide solo alla pressione: una carica iniziata finisce sempre in un fendente.
+	# charge_started porta il clic all'host, che decide il calcio con i suoi zombie.
+	if kick_ready():
+		charge_started.emit()
 		return perform_kick()
 	# Con ascia e pala si attacca anche sfiniti: il colpo esce lento e pesante (Axe_Tired). Sparare non costa stamina.
 	if not gun and player.stamina < Weapon.stamina_cost and not (tool_in_hand() and player.stamina > 0.0):
@@ -277,9 +286,10 @@ func _loose_arrow() -> bool:
 
 
 func perform_kick() -> bool:
-	if attacking or player.dead or player.dodging or player.seated or player.stamina < 4.0:
+	if attacking or player.dead or player.dodging or player.seated or player.stamina < KICK_MIN_STAMINA:
 		return false
-	player.stamina -= 6.0
+	_last_kick = _clock
+	player.stamina -= KICK_COST
 	player.regen_delay = Balance.STAMINA_REGEN_DELAY
 	time_scale = 1.0
 	_begin_clip(KICK, false)
@@ -304,10 +314,21 @@ func _begin_clip(row: Array, charged: bool) -> void:
 	swing_side = -swing_side
 
 
-func _kick_target() -> bool:
-	# Il mondo è l'antenato che tiene la lista degli zombie.
-	var world: Node = player.get_parent()
-	while world and world.get("targets") == null: world = world.get_parent()
+## Il prossimo clic sarà un calcio: ascia o pala in mano, fiato, calcio recuperato e uno zombie vivo a meno di
+## KICK_RANGE. Se il mirino prende un bersaglio decide quello (un cadavere da decapitare, uno zombie più lontano:
+## fendente); a mirino libero vale lo zombie vivo davanti. Pubblica: l'HUD può segnalarlo.
+func kick_ready() -> bool:
+	if not tool_in_hand() or player.stamina < KICK_MIN_STAMINA or _clock - _last_kick < KICK_COOLDOWN: return false
+	var origin: Vector3 = player.global_position + Vector3.UP * player.eye_height
+	var look: Vector3 = Basis.from_euler(Vector3(player.rig.pitch, player.rig.yaw, 0)) * Vector3.FORWARD
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + look * 2.65, 17, [player.get_rid()])
+	query.collide_with_areas = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty() and hit.collider.has_meta("target"):
+		var aimed: Node3D = hit.collider.get_meta("target")
+		var gap: Vector3 = aimed.global_position - player.global_position
+		return aimed.is_in_group("zombies") and not aimed.dead and Vector2(gap.x, gap.z).length() < KICK_RANGE
+	var world: Node = _world_node()
 	if world == null: return false
 	var forward: Vector3 = Basis.from_euler(Vector3(0, player.rig.yaw, 0)) * Vector3.FORWARD
 	for enemy in world.targets:
