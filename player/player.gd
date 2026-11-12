@@ -155,7 +155,7 @@ func _physics_process(delta: float) -> void:
 		sprinting = wants_sprint and input.y< -0.1 and not crouching and not exhausted and stamina > 0 and is_on_floor() and not melee.attacking and not melee.charging
 		var speed: float = Balance.CROUCH_SPEED if crouching else (Balance.SPRINT_SPEED if sprinting else Balance.WALK_SPEED)
 		if melee.attacking or melee.charging:
-			speed *= Balance.ATTACK_MOVE_MULTIPLIER
+			speed *= attack_move_multiplier()
 		speed *= status.speed_factor()
 		var acceleration: float = Balance.ACCELERATION if input.length() > 0.1 else Balance.DECELERATION
 		velocity.x = move_toward(velocity.x, direction.x * speed, acceleration * delta)
@@ -423,6 +423,14 @@ func max_stamina() -> float:
 
 func free_slot() -> bool:
 	return owned.size() < inventory_slots
+
+## Quanto ci si muove mentre si colpisce: chi spara si sposta quasi normale, il coltello poco meno,
+## l'arma pesante e la carica tengono il passo corto (Balance.ATTACK_MOVE_MULTIPLIER, 0,3) come prima.
+func attack_move_multiplier() -> float:
+	var kind: String = preload("res://weapons/zx_arsenal.gd").tier(equipped)
+	if kind == "gun": return 0.7
+	if kind == "light" and not melee.charging and equipped != "bow": return 0.6
+	return Balance.ATTACK_MOVE_MULTIPLIER
 
 func reload_weapon() -> bool:
 	var Arsenal=preload("res://weapons/zx_arsenal.gd")
