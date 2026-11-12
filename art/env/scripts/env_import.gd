@@ -7,6 +7,8 @@ extends EditorScenePostImport
 
 const PALETTE := "res://art/env/materials/M_Env_Palette.tres"
 const GLASS := "res://art/env/materials/M_Env_Glass.tres"
+## weapons: same palette layout, roughness/metallic per cell (tools/weapon_look/build_wep_palette.py)
+const WEAPON := "res://art/env/materials/M_Wep_Palette.tres"
 const SCRIPTS := "res://art/env/scripts/"
 ## child meshes that move at runtime never get their own static collision
 const MOVING_SUFFIX := ["_Lid", "_Door", "_Plate", "_Mag"]
@@ -15,13 +17,18 @@ const MOVING_TAG := ["_Lit_", "_Piece_"]
 
 func _post_import(scene: Node) -> Object:
 	var file := get_source_file().get_file().get_basename()
-	var palette: Material = load(PALETTE)
+	var weapon := file.begins_with("SM_Wep_")
+	var palette: Material = load(WEAPON if weapon else PALETTE)
 	var glass: Material = load(GLASS)
 	for node in scene.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
 		var mesh := mi.mesh as ArrayMesh
 		if mesh == null:
 			continue
+		if weapon:
+			# wood grain and metal brushing run along the part: blades and handles on Y, guns on Z
+			var size := mesh.get_aabb().size
+			mi.set_instance_shader_parameter("grain_axis", Vector3.UP if size.y > size.z else Vector3.FORWARD)
 		for i in mesh.get_surface_count():
 			var m := mesh.surface_get_material(i)
 			var is_glass := m != null and String(m.resource_name).begins_with("M_Env_Glass")

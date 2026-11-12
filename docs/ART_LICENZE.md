@@ -40,7 +40,7 @@ I file `.gltf`/`.glb` nuovi riprendono del vecchio pezzo **solo nome e ingombro*
 | `buildings/` | ufficio dello sceriffo, armeria | `tools/build_refuge_buildings.py` | originale | ✅ | `world/zona1_rifugio/refuge_set.gd` |
 | `camp/` | fumo `smoke_05.png` | Kenney Particle Pack, dai demo di Godot | CC0 | ✅ | `ui/camp/camp_props.gd` |
 | `camp_blender/` | fuoristrada e tronco del campo | `tools/build_camp_rover.py`, `build_camp_log.py` | originale | ✅ | `ui/camp/camp.gd` |
-| `env/building`, `interactive`, `shop`, `weapons` | kit ambiente e armi | `ZOMBIX_Env_Batch1`, `ZOMBIX_Batch2`, `tools/castle_kit` | originale | ✅ | `world/`, `art/zx_player/zx_weapons.gd`, `weapons/arrow.gd` |
+| `env/building`, `interactive`, `shop`, `weapons` | kit ambiente e armi | `ZOMBIX_Env_Batch1`, `ZOMBIX_Batch2`, `tools/castle_kit`; armi da fuoco rigenerate da `tools/weapon_look` (materiale `M_Wep_Palette`) | originale | ✅ | `world/`, `art/zx_player/zx_weapons.gd`, `weapons/arrow.gd` |
 | `env/mine/` | torcia del sentiero | `tools/castle_kit` | originale | ✅ | `world/rocca/rocca.gd` |
 | `env/wood/` | arredi delle case | `tools/castle_kit` | originale | ✅ | `world/zona1_rifugio/zone1_kit.gd` |
 | `fonts/` | Barlow Condensed | Google Fonts | SIL OFL 1.1 (`OFL.txt`) | ✅ | `ui/camp/`, `world/villaggio/villaggio.gd` |
