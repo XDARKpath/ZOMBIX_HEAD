@@ -314,7 +314,9 @@ def lmg():
     k = K()
     k.cbox((0, .08, .05), (.05, .3, .08), D, ch=.008, edge=worn(D))
     slot(k, .0251, .02, .16, .03, .07, S)
-    k.cbox((0, .79, .08), (.005, .008, .026), D, ch=.0015)                               # front post
+    # front sight tower: tall enough to meet the notch on the carry handle over the handle posts
+    k.prism_x([(.715, .074), (.775, .074), (.757, .142), (.743, .142)], -.006, .006, D)
+    k.cbox((0, .75, .147), (.004, .006, .012), D, ch=.0012)                              # front post, top z .153
     k.prism([(-.008, .144), (.008, .144), (.008, .157), (.003, .157), (.0, .151), (-.003, .157), (-.008, .157)],
             .15, .16, D)                                                               # rear notch on the handle
     rail(k, -.06, .1, .09, w=.022, col=D)
