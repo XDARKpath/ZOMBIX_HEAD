@@ -18,6 +18,12 @@ var sell_prompt:Control
 var sell_hold:float=0.0
 var sell_auto:bool=false
 var sold_once:bool=false
+## Vendita: il gesto parte subito in locale, il pagamento (+N, testo, testa sul banco) solo con il sì dell'host (sale_result).
+var sell_wait:int=0
+var sell_serial:int=0
+var sell_id:String=""
+var sell_from_hold:bool=false
+var sell_auto_id:String=""
 var pending_use:String=""
 ## [Q] come in How to Fish: tenendo premuto aumenta la forza del lancio, al rilascio parte.
 const THROW_MIN:=6.0
@@ -86,7 +92,7 @@ func reset() -> void:
 	close_shop();threat=0;wave_serial=0;next_head=1;heads.clear();_refresh_heads()
 	for row in thrown:
 		if is_instance_valid(row["node"]):row["node"].queue_free()
-	thrown.clear();sell_auto=false;sell_hold=0.0;pending_use=""
+	thrown.clear();sell_auto=false;sell_hold=0.0;pending_use="";sell_wait=0;sell_id=""
 	for actor in world.actors.values():actor.reset_inventory()
 func _npc(at:Vector3,skin:int,facing:float) -> void:
 	var previous:Camera3D=get_viewport().get_camera_3d()
@@ -414,11 +420,27 @@ func _pickup_near(a:CharacterBody3D) -> bool:
 		if is_instance_valid(row["node"]) and _near(a,row["node"].global_position,2.6):return true
 	return false
 func request(action:String) -> void:
-	if authority():act(multiplayer.get_unique_id(),action)
+	if authority():_answer(multiplayer.get_unique_id(),action,act(multiplayer.get_unique_id(),action))
 	else:command.rpc_id(1,action)
 @rpc("any_peer","call_remote","reliable")
 func command(action:String) -> void:
-	if authority():act(multiplayer.get_remote_sender_id(),action)
+	if authority():_answer(multiplayer.get_remote_sender_id(),action,act(multiplayer.get_remote_sender_id(),action))
+## L'host risponde a ogni "sell:id:n", accettata o no. Parte dopo il sync dello stesso _publish: il client ha già l'inventario giusto.
+func _answer(peer:int,action:String,ok:bool) -> void:
+	if not action.begins_with("sell:"):return
+	var serial:int=int(action.get_slice(":",2))
+	if peer==multiplayer.get_unique_id():sale_result(serial,action.get_slice(":",1),ok)
+	else:sale_result.rpc_id(peer,serial,action.get_slice(":",1),ok)
+@rpc("authority","call_remote","reliable")
+func sale_result(serial:int,id:String,ok:bool) -> void:
+	if serial==0 or serial!=sell_wait:return
+	sell_wait=0
+	if not ok:
+		sell_auto=false;world.announce(Localization.t("Lo sceriffo non la prende."),2);return
+	if sell_prompt:sell_prompt.pop(ItemInfo.head_price(id))
+	if not sold_once:
+		sold_once=true;world.announce(Localization.t("Taglia pagata: +{0}",[ItemInfo.head_price(id)]),2)
+	_sheriff_takes_head(id)
 func act(peer:int,action:String) -> bool:
 	if not authority() or not world.started or not world.actors.has(peer):return false
 	var a:CharacterBody3D=world.actors[peer]
@@ -747,22 +769,24 @@ func sell_ready() -> bool:
 	if not is_instance_valid(world.player):return false
 	var a:CharacterBody3D=world.player
 	return world.started and not world.ui_open and ItemInfo.is_head(a.equipped) and a.items.has(a.equipped) and _near_sheriff(a)
-## [V] porge la testa allo sceriffo: la vendita parte quando la mano si apre.
-func press_sell() -> void:
-	if not sell_ready():return
+## [V] porge la testa allo sceriffo: la richiesta parte quando la mano si apre, una per gesto e una alla volta.
+func press_sell(from_hold:bool=false) -> void:
+	if not sell_ready() or sell_wait>0:return
 	var vm:=viewmodel()
 	if vm and vm.throwing():return
-	if vm==null or not vm.give_held():_sold_locally()
-func _sold_locally(id:String="") -> void:
-	if id=="":id=world.player.equipped
-	request("sell:"+id)
-	if sell_prompt:sell_prompt.pop(ItemInfo.head_price(id))
-	if not sold_once:
-		sold_once=true;world.announce(Localization.t("Taglia pagata: +{0}",[ItemInfo.head_price(id)]),2)
-	_sheriff_takes_head(id)
+	sell_id=world.player.equipped;sell_from_hold=from_hold
+	if vm==null or not vm.give_held():_hand_over()
+## Mano aperta: si chiede all'host solo se in mano c'è ancora la stessa testa, vicino allo sceriffo (e V ancora giù se è la serie).
+func _hand_over() -> void:
+	var id:=sell_id;sell_id=""
+	if id=="" or sell_wait>0:return
+	if world.player.equipped!=id or not sell_ready() or (sell_from_hold and not Input.is_action_pressed("sell")):
+		sell_auto=false;return
+	sell_serial+=1;sell_wait=sell_serial
+	request("sell:%s:%d"%[id,sell_serial])
 func _on_released(kind:String,id:String) -> void:
 	if kind=="Throw":request("throw:%s:%f"%[id,throw_force])
-	elif kind=="Give":_sold_locally(id)
+	elif kind=="Give":_hand_over()
 ## La testa consegnata resta un attimo sul banco accanto allo sceriffo, poi sparisce nella cesta.
 func _sheriff_takes_head(id:String) -> void:
 	if sheriff_node==null:return
@@ -789,13 +813,17 @@ func _inventory_tick(delta:float) -> void:
 			throw_hold=-1.0
 	if pending_use!="" and vm and not vm.using_item():
 		request("useitem:"+pending_use);pending_use=""
-	# V tenuta premuta per un secondo: vende tutte le teste una dopo l'altra.
-	if sell_ready() and Input.is_action_pressed("sell"):
-		sell_hold=minf(1.0,sell_hold+delta)
+	# V tenuta premuta per un secondo: vende lo stack in mano, una testa dopo l'altra. Lasci V o cambi testa: si ferma.
+	# La serie resta legata alla testa con cui hai premuto V: finito quello stack, per il prossimo si ripreme.
+	var holding:bool=Input.is_action_pressed("sell")
+	var held:String=world.player.equipped
+	if sell_ready() and holding:
+		if sell_hold==0.0:sell_auto_id=held
+		if held==sell_auto_id:sell_hold=minf(1.0,sell_hold+delta)
 		if sell_hold>=1.0:sell_auto=true
 	else:sell_hold=0.0
-	if not sell_ready():sell_auto=false
-	if sell_auto and vm and not vm.throwing():press_sell()
+	if not holding or not sell_ready() or held!=sell_auto_id:sell_auto=false
+	if sell_auto and vm and not vm.throwing():press_sell(true)
 	# Host online: gli oggetti in volo ai client, 15 volte al secondo.
 	if Session.online and multiplayer.is_server() and not thrown.is_empty():
 		thrown_clock-=delta

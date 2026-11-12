@@ -91,8 +91,9 @@ func run():
 	check(await wait_until(func(): return p.credits == 25), "Mano aperta: +25 crediti")
 	check(int(p.items["item_testa"]) == 2, "Restano ×2")
 	await create_timer(1.0).timeout
-	rules.sell_auto = true
+	Input.action_press("sell")
 	check(await wait_until(func(): return p.carried_heads == 0, 6.0), "V tenuto: vendute anche le altre")
+	Input.action_release("sell")
 	check(p.credits == 75 and p.equipped != "item_testa" and not p.hotbar.has("item_testa"), "Slot vuoto, si torna a un'arma (%s)" % p.equipped)
 	check(not rules.act(me, "sell:item_testa"), "Nessuna testa: l'host rifiuta la vendita")
 	# --- lancio: ascia su uno zombie
