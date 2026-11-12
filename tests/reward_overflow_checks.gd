@@ -44,6 +44,11 @@ func fill_pockets() -> void:
 
 func run() -> void:
 	var saved_before: PackedByteArray = FileAccess.get_file_as_bytes(SLOT) if FileAccess.file_exists(SLOT) else PackedByteArray()
+	# Copia su disco prima di sovrascrivere: se il test si pianta, il salvataggio dell'utente resta in save_slot_1.json.prima_del_test.
+	if not saved_before.is_empty():
+		var keep := FileAccess.open(SLOT + ".prima_del_test", FileAccess.WRITE)
+		keep.store_buffer(saved_before)
+		keep.close()
 	world = load("res://world/zona1_rifugio/zombix.tscn").instantiate()
 	root.add_child(world)
 	root.get_node("Localization").current = "it"
@@ -139,5 +144,6 @@ func run() -> void:
 		var f := FileAccess.open(SLOT, FileAccess.WRITE)
 		f.store_buffer(saved_before)
 		f.close()
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SLOT + ".prima_del_test"))
 	print("PREMI ", "OK" if fails == 0 else "FALLITO %d" % fails)
 	quit(fails)
