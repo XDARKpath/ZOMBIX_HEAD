@@ -17,6 +17,16 @@ const MUSIC := {
 const ZOMBIE_TYPES := ["walker", "runner", "brute", "elite", "spitter", "carceriere"]
 const AXES := ["axe", "fire_axe", "runic_axe", "pickaxe", "sledgehammer", "electric_guitar"]
 const BLADES := ["katana", "longsword", "spartan_sword", "machete"]
+## Di cosa è fatta la parte che colpisce: sopra la carne si sente anche lei. Lame e asce tagliano e basta.
+const WEAPON_MATERIAL := {"crowbar": "metal", "frying_pan": "metal", "sledgehammer": "metal", "pickaxe": "metal",
+	"nail_bat": "wood", "electric_guitar": "wood"}
+## Materiale di ciò che si colpisce, dal nome del nodo o del genitore (oppure dal meta "material"): la prima riga che
+## combacia vince, così "Table_Metal" è metallo, "Wall_Brick_Doorway" pietra e "Cardboard" non è un'auto.
+const SURFACE_WORDS := [["metal", ["metal", "iron", "steel", "streetlight", "shutter"]], ["wood", ["wood", "log", "plank", "cardboard"]],
+	["stone", ["brick", "stone", "rock", "concrete"]],
+	["wood", ["crate", "trunk", "tree", "door", "fence", "table", "chair", "shelf", "bench", "stool", "cabinet", "basket"]],
+	["metal", ["car", "truck", "van", "bus", "barrel", "container", "pipe", "locker", "cage", "safe"]]]
+var _surface_clock := 0.0
 const BLUNTS := ["crowbar", "nail_bat", "frying_pan", "trout", "baguette", "rubber_chicken", "unarmed", ""]
 const GUNS := ["pistol", "revolver", "smg", "assault_rifle", "pump_shotgun", "sniper_rifle",
 	"sawn_off", "flare_gun", "lever_rifle", "crossbow", "nailgun", "lmg", "grenade_launcher",
@@ -364,6 +374,30 @@ func weapon_hit(equipped: String, zone: String, heavy: bool = false, kick: bool 
 		key = "weapon_hit_bone"
 	var pitch := randf_range(0.92, 1.06) * (0.86 if heavy else 1.0)
 	play_sfx(key, -1.5 if heavy else -3.0, pitch)
+	if WEAPON_MATERIAL.has(equipped):
+		play_sfx("impact_" + str(WEAPON_MATERIAL[equipped]), -11.0 if heavy else -13.0, randf_range(0.95, 1.05) * (0.9 if heavy else 1.0))
+
+
+## Colpo d'arma bianca su muro, legno, metallo o roccia (non su un nemico): un suono per colpo, dove ha toccato.
+func surface_hit(equipped: String, collider: Object, at: Vector3) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _surface_clock < 0.15: return
+	_surface_clock = now
+	var material := surface_material(collider)
+	var heavy: bool = equipped in AXES or WEAPON_MATERIAL.get(equipped, "") == "metal"
+	play_3d("impact_" + material, at, -4.0 if heavy else -7.0, randf_range(0.93, 1.07) * (0.88 if heavy else 1.0), 24.0)
+
+
+static func surface_material(collider: Object) -> String:
+	var node := collider as Node
+	if node == null: return "stone"
+	for n in [node, node.get_parent()]:
+		if n != null and n.has_meta("material"): return str(n.get_meta("material"))
+	var name := (String(node.name) + " " + (String(node.get_parent().name) if node.get_parent() else "")).to_lower()
+	for row in SURFACE_WORDS:
+		for word in row[1]:
+			if name.contains(word): return row[0]
+	return "stone"
 
 
 func bow_draw() -> void:

@@ -4,12 +4,12 @@ Tutti i suoni qui sotto sono CC0 (nessun obbligo, uso commerciale permesso), con
 
 | Raccolta | Pagina | File usati |
 |---|---|---|
-| 100-cc0-metal-and-wood-sfx | https://opengameart.org/content/100-cc0-metal-and-wood-sfx | metal_hit_01.ogg, metal_hit_02.ogg, wood_cracking_01.ogg, wood_cracking_02.ogg, wood_hit_01.ogg, wood_hit_02.ogg |
+| 100-cc0-metal-and-wood-sfx | https://opengameart.org/content/100-cc0-metal-and-wood-sfx | metal_hit_01.ogg, metal_hit_02.ogg, metal_hit_03.ogg, metal_hit_04.ogg, wood_cracking_01.ogg, wood_cracking_02.ogg, wood_hit_01.ogg, wood_hit_02.ogg, wood_hit_03.ogg, wood_hit_04.ogg |
 | 16-monster-growls | https://opengameart.org/content/16-monster-growls | monster.11.ogg, monster.14.ogg, monster.16.ogg, monster.6.ogg, monster.7.ogg |
 | 25-cc0-bang-firework-sfx | https://opengameart.org/content/25-cc0-bang-firework-sfx | cannon_01.ogg, cannon_03.ogg, shot_01.ogg |
 | 50-rpg-sound-effects | https://opengameart.org/content/50-rpg-sound-effects | chop.ogg, cloth1.ogg, cloth2.ogg, footstep00.ogg, footstep01.ogg, footstep02.ogg, footstep03.ogg, footstep04.ogg, knifeSlice.ogg, knifeSlice2.ogg, metalClick.ogg |
 | 51-ui-sound-effects-buttons-switches-and-clicks | https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks | click1.ogg, rollover1.ogg |
-| 75-cc0-breaking-falling-hit-sfx | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | bfh1_breaking_01.ogg, bfh1_breaking_02.ogg, bfh1_breaking_03.ogg, bfh1_hit_01.ogg, bfh1_hit_02.ogg |
+| 75-cc0-breaking-falling-hit-sfx | https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx | bfh1_breaking_01.ogg, bfh1_breaking_02.ogg, bfh1_breaking_03.ogg, bfh1_hit_01.ogg, bfh1_hit_02.ogg, bfh1_hit_03.ogg, bfh1_metal_hit_01.ogg, bfh1_rock_hit_01.ogg, bfh1_wood_hit_01.ogg |
 | 80-cc0-creature-sfx | https://opengameart.org/content/80-cc0-creature-sfx | alien_01.ogg, alien_02.ogg, alien_03.ogg, alien_04.ogg, breath.ogg, burble_01.ogg, burble_02.ogg, cough_01.ogg, cough_02.ogg, cough_03.ogg, grunt_01.ogg, grunt_02.ogg, howl.ogg, hurt_01.ogg, hurt_02.ogg, hurt_03.ogg, monster_01.ogg, monster_02.ogg, monster_03.ogg, monster_05.ogg, monster_06.ogg, nose.ogg, roar_01.ogg, roar_02.ogg, roar_03.ogg, scream_01.ogg, scream_02.ogg, spit_01.ogg, spit_02.ogg, spit_03.ogg, weird_01.ogg |
 | ambient-horror-track-01 | https://opengameart.org/content/ambient-horror-track-01 | ambient_horror_track01.wav |
 | basilisk-boss-battle-loop | https://opengameart.org/content/basilisk-boss-battle-loop | basilisk_boss_battle_in_game.ogg |

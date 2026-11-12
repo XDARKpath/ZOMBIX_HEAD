@@ -145,6 +145,10 @@ SFX = {
     "weapon_hit_head": many(HIT, ["bfh1_breaking_01.ogg", "bfh1_breaking_02.ogg"], None, 0.9, 0.7),
     "weapon_hit_bone": many(WM, ["wood_cracking_01.ogg", "wood_cracking_02.ogg"], None, 1.0, 0.6),
     "weapon_hit_guard": many(WM, ["metal_hit_01.ogg", "metal_hit_02.ogg"], None, 1.0, 0.6),
+    # Colpi sul materiale (AudioManager.surface_hit) e strato del materiale dell'arma sul colpo (weapon_hit).
+    "impact_wood": many(WM, ["wood_hit_03.ogg", "wood_hit_04.ogg"], None, 1.0, 0.5) + [v(HIT, "bfh1_wood_hit_01.ogg", None, 1.0, 0.5)],
+    "impact_metal": many(WM, ["metal_hit_03.ogg", "metal_hit_04.ogg"], None, 1.0, 0.6) + [v(HIT, "bfh1_metal_hit_01.ogg", None, 1.0, 0.6)],
+    "impact_stone": [v(HIT, "bfh1_rock_hit_01.ogg", None, 1.0, 0.5), v(HIT, "bfh1_hit_03.ogg", None, 0.9, 0.5)],
     "kick": many(HIT, ["bfh1_hit_01.ogg", "bfh1_hit_02.ogg"], None, 0.75, 0.5),
     "weapon_equip": [v(MED, "Katana Draw Fast.wav", 0, 1.0, 0.6), v(MED, "Katana Draw Fast.wav", 1, 1.0, 0.6), v(MED, "Dagger Draw Fast.wav", 0, 1.0, 0.5)],
     "bow_draw": [v(MED, "English Longbow Draw.wav", 1, 1.0, 1.2)],
