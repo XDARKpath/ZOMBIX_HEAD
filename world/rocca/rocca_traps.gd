@@ -60,7 +60,7 @@ class Spikes extends Node3D:
 				continue
 			var l := to_local(a.global_position)
 			if absf(l.x) < 1.8 and absf(l.z) < 0.85 and l.y < 0.6 and l.y > -0.3:
-				a.take_damage(DAMAGE)
+				a.take_damage(DAMAGE, Vector3.INF, "env")
 				_hit[a.get_instance_id()] = true
 				level.trap_feedback(a, "spikes")
 		for z in level.world.targets:
@@ -119,7 +119,7 @@ class Pendulum extends Node3D:
 				continue
 			var l := to_local(a.global_position) + Vector3(0, 1.0, 0)
 			if Vector2(l.x - b.x, l.y - b.y).length() < 0.95 and absf(l.z) < 0.6:
-				a.take_damage(DAMAGE)
+				a.take_damage(DAMAGE, Vector3.INF, "env")
 				a.velocity += global_basis.x * signf(cos(TAU * phase() / PERIOD)) * 6.0     # spinta nel verso della lama
 				_cool[a.get_instance_id()] = 0.9
 				level.trap_feedback(a, "blade")
@@ -193,7 +193,7 @@ class ArrowTrap extends Node3D:
 				for act in level.world.actors.values():
 					if is_instance_valid(act) and not act.dead and not row[2].has(act.get_instance_id()):
 						if (act.global_position + Vector3.UP * 1.0).distance_to(a.global_position) < 0.75:
-							act.take_damage(DAMAGE)
+							act.take_damage(DAMAGE, Vector3.INF, "env")
 							row[2][act.get_instance_id()] = true
 							level.trap_feedback(act, "arrow")
 			if row[1] > 4.2:
@@ -262,7 +262,7 @@ class FireJet extends Node3D:
 			return
 		for a in level.world.actors.values():
 			if is_instance_valid(a) and not a.dead and _in_flame(a.global_position):
-				a.take_damage(BURN * dt)
+				a.take_damage(BURN * dt, Vector3.INF, "env")
 				if randf() < dt * 3.0:
 					level.trap_feedback(a, "fire")
 		for z in level.world.targets:
@@ -336,7 +336,7 @@ class Tripwire extends Node3D:
 				if is_instance_valid(a) and not a.dead:
 					var d: float = a.global_position.distance_to(at)
 					if d < RADIUS:
-						a.take_damage(DAMAGE * (1.0 - d / RADIUS * 0.6))
+						a.take_damage(DAMAGE * (1.0 - d / RADIUS * 0.6), Vector3.INF, "env")
 			for z in level.world.targets:
 				if is_instance_valid(z) and not z.dead and z.global_position.distance_to(at) < RADIUS:
 					z.receive_hit("torso", 120.0, (z.global_position - at).normalized() * 6.0, "grenade", true)

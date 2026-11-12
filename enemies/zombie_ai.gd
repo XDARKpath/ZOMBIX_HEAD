@@ -547,7 +547,7 @@ func _strike(victim: CharacterBody3D) -> void:
 	if kind == 4: fx["poison"] = 4.0
 	if kind == 3: fx["fear"] = 3.0
 	if world.has_method("hit_player"): world.hit_player(victim, damage, fx, global_position)
-	else: victim.take_damage(damage)
+	else: victim.take_damage(damage, global_position)
 
 
 ## Colpo dei boss: onda d'urto. Il Macellaio apre ferite con la mannaia, il Carceriere spacca il pavimento.
@@ -560,7 +560,7 @@ func _boss_hit(victim: CharacterBody3D, center: Vector3) -> void:
 		fx["bleed"] = 8.0
 		damage *= 0.8
 	if world.has_method("hit_player"): world.hit_player(victim, damage, fx, center)
-	else: victim.take_damage(damage)
+	else: victim.take_damage(damage, center, "heavy")
 
 
 ## Polvere e sassi dove il colpo ha toccato terra.

@@ -9,6 +9,10 @@ signal died
 signal fell_out
 signal dodge_started
 signal jumped
+## Esito di una parata per l'HUD e i suoni: GUARD_BLOCKED o GUARD_BROKEN.
+signal guard_result(result: int)
+## Premi senza tasca: pocket -1 = messi in riserva, altrimenti la tasca in cui sono appena entrati.
+signal reserve_moved(who: CharacterBody3D, id: String, count: int, pocket: int)
 
 const Balance = preload("res://autoload/balance.gd")
 @onready var rig: Node3D = $CameraRig
@@ -52,6 +56,9 @@ const HEALTH_PER_UPGRADE:=15.0
 const STAMINA_PER_UPGRADE:=15.0
 var health_ups:Dictionary={}
 var stamina_ups:Dictionary={}
+## Premi arrivati con le tasche piene (o la pila piena): {id: quanti}. Si salvano, non finiscono nel sacco della morte
+## ed entrano da soli nella prima tasca libera che non hai in mano (deliver_reserve), con un avviso.
+var reserve:Dictionary={}
 var magazine:int=8
 # Colpi rimasti nelle armi da fuoco che non si hanno in mano (ognuna ha il suo caricatore).
 var mags:Dictionary={}
@@ -86,6 +93,14 @@ var standing_shape: CapsuleShape3D
 var status: Node
 var knock_velocity := Vector3.ZERO
 var knock_left: float = 0.0
+# Parata: si para solo quello che arriva davanti, dentro questo cono (gradi in tutto).
+const GUARD_CONE_DEG := 110.0
+# Guardia rotta (fiato finito sotto un colpo): per questi secondi non si para.
+const GUARD_BREAK_SECONDS := 1.2
+enum {GUARD_NONE, GUARD_BLOCKED, GUARD_BROKEN}
+var guard_broken_left: float = 0.0
+## L'esito dell'ultimo colpo (resolve_guard): danno, spinta ed effetti lo leggono tutti da qui.
+var last_guard: Dictionary = {"result": GUARD_NONE, "damage": 1.0, "push": 1.0, "shield": false, "stun": 1.0}
 @onready var body_collider: CollisionShape3D=$CollisionShape3D
 
 func _ready() -> void:
@@ -131,6 +146,7 @@ func _physics_process(delta: float) -> void:
 	var direction: Vector3 = rig.movement_direction(input)
 	dodge_cooldown = maxf(0, dodge_cooldown - delta)
 	regen_delay = maxf(0, regen_delay - delta)
+	guard_broken_left = maxf(0, guard_broken_left - delta)
 	if exhausted and stamina >= Balance.EXHAUSTION_RECOVERY:
 		exhausted = false
 	if local_control and controls_enabled and Input.is_action_just_pressed("jump"):
@@ -245,15 +261,36 @@ func try_dodge(direction: Vector3) -> bool:
 func is_invulnerable() -> bool:
 	return dodging and dodge_elapsed < Balance.DODGE_IFRAMES
 
-func take_damage(amount: float) -> bool:
+## Parata con ascia o pala contro un colpo da `from`. Il colpo si scarica sul manico e costa fiato.
+## kind: "hit" (parabile), "heavy" (parabile, costa il doppio e passa la metà), "env" (fuoco, acido, veleno, trappole: mai).
+## from = Vector3.INF (chiamanti che non danno l'origine): niente controllo della direzione, come prima del cono.
+## Col fiato che non basta assorbe solo la sua parte e la guardia si rompe per GUARD_BREAK_SECONDS.
+## Consuma fiato: una sola chiamata per colpo (la fa take_damage, o hit_player per i colpi senza danno).
+func resolve_guard(amount: float, from: Vector3, kind: String = "hit") -> Dictionary:
+	var none := {"result": GUARD_NONE, "damage": 1.0, "push": 1.0, "shield": false, "stun": 1.0}
+	if not melee.blocking or guard_broken_left > 0.0 or kind == "env": return none
+	var gap: Vector3 = (from - global_position) * Vector3(1, 0, 1) if from.is_finite() else Vector3.ZERO
+	var facing := Vector3(-sin(rig.yaw), 0, -cos(rig.yaw))
+	if gap.length() > 0.3 and facing.dot(gap.normalized()) < cos(deg_to_rad(GUARD_CONE_DEG) * 0.5): return none
+	var heavy: bool = kind == "heavy"
+	var cost: float = amount * (0.8 if heavy else 0.4)
+	var taken: float = 0.5 if heavy else 0.25
+	regen_delay = Balance.STAMINA_REGEN_DELAY
+	if stamina > 0.0 and stamina >= cost:
+		stamina -= cost
+		return {"result": GUARD_BLOCKED, "damage": taken, "push": 0.6 if heavy else 0.35, "shield": true, "stun": 1.0 if heavy else 0.5}
+	if cost <= 0.0: return none
+	var share: float = stamina / cost
+	stamina = 0.0
+	guard_broken_left = GUARD_BREAK_SECONDS
+	return {"result": GUARD_BROKEN, "damage": 1.0 - (1.0 - taken) * share, "push": 1.0, "shield": false, "stun": 1.0}
+
+func take_damage(amount: float, from: Vector3 = Vector3.INF, kind: String = "hit") -> bool:
 	if dead or is_invulnerable() or amount <= 0:
 		return false
-	# Parata con ascia o pala: il colpo si scarica sul manico e costa fiato.
-	var guarded: bool = melee.blocking and stamina > 0.0
-	if guarded:
-		stamina = maxf(0.0, stamina - amount * 0.4)
-		regen_delay = Balance.STAMINA_REGEN_DELAY
-		amount *= 0.25
+	last_guard = resolve_guard(amount, from, kind)
+	amount *= float(last_guard.damage)
+	var guard: int = last_guard.result
 	var applied: float = minf(health, amount)
 	health = maxf(0, health - amount)
 	damaged.emit(applied)
@@ -266,10 +303,12 @@ func take_damage(amount: float) -> bool:
 		rig.controls_enabled = false
 		AudioManager.player_death()
 		died.emit()
-	elif guarded:
+	elif guard == GUARD_BLOCKED:
 		AudioManager.play_sfx("weapon_hit_guard", -7.0, randf_range(0.92, 1.08))
 	else:
+		if guard == GUARD_BROKEN: AudioManager.play_sfx("weapon_hit_guard", -3.0, 0.6)
 		AudioManager.player_hurt()
+	if guard != GUARD_NONE: guard_result.emit(guard)
 	return true
 
 func reset_at(point: Vector3) -> void:
@@ -278,6 +317,7 @@ func reset_at(point: Vector3) -> void:
 	velocity = Vector3.ZERO
 	if status: status.clear_all()
 	knock_left = 0.0
+	guard_broken_left = 0.0
 	health = max_health()
 	stamina = max_stamina()
 	dead = false
@@ -342,8 +382,36 @@ func set_item_count(id:String,count:int) -> void:
 	else:
 		items.erase(id)
 		hotbar_clear(id)
-func add_item(id:String,count:int=1) -> void:
-	set_item_count(id,int(items.get(id,0))+count)
+	deliver_reserve()
+## Aggiunge fin dove c'è posto (pila o tasca libera) e torna quanti sono entrati: il resto va in riserva, mai perso.
+func add_item(id:String,count:int=1) -> int:
+	var fit:=mini(count,_room(id))
+	if fit>0:set_item_count(id,int(items.get(id,0))+fit)
+	if count>fit:
+		reserve[id]=int(reserve.get(id,0))+count-fit
+		reserve_moved.emit(self,id,count-fit,-1)
+	return fit
+## Quante copie di id entrano adesso in tasca.
+func _room(id:String) -> int:
+	var most:int=ItemInfo.MAX_STACK if ItemInfo.stacks(id) else 1
+	if items.has(id):return most-int(items[id])
+	if owned.has(id):return 0
+	return most if hotbar.has(id) or _open_pocket()>=0 else 0
+## La riserva entra nella sua pila o in una tasca libera che non è quella in mano: la mano non cambia mai da sola.
+## Solo l'host (o il gioco da solo): i client ricevono tasche e riserva da survival_rules.sync.
+func deliver_reserve() -> void:
+	if reserve.is_empty() or (Session.online and not multiplayer.is_server()):return
+	for id in reserve.keys():
+		var pocket:=hotbar.find(id)
+		if pocket<0:
+			for n in range(inventory_slots):
+				if hotbar[n]=="" and n!=slot:pocket=n;break
+		var fit:=mini(int(reserve[id]),(ItemInfo.MAX_STACK if ItemInfo.stacks(id) else 1)-int(items.get(id,0)))
+		if pocket<0 or fit<=0:continue
+		items[id]=int(items.get(id,0))+fit;hotbar[pocket]=id
+		reserve[id]=int(reserve[id])-fit
+		if int(reserve[id])<=0:reserve.erase(id)
+		reserve_moved.emit(self,id,fit,pocket)
 func hotbar_add(id:String) -> void:
 	if hotbar.has(id):return
 	var free:=_open_pocket()
@@ -356,9 +424,7 @@ func _open_pocket() -> int:
 	return -1
 ## C'è posto per questa cosa? Un oggetto che hai già si impila nella sua tasca.
 func can_take(id:String) -> bool:
-	if items.has(id):return ItemInfo.stacks(id) and int(items[id])<ItemInfo.MAX_STACK
-	if owned.has(id):return false
-	return hotbar.has(id) or _open_pocket()>=0
+	return _room(id)>0
 ## Toglie n teste a partire da quelle che valgono meno: {id: quante}. Le usa il sacco della morte.
 func take_heads(n:int) -> Dictionary:
 	var taken:={}
@@ -377,15 +443,13 @@ func hotbar_clear(id:String) -> void:
 		if equipped==id:select_slot(slot)
 		return
 	hotbar[at]=""
-	# Oggetti rimasti senza tasca (ricompense con le tasche piene): entrano appena se ne libera una.
-	for other in items:
-		if not hotbar.has(other):hotbar[at]=other;break
 	if at==slot or equipped==id:
 		for step in range(0,inventory_slots):
 			for n in [at+step,at-step]:
 				if n>=0 and n<inventory_slots and hotbar[n]!="":
 					select_slot(n);return
 		select_slot(-1)
+	deliver_reserve()
 func select_slot(n:int) -> void:
 	slot=clampi(n,-1,inventory_slots-1)
 	var next:String=hotbar[slot] if slot>=0 else ""
@@ -396,6 +460,7 @@ func select_slot(n:int) -> void:
 		reload_left=0
 		magazine=int(mags.get(next,Arsenal.magazine(next)))
 	equipped=next
+	deliver_reserve()
 ## Mette in mano un'arma o un oggetto: resta nella sua tasca se ce l'ha, altrimenti in una libera o in quella attuale.
 func equip_id(id:String) -> void:
 	if not hotbar.has(id):
@@ -410,7 +475,7 @@ func remove_one(id:String) -> void:
 func has_thing(id:String) -> bool:
 	return items.has(id) or owned.has(id)
 func reset_inventory() -> void:
-	credits=0;carried_heads=0;baits=0;heads_delivered=0;baits_earned=0;owned=["axe"];items={};hotbar.assign(["axe","","","","","","","",""]);slot=0;equipped="axe";magazine=8;mags={};arrows=0;reload_left=0;inventory_slots=4;health_ups={};stamina_ups={}
+	credits=0;carried_heads=0;baits=0;heads_delivered=0;baits_earned=0;owned=["axe"];items={};hotbar.assign(["axe","","","","","","","",""]);slot=0;equipped="axe";magazine=8;mags={};arrows=0;reload_left=0;inventory_slots=4;health_ups={};stamina_ups={};reserve={}
 
 func _ups(table:Dictionary) -> int:
 	var n:=0
