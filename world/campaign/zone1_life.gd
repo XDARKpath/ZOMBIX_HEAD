@@ -15,7 +15,27 @@ const Terrain := preload("res://world/campaign/terrain.gd")
 const FISHING_SPOT := preload("res://world/zona1_rifugio/lake.gd").FISHING_SPOT   # piattaforma a T del pontile
 const SACK_EAT_SECONDS := 8.0
 const FED_SECONDS := 90.0
-const WEAPON_NOISE := {"pistol": 45.0, "axe": 11.0, "knife": 5.0, "bow": 3.0}
+const Arsenal := preload("res://weapons/zx_arsenal.gd")
+## Rumore per categoria: "swing" è il raggio del colpo/sparo, "hit" quello dell'impatto corpo a corpo.
+## La categoria si ricava dalla definizione dell'arma, così un'arma nuova non resta muta per svista.
+const NOISE := {
+	"unarmed": {"swing": 3.0, "hit": 6.0},        # pugni e calcio
+	"melee_light": {"swing": 5.0, "hit": 8.0},    # coltello, machete, armi a una mano
+	"melee_heavy": {"swing": 11.0, "hit": 16.0},  # asce, spade, mazze a due mani
+	"bow": {"swing": 3.0},
+	"pistol": {"swing": 45.0},
+	"rifle": {"swing": 70.0},                     # fucili a colpo singolo, pompa, doppietta
+	"automatic": {"swing": 60.0},                 # per colpo: la raffica si sente comunque lontano
+	"explosive": {"swing": 90.0},
+}
+## Eccezioni alla categoria, una riga di motivo ciascuna.
+const NOISE_EXCEPTIONS := {
+	"crossbow": 8.0,         # balestra: scatto della corda, niente polvere da sparo
+	"nailgun": 15.0,         # sparachiodi: colpo d'aria compressa
+	"tesla_rifle": 25.0,     # fulmine: crepita, non esplode
+	"leaf_blower": 20.0,     # soffiatore: motore, non spari
+	"rubber_chicken": 14.0,  # il pollo di gomma squittisce a ogni colpo
+}
 
 var world: Node3D
 var noise_level := 0.0      # 0..1, letto dall'HUD
@@ -34,7 +54,7 @@ func build(owner_world: Node3D) -> void:
 	name = "Zone1Life"
 	rng.seed = 5150
 	world.player.died.connect(func(): drop_sack(world.player))
-	world.player.melee.impact.connect(func(_t, heavy): emit(world.player, 16.0 if heavy else 12.0, 0.5))
+	world.player.melee.impact.connect(func(_t, _heavy): impact_noise(world.player))
 	_spawn_food()
 
 func reset() -> void:
@@ -55,9 +75,32 @@ func emit(actor: CharacterBody3D, radius: float, strength: float) -> void:
 		if is_instance_valid(enemy) and not enemy.dead and enemy.global_position.distance_to(actor.global_position) < radius:
 			enemy.hear(actor, radius)
 
+static func noise_class(weapon: String) -> String:
+	if weapon == "bow": return "bow"
+	if not Arsenal.is_gun(weapon):
+		if Arsenal.zx_id(weapon) == "unarmed": return "unarmed"
+		return "melee_light" if Arsenal.tier(weapon) == "light" else "melee_heavy"
+	var d := Arsenal.def(weapon)
+	if d.get("explosive", false): return "explosive"
+	if d.get("auto", false): return "automatic"
+	return "pistol" if d.get("class", "") == "pistol" else "rifle"
+
+static func weapon_noise(weapon: String) -> float:
+	return NOISE_EXCEPTIONS.get(Arsenal.zx_id(weapon), NOISE[noise_class(weapon)]["swing"])
+
+## Colpo o sparo, deciso sull'host (emit). Il calcio parte con l'arma in mano ma fa il rumore di un calcio.
 func attack_noise(actor: CharacterBody3D) -> void:
-	var weapon: String = actor.equipped
-	emit(actor, WEAPON_NOISE.get(weapon, 10.0), 1.0 if weapon == "pistol" else 0.45)
+	var kick: bool = "melee" in actor and actor.melee.attack_clip == "Kick"
+	var radius: float = NOISE["unarmed"]["swing"] if kick else weapon_noise(actor.equipped)
+	emit(actor, radius, clampf(radius / 45.0, 0.1, 1.0))
+
+## Impatto corpo a corpo. Gli impatti dei proiettili non contano: lo sparo è già stato emesso una volta.
+func impact_noise(actor: CharacterBody3D) -> void:
+	var kind := noise_class(actor.equipped)
+	if actor.melee.attack_clip == "Kick": kind = "unarmed"
+	elif not NOISE[kind].has("hit"): return
+	var radius: float = NOISE[kind]["hit"]
+	emit(actor, radius, clampf(radius / 45.0, 0.1, 1.0))
 
 func _footsteps(delta: float) -> void:
 	var p: CharacterBody3D = world.player
