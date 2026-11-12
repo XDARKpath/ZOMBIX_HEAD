@@ -321,8 +321,8 @@ func reload_step(equipped: String, step: String, at: Variant = null) -> void:
 		"chamber": "reload_lever" if equipped == "lever_rifle" else "reload_pump"}.get(step, "")
 	if key == "": return
 	var pitch := randf_range(0.97, 1.03)
-	if at == null: play_sfx(key, -7.0, pitch)
-	else: play_3d(key, at, -10.0, pitch, 18.0)
+	if at == null: play_sfx(key, -9.0, pitch)        # file a circa -14 dB: 7 dB sotto la voce di uno zombie a un metro
+	else: play_3d(key, at, -12.0, pitch, 18.0)
 
 
 func gun_empty() -> void:

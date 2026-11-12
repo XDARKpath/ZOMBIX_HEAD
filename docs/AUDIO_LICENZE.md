@@ -48,3 +48,26 @@ Tutti i suoni qui sotto sono CC0 (nessun obbligo, uso commerciale permesso), con
 | boss_carceriere | determined_pursuit_loop.wav (determined-pursuit-epic-orchestra-loop) | Orchestra frenetica da boss, loop |
 | boss_mago | basilisk_boss_battle_in_game.ogg (basilisk-boss-battle-loop) | Boss in tono oscuro, loop |
 | boss_teste | The Plague.Wav (the-plague) | Elettronica apocalittica |
+
+## Ricarica
+
+Tagli a mano (secondi nel file sorgente), tutti da raccolte CC0. "Sostituto" = non è una registrazione dell'azione vera.
+
+| File | Raccolta | Sorgente | Intervallo | Tono | Licenza | Nota |
+|---|---|---|---|---|---|---|
+| audio/sfx/reload_mag_out_pistol.wav | handgun-reload-sound-effect | reload.wav | 0.090-0.400 s | 1.0 | CC0 (https://opengameart.org/content/handgun-reload-sound-effect) |  |
+| audio/sfx/reload_mag_in_pistol.wav | handgun-reload-sound-effect | reload.wav | 0.570-0.860 s | 1.0 | CC0 (https://opengameart.org/content/handgun-reload-sound-effect) |  |
+| audio/sfx/reload_slide_pistol.wav | handgun-reload-sound-effect | reload.wav | 1.030-1.400 s | 1.0 | CC0 (https://opengameart.org/content/handgun-reload-sound-effect) |  |
+| audio/sfx/reload_mag_out_rifle.wav | gun-reload-sounds | assaultriflereload1_0.wav | 0.140-0.530 s | 1.0 | CC0 (https://opengameart.org/content/gun-reload-sounds) |  |
+| audio/sfx/reload_mag_in_rifle.wav | gun-reload-sounds | assaultriflereload1_0.wav | 1.035-1.190 s | 1.0 | CC0 (https://opengameart.org/content/gun-reload-sounds) |  |
+| audio/sfx/reload_bolt_rifle.wav | gun-reload-sounds | assaultriflereload1_0.wav | 1.190-1.500 s | 1.0 | CC0 (https://opengameart.org/content/gun-reload-sounds) |  |
+| audio/sfx/reload_shell_in.wav | shotgun-reload-sound-effects | Subsequent Shells.mp3 | 0.855-1.340 s | 1.0 | CC0 (https://opengameart.org/content/shotgun-reload-sound-effects) |  |
+| audio/sfx/reload_pump.wav | shotgun-reload-sound-effects | Rack.mp3 | 0.625-1.100 s | 1.0 | CC0 (https://opengameart.org/content/shotgun-reload-sound-effects) |  |
+| audio/sfx/reload_break_open.wav | 100-cc0-metal-and-wood-sfx | metal_open_01.ogg | 0.045-0.420 s | 1.0 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) | sostituto: apertura metallica generica, nessuna doppietta CC0 |
+| audio/sfx/reload_break_close.wav | 100-cc0-metal-and-wood-sfx | metal_close_01.ogg | 0.030-0.360 s | 1.0 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) | sostituto: chiusura metallica generica, nessuna doppietta CC0 |
+| audio/sfx/reload_cyl_open.wav | 100-cc0-metal-and-wood-sfx | lock_open_01.ogg | 0.025-0.120 s | 1.0 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) | sostituto: scatto di serratura, nessun tamburo CC0 |
+| audio/sfx/reload_cyl_close.wav | 100-cc0-metal-and-wood-sfx | lock_open_01.ogg | 0.455-0.630 s | 1.0 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) | sostituto: scatto di serratura, nessun tamburo CC0 |
+| audio/sfx/reload_cyl_round.wav | shotgun-reload-sound-effects | Subsequent Shells.mp3 | 1.015-1.340 s | 1.3 | CC0 (https://opengameart.org/content/shotgun-reload-sound-effects) | riuso di reload_shell_in (seconda metà) a tono 1.3 |
+| audio/sfx/reload_lever.wav | gun-reload-sounds | shotguncock_0.wav | 0.040-0.470 s | 1.15 | CC0 (https://opengameart.org/content/gun-reload-sounds) | sostituto: pompa del fucile a tono 1.15, nessuna leva CC0 |
+| audio/sfx/reload_crossbow_string.wav | medieval-sound-effects-weapon-textures | Crossbow Set Nut Against Sear.wav | 1.860-2.080 s | 1.0 | CC0 (https://opengameart.org/content/medieval-sound-effects-weapon-textures) | noce che aggancia la corda; non c'è la corda che si tende |
+| audio/sfx/reload_crossbow_bolt.wav | medieval-sound-effects-weapon-textures | Crossbow Place Bolt.wav | 0.385-0.750 s | 1.0 | CC0 (https://opengameart.org/content/medieval-sound-effects-weapon-textures) |  |

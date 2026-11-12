@@ -1,11 +1,13 @@
 # Prende i suoni CC0 scaricati in audio_raw (fuori dal progetto) e li prepara per il gioco: un pezzo solo per file, silenzi tolti,
 # code sfumate, volume uniforme per famiglia, musica con il loop chiuso. Scrive anche docs/AUDIO_LICENZE.md con l'origine di ogni file.
-#   blender -b -P tools/audio/import_cc0.py -- <audio_raw> <progetto>
+#   blender -b -P tools/audio/import_cc0.py -- <audio_raw> <progetto> [prefisso]
+# Con un prefisso (es. reload_) rifà solo gli effetti con quel nome e aggiorna solo la sezione Ricarica delle licenze.
 import os, sys, wave
 import aud
 import numpy as np
 
 raw, project = sys.argv[sys.argv.index("--") + 1:][:2]
+only = (sys.argv[sys.argv.index("--") + 1:] + ["", "", ""])[2]
 RATE = 44100
 Z = "zombies-sound-pack"
 GHOUL = "hungry-ghoul"
@@ -40,7 +42,7 @@ MUSIC = {
     "boss_mago": ("basilisk-boss-battle-loop", "basilisk_boss_battle_in_game.ogg", -15.0, False, "Boss in tono oscuro, loop"),
     "boss_teste": ("the-plague", "The Plague.Wav", -15.0, True, "Elettronica apocalittica"),
 }
-# chiave: lista di [raccolta, file, pezzo (None = tutto), tono, durata massima]. Ogni voce diventa una variante.
+# chiave: lista di [raccolta, file, pezzo (None = tutto, (inizio, fine) = secondi nel file), tono, durata massima]. Ogni voce diventa una variante.
 def v(pack, name, part=None, pitch=1.0, most=3.5): return [pack, name, part, pitch, most]
 def many(pack, names, part=None, pitch=1.0, most=3.5): return [v(pack, n, part, pitch, most) for n in names]
 SFX = {
@@ -115,6 +117,24 @@ SFX = {
     "weapon_reload_shell": [v(SHELL, "4 Shell Reload.wav", None, 1.0, 3.0)],
     "gun_rack": [v(RELO, "shotguncock_0.wav", None, 1.0, 1.0)],
     "gun_empty": many(RPG, ["metalClick.ogg"], None, 1.2, 0.3),
+    # Ricarica a passi (AudioManager.reload_step): un colpo meccanico per evento, finestre scelte sugli attacchi del file.
+    # Doppietta, tamburo e leva non hanno una registrazione vera: sono sostituti metallici o un'altra arma a tono diverso.
+    "reload_mag_out_pistol": [v(HAND, "reload.wav", (0.09, 0.40))],
+    "reload_mag_in_pistol": [v(HAND, "reload.wav", (0.57, 0.86))],
+    "reload_slide_pistol": [v(HAND, "reload.wav", (1.03, 1.40))],
+    "reload_mag_out_rifle": [v(RELO, "assaultriflereload1_0.wav", (0.14, 0.53))],
+    "reload_mag_in_rifle": [v(RELO, "assaultriflereload1_0.wav", (1.035, 1.19))],
+    "reload_bolt_rifle": [v(RELO, "assaultriflereload1_0.wav", (1.19, 1.50))],
+    "reload_shell_in": [v(SHELL, "Subsequent Shells.mp3", (0.855, 1.34))],
+    "reload_pump": [v(SHELL, "Rack.mp3", (0.625, 1.10))],
+    "reload_break_open": [v(WM, "metal_open_01.ogg", (0.045, 0.42))],
+    "reload_break_close": [v(WM, "metal_close_01.ogg", (0.03, 0.36))],
+    "reload_cyl_open": [v(WM, "lock_open_01.ogg", (0.025, 0.12))],
+    "reload_cyl_close": [v(WM, "lock_open_01.ogg", (0.455, 0.63))],
+    "reload_cyl_round": [v(SHELL, "Subsequent Shells.mp3", (1.015, 1.34), 1.3)],
+    "reload_lever": [v(RELO, "shotguncock_0.wav", (0.04, 0.47), 1.15)],
+    "reload_crossbow_string": [v(MED, "Crossbow Set Nut Against Sear.wav", (1.86, 2.08))],
+    "reload_crossbow_bolt": [v(MED, "Crossbow Place Bolt.wav", (0.385, 0.75))],
     # Armi bianche.
     "swing_axe": [v(MED, "Axe Swing.wav", k, 0.94, 0.7) for k in (1, 2, 5, 6)],
     "swing_blade": [v(MED, "Katana Swing.wav", k, 1.0, 0.6) for k in (6, 4, 0)] + [v(MED, "Seax Swing.wav", 3, 0.9, 0.6)],
@@ -136,6 +156,15 @@ SFX = {
     "boss_defeat": many(BANG, ["cannon_03.ogg"], None, 0.55, 3.0),
     "explosion": [v(BOOM, "synthetic_explosion_1.flac", None, 1.0, 2.5), v(BOOM, "synthetic_explosion_1.flac", None, 0.82, 2.8)],
     "footstep": many(RPG, ["footstep00.ogg", "footstep01.ogg", "footstep02.ogg", "footstep03.ogg", "footstep04.ogg"], None, 1.0, 0.5),
+}
+CUT_NOTES = {
+    "reload_break_open": "sostituto: apertura metallica generica, nessuna doppietta CC0",
+    "reload_break_close": "sostituto: chiusura metallica generica, nessuna doppietta CC0",
+    "reload_cyl_open": "sostituto: scatto di serratura, nessun tamburo CC0",
+    "reload_cyl_close": "sostituto: scatto di serratura, nessun tamburo CC0",
+    "reload_cyl_round": "riuso di reload_shell_in (seconda metà) a tono 1.3",
+    "reload_lever": "sostituto: pompa del fucile a tono 1.15, nessuna leva CC0",
+    "reload_crossbow_string": "noce che aggancia la corda; non c'è la corda che si tende",
 }
 ROOT_SFX = {
     "menu_hover": many(UI, ["rollover1.ogg"], None, 1.0, 0.2),
@@ -222,7 +251,8 @@ def prepare(row, key):
     credits.setdefault(pack, set()).add(os.path.basename(name))
     x = mono(d)
     runs = parts_of(x, rate)
-    a, b = runs[part % len(runs)] if part is not None else (runs[0][0], runs[-1][1])
+    if isinstance(part, tuple): a, b = int(part[0] * rate), min(x.size, int(part[1] * rate))
+    else: a, b = runs[part % len(runs)] if part is not None else (runs[0][0], runs[-1][1])
     if name.startswith("swish"):
         # Un fendente cresce e si spegne piano: va tenuto intero, tagliando solo il silenzio vero.
         loud = np.nonzero(np.abs(x) > np.abs(x).max() * 0.012)[0]
@@ -244,7 +274,8 @@ def prepare(row, key):
     x = x[max(0, a - int(rate * 0.004)) : b]
     x = resample(x, rate / RATE * pitch)
     x = x[: int(most * RATE)]
-    fade = min(int(0.14 * RATE), x.size // 3)
+    # Un taglio a mano finisce già sulla coda: basta una sfumatura breve che non mangi il colpo.
+    fade = min(int((0.03 if isinstance(part, tuple) else 0.14) * RATE), x.size // 3)
     x[-fade:] *= np.linspace(1, 0, fade) ** 1.5
     lead = min(int(0.003 * RATE), x.size // 4)
     x[:lead] *= np.linspace(0, 1, lead)
@@ -286,14 +317,31 @@ def blower():
     return np.clip(x * 0.55, -0.9, 0.9)
 
 
+def cuts_section():
+    # Gli effetti tagliati a mano, con la finestra esatta: sta in fondo al file delle licenze.
+    out = ["", "## Ricarica", "", "Tagli a mano (secondi nel file sorgente), tutti da raccolte CC0. \"Sostituto\" = non è una registrazione dell'azione vera.", "", "| File | Raccolta | Sorgente | Intervallo | Tono | Licenza | Nota |", "|---|---|---|---|---|---|---|"]
+    for key, rows in SFX.items():
+        for i, (pack, name, part, pitch, _) in enumerate(rows):
+            if isinstance(part, tuple):
+                out.append("| audio/sfx/%s%s.wav | %s | %s | %.3f-%.3f s | %s | CC0 (https://opengameart.org/content/%s) | %s |" % (key, "" if i == 0 else "_%d" % (i + 1), pack, name, part[0], part[1], pitch, pack, CUT_NOTES.get(key, "")))
+    return out
+
+
 made = 0
 folder = os.path.join(project, "audio", "sfx")
 for key, rows in SFX.items():
+    if only and not key.startswith(only): continue
     for i, row in enumerate(rows):
         x = prepare(row, key)
         if x is None: continue
         save_wav(os.path.join(folder, key + ("" if i == 0 else "_%d" % (i + 1)) + ".wav"), x)
         made += 1
+if only:
+    doc = os.path.join(project, "docs", "AUDIO_LICENZE.md")
+    text = open(doc, encoding="utf-8").read().split("\n## Ricarica\n")[0].rstrip("\n")
+    open(doc, "w", encoding="utf-8").write(text + "\n" + "\n".join(cuts_section()) + "\n")
+    print("FILE", made, "MANCANO", missing)
+    sys.exit(0)
 for key, rows in ROOT_SFX.items():
     x = prepare(rows[0], key)
     if x is not None:
@@ -359,5 +407,6 @@ for pack in sorted(credits):
     lines.append("| %s | https://opengameart.org/content/%s | %s |" % (pack, pack, ", ".join(sorted(credits[pack]))))
 lines += ["", "## Musica", "", "| Scena | Brano | Perché |", "|---|---|---|"]
 for key, row in MUSIC.items(): lines.append("| %s | %s (%s) | %s |" % (key, row[1], row[0], row[4]))
+lines += cuts_section()
 open(os.path.join(project, "docs", "AUDIO_LICENZE.md"), "w", encoding="utf-8").write("\n".join(lines) + "\n")
 print("FINE")
