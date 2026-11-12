@@ -30,7 +30,7 @@ func run():
 	p.hotbar.assign(IDS + [""])
 	var fp_cam: Camera3D = p.rig.camera
 	# Camera esterna: tre quarti davanti a sinistra, all'altezza del petto. Il corpo locale torna a fare ombra e a vedersi.
-	var out_cam := Camera3D.new(); out_cam.fov = 40.0; world.add_child(out_cam)
+	var out_cam := Camera3D.new(); out_cam.fov = 40.0; out_cam.cull_mask = 0xFFFFF & ~(1 << 19); world.add_child(out_cam)
 	for id in IDS:
 		if only != "" and id != only: continue
 		p.select_slot(p.hotbar.find(id))
@@ -47,6 +47,10 @@ func run():
 			out_cam.global_position = p.global_position + Vector3.UP * 1.45 - front * 1.7 - p.visual.global_basis.x * 0.9   # il corpo guarda -Z del visual
 			out_cam.look_at(p.global_position + Vector3.UP * 1.25)
 			(out_cam if view == "tp" else fp_cam).make_current()
+			# Il viewmodel vive solo sulla tua camera: da fuori non esiste (gli altri giocatori non ce l'hanno).
+			# (first_person_weapon riaccende il nodo ogni fotogramma: lo si toglie dalla camera esterna con un layer.)
+			for mesh in p.find_child("FpArms", true, false).get_parent().find_children("*", "VisualInstance3D", true, false):
+				(mesh as VisualInstance3D).layers = 1 << 19 if view == "tp" else 1
 			for k in marks.size():
 				p.magazine = 0
 				p.reload_left = 0.0

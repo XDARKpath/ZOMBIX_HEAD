@@ -237,7 +237,7 @@ const SWINGS_OUT := {
 ## Ricarica vista da fuori: l'arma di sbieco sul petto, la bocca in alto a sinistra, lontana dal viso.
 ## (La posa della prima persona, vista da fuori, metteva la canna dritta davanti alla faccia.)
 const RELOAD_OUT := {
-	"pistol": [Vector3(0.06, -0.22, -0.32), Vector3(-0.4, 0.45, -0.8), Vector3(0.9, 0.4, -0.2)],
+	"pistol": [Vector3(0.05, -0.36, -0.34), Vector3(-0.45, 0.22, -0.86), Vector3(0.88, 0.3, -0.35)],   # al petto, volata avanti: il viso resta libero
 	"smg": [Vector3(0.08, -0.26, -0.28), Vector3(-0.55, 0.5, -0.67), Vector3(0.75, 0.65, -0.1)],
 	"rifle": [Vector3(0.10, -0.30, -0.26), Vector3(-0.72, 0.32, -0.62), Vector3(0.55, 0.82, -0.2)],
 	"hip": [Vector3(0.10, -0.32, -0.24), Vector3(-0.5, 0.45, -0.74), Vector3(0.8, 0.55, -0.2)],
@@ -619,7 +619,8 @@ func _reload_hands(r: float, delta: float) -> Quaternion:
 			var pull := _step("string")
 			var load_at := _step("bolt_in")
 			var down := smoothstep(0.02, 0.15, r) * (1.0 - smoothstep(load_at + 0.05, load_at + 0.15, r))
-			turn = Quaternion(Vector3.RIGHT, -0.45 * down)
+			# In prima persona punta in su: abbassandola il calcio salirebbe davanti agli occhi.
+			turn = Quaternion(Vector3.RIGHT, (-0.45 if outside else 0.3) * down)
 			var tug := smoothstep(0.12, pull, r) * (1.0 - smoothstep(pull + 0.02, pull + 0.12, r))
 			left_shift = Vector3(0, -support - 0.05, 0.05) * tug
 			if r > pull + 0.08 and r < load_at: carry = "shell"
