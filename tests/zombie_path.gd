@@ -108,16 +108,20 @@ func _run() -> void:
 			var t := 0.0
 			var arrived := false
 			var y_max := -INF
+			var jumps := 0                       # salti > 1,5 m in un tick = teletrasporto
+			var last: Vector3 = e.global_position
 			while t < limit:
 				await physics_frame
 				t += 1.0 / 60.0
 				e.memory = 6.0 if e.memory < 6.0 else e.memory
 				y_max = maxf(y_max, e.global_position.y - AT.y)
+				if Vector2(e.global_position.x - last.x, e.global_position.z - last.z).length() > 1.5: jumps += 1
+				last = e.global_position
 				if Vector2(e.global_position.x - p.global_position.x, e.global_position.z - p.global_position.z).length() < 3.2:
 					arrived = true
 					break
-			var good := arrived
-			print("PASS " if good else "FAIL ", name, " ", who, " in %.1f s, salito %.2f m, fine a %s" % [t, y_max, str((e.global_position - AT).snappedf(0.1))])
+			var good := arrived and jumps == 0
+			print("PASS " if good else "FAIL ", name, " ", who, " in %.1f s, salito %.2f m, fine a %s, teletrasporti %d, sblocchi %s" % [t, y_max, str((e.global_position - AT).snappedf(0.1)), jumps, str(e.get("recoveries"))])
 			if not good: fails += 1
 			e.queue_free()
 			await physics_frame
