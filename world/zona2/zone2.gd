@@ -187,10 +187,10 @@ func _on_boss(style: String) -> void:
 	else: dead_signore = true
 	var head: String = "item_testa_matriarca" if style == "matriarca" else "item_testa_signore"
 	var at: Vector3 = Route.ARENA_MATRIARCA if style == "matriarca" else Route.ARENA_SIGNORE
-	# Chi è vivo e vicino la prende in tasca. Se sono tutti morti o con le tasche piene resta per terra: non si perde mai.
+	# Chi è vivo e vicino la prende (tasche piene: in riserva, player.gd). Se sono tutti morti resta per terra.
 	var actor: CharacterBody3D = world.nearest_player(at)
 	for a in world.actors.values(): a.credits += 300
-	if is_instance_valid(actor) and not actor.dead and actor.can_take(head):
+	if is_instance_valid(actor) and not actor.dead:
 		actor.add_item(head)
 	else:
 		at.y = Terrain.ground_height(at.x, at.z)

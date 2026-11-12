@@ -578,7 +578,7 @@ func _hurt(a: CharacterBody3D, damage: float, from: Vector3, push: float, extra:
 	var data := {"knock": away * push + Vector3.UP * float(extra.get("up", 2.5)), "shake": float(extra.get("shake", 0.7)), "heavy": extra.get("heavy", true)}
 	for key in ["stun", "bleed", "slow", "poison", "fear"]:
 		if extra.has(key): data[key] = extra[key]
-	world.hit_player(a, damage * (1.0 + 0.12 * phase), data, from)
+	world.hit_player(a, damage * (1.0 + 0.12 * phase), data.merged({"env": true}) if extra.get("env", false) else data, from)
 
 
 func _hit_circle(center: Vector3, radius: float, damage: float, push: float, extra: Dictionary = {}) -> int:
@@ -677,7 +677,7 @@ func _tick_hazards(delta: float) -> void:
 				var extra: Dictionary = h.extra
 				var data := {"shake": 0.15}
 				for key in extra: data[key] = extra[key]
-				world.hit_player(a, float(h.dps) * 0.5, data, h.at)
+				world.hit_player(a, float(h.dps) * 0.5, data.merged({"env": true}), h.at)
 		# Il Macellaio si rimette in forze nel sangue che ha versato: staccalo da lì.
 		if h.type == "blood" and style == "macellaio" and not host.dead:
 			var mine: float = ((host.global_position - (h.at as Vector3)) * Vector3(1, 0, 1)).length()
@@ -1153,7 +1153,7 @@ func _m_bolts() -> void:
 			fx("warn", spot, {"r": 2.0, "t": flight, "color": "acid"})
 			fx("bolt", host.global_position + Vector3.UP * 3.0, {"to": spot, "t": flight})
 			_after(flight, func() -> void:
-				_hit_circle(spot, 2.0, 13.0, 4.0, {"poison": 4.0, "shake": 0.35, "up": 1.5})
+				_hit_circle(spot, 2.0, 13.0, 4.0, {"poison": 4.0, "shake": 0.35, "up": 1.5, "env": true})
 				_hazard(spot, 1.8, 4.0, "acid", 6.0, {"poison": 1.5}))]]})
 
 
@@ -1170,7 +1170,7 @@ func _m_pool() -> void:
 		for spot in spots: fx("warn", spot, {"r": 2.5, "t": windup - 0.2, "color": "acid"})],
 		[windup, func() -> void:
 			for spot in move.get("spots", []):
-				_hit_circle(spot, 2.5, 12.0, 3.0, {"poison": 4.0, "shake": 0.3})
+				_hit_circle(spot, 2.5, 12.0, 3.0, {"poison": 4.0, "shake": 0.3, "env": true})
 				_hazard(spot, 2.4, 6.5, "acid", 8.0, {"poison": 2.0})]]})
 
 

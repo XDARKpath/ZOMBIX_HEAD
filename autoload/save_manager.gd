@@ -44,6 +44,7 @@ func write(world: Node) -> bool:
 		"health_ups": world.player.health_ups,
 		"stamina_ups": world.player.stamina_ups,
 		"items": world.player.items,
+		"reserve": world.player.reserve,
 		"hotbar": world.player.hotbar,
 		"slot": world.player.slot,
 		"arrows": world.player.arrows,
@@ -116,6 +117,13 @@ func apply(world: Node) -> bool:
 	if bar.is_empty():
 		for id in world.player.owned: world.player.hotbar_add(id)
 		for id in world.player.items: world.player.hotbar_add(id)
+	# Premi senza tasca: la riserva, e gli oggetti rimasti fuori dalla barra nei salvataggi di prima.
+	world.player.reserve = {}
+	for key in data.get("reserve", {}): world.player.reserve[String(key)] = int(data["reserve"][key])
+	for id in world.player.items.keys():
+		if not world.player.hotbar.has(id):
+			world.player.reserve[id] = int(world.player.reserve.get(id, 0)) + int(world.player.items[id])
+			world.player.items.erase(id)
 	world.player.slot = clampi(int(data.get("slot", 0)), 0, 8)
 	if world.player.equipped != "" and world.player.hotbar.has(world.player.equipped): world.player.slot = world.player.hotbar.find(world.player.equipped)
 	world.player.mags = data.get("mags", {})

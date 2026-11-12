@@ -39,7 +39,16 @@ var step_clock: float = 0.0
 var frenzy: float = 0.0
 var scream_cooldown: float = 0.0
 # Scavalcare e aggirare (vedi _steer).
-const UNSTICK_AFTER := 3.0
+## Sblocco camminando, mai teletrasporti: ricalcolo → punto intermedio → deviazione → arretramento → rivaluta il bersaglio.
+const RECOVER_STEPS := [[1.0, "ricalcolo"], [1.0, "intermedio"], [1.5, "deviazione"], [2.5, "deviazione"], [3.0, "arretramento"], [4.0, "rinuncia"]]
+var recoveries := {}               # quante volte ha usato ogni passo (letto dai test)
+var _recover_dir := Vector3.ZERO
+var _recover_left := 0.0
+var _give_up_until := 0.0
+var searched := 0                  # punti di ricerca visitati dopo averti perso (letto dai test)
+var _contact_at := -99.0
+var _search_at := Vector3.INF
+var _search_until := 0.0
 var _probe_clock: float = 0.0
 var _climb_top: float = -INF
 var _climb_left: float = 0.0
@@ -76,6 +85,41 @@ func use_brain(style: String) -> void:
 	brain.setup(self, world, style)
 
 
+## Percezione valida (vista o rumore): aggiorna dove crede che tu sia e quanto se lo ricorda.
+func _contact(at: Vector3, remember: float) -> void:
+	last_seen = at
+	memory = maxf(memory, remember)
+	_contact_at = clock
+	_search_at = Vector3.INF
+
+
+## Vista durante l'inseguimento: testa o fianchi liberi bastano (una cassetta bassa non ti nasconde, un muro sì).
+func _glimpse(candidate: CharacterBody3D) -> bool:
+	var eye := global_position + Vector3.UP * 1.3
+	for h in [1.6, 0.6]:
+		if _hit_at(eye, candidate.global_position + Vector3.UP * h).is_empty(): return true
+	return false
+
+
+## Perso di vista: va dove ti ha visto l'ultima volta, poi gira lì attorno finché se lo ricorda.
+func _search() -> void:
+	var flat := Vector2(global_position.x - last_seen.x, global_position.z - last_seen.z).length()
+	if _search_at == Vector3.INF:
+		agent.target_position = last_seen
+		# Sta ancora andando a vedere: non dimentica a metà strada (al massimo 30 s; se si incastra ci pensa lo sblocco).
+		if flat > 1.5:
+			if clock - _contact_at < 30.0: memory = maxf(memory, 1.0)
+			return
+		memory = maxf(memory, 6.0)        # arrivato sul posto: ancora qualche secondo per cercare
+	elif Vector2(global_position.x - _search_at.x, global_position.z - _search_at.z).length() > 1.2 and clock < _search_until:
+		return
+	searched += 1
+	var turn := randf() * TAU
+	_search_at = last_seen + Vector3(cos(turn), 0, sin(turn)) * randf_range(2.5, 5.0)
+	_search_until = clock + 4.0
+	agent.target_position = _search_at
+
+
 func see(candidate: CharacterBody3D) -> bool:
 	if not is_instance_valid(candidate) or candidate.dead: return false
 	if world and world.has_method("is_safe") and world.is_safe(candidate.position):return false
@@ -94,8 +138,7 @@ func hear(candidate: CharacterBody3D, radius: float = 15) -> void:
 	if dead or candidate.dead or global_position.distance_to(candidate.global_position)>radius: return
 	if world and world.has_method("is_safe") and world.is_safe(candidate.position):return
 	target = candidate
-	last_seen = candidate.global_position
-	memory = 6
+	_contact(candidate.global_position, 6.0)
 	state = State.CHASE
 
 ## Fa partire subito un attacco "scriptato" (il Carceriere che atterra dalla gabbia: Z_Boss_Drop_Arrival).
@@ -158,20 +201,21 @@ func _physics_process(delta: float) -> void:
 			think = 0.8
 			velocity = Vector3.ZERO
 			return
-		if see(nearest):
+		if see(nearest) and (clock >= _give_up_until or state != State.WANDER):
 			if state == State.WANDER and kind != 2 and (network_id % 3 != 2 or kind == 5):
 				alert_time = 1.3                      # Z_Scream before the chase
 				_voice("alert")
 				if kind == 3: _scream(nearest)
 			target = nearest
-			last_seen = target.global_position
-			memory = 6
+			_contact(target.global_position, 8.0)
 			if state != State.ATTACK: state = State.CHASE
-		# Chi ti insegue non ti perde per un albero: ti segue a naso, non solo dove ti ha visto l'ultima volta.
-		if state == State.CHASE and is_instance_valid(target) and memory > 0.0 and target.global_position.distance_to(global_position) < 25.0:
-			last_seen = target.global_position
-			memory = maxf(memory, 3.0)
-		if state == State.CHASE:
+		# Chi ti insegue ti tiene d'occhio tutt'attorno, ma solo se ti vede davvero: niente telepatia dietro i muri.
+		if state == State.CHASE and is_instance_valid(target) and not target.dead and target.global_position.distance_to(global_position) < 25.0 and _glimpse(target):
+			_contact(target.global_position, 8.0)
+		if state == State.CHASE and clock - _contact_at > 0.6:
+			_search()
+		elif state == State.CHASE:
+			_search_at = Vector3.INF
 			agent.target_position = last_seen
 			# Da vicino ti accerchiano: ognuno prende il suo lato invece di mettersi in fila dietro al primo.
 			if is_instance_valid(target) and kind < 4 and not crawling:
@@ -308,7 +352,10 @@ func _physics_process(delta: float) -> void:
 				var flank: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
 				if flank.length() > 0.5: direction = flank.normalized()
 				elif straight.length() > 0.8: direction = straight.normalized()
-			elif direction == Vector3.ZERO and straight.length() > 0.8: direction = straight.normalized()
+			elif direction == Vector3.ZERO:
+				# senza strada calcolata: dritti verso dove crede che tu sia (vista, rumore o ricerca), non dove sei davvero
+				var guess: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
+				if guess.length() > 0.8: direction = guess.normalized()
 		if direction != Vector3.ZERO: direction = _steer(direction, delta, chasing)
 		var separation := Vector3.ZERO
 		if world:
@@ -379,14 +426,19 @@ func _steer(wanted: Vector3, delta: float, chasing: bool) -> Vector3:
 		_look_ahead(wanted)
 	if chasing: _watch_stuck(delta)
 	if _climb_top > -INF: return _climb_dir
+	if _recover_left > 0.0:
+		_recover_left -= delta
+		return _recover_dir
 	if _detour_side != 0.0:
 		return _heading
 	return wanted
 
 
 func _body_size() -> Array:
-	# [raggio, massimo scavalcabile, altezza della testa]
-	return [0.75, 1.0, 2.5] if kind == 2 or kind == 5 else [0.4, 1.05, 1.55]
+	# [raggio, massimo scavalcabile, altezza della testa]. Il raggio segue la capsula vera (0,32; boss 0,58) più un margine:
+	# col bruto largo 0,75 le sonde vedevano muri dove passava e nel bosco girava a vuoto.
+	if kind == 5: return [0.75, 1.0, 2.5]
+	return [0.45, 1.0, 1.8] if kind == 2 else [0.4, 1.05, 1.55]
 
 
 func _hit_at(from: Vector3, to: Vector3) -> Dictionary:
@@ -464,54 +516,78 @@ func _free_way(at: Vector3, way: Vector3, length: float, radius: float) -> bool:
 	return true
 
 
-## Controllo finale: fermo troppo a lungo mentre ti insegue. Prima cambia lato, poi si sposta di qualche metro verso di te.
+## Controllo finale: fermo troppo a lungo mentre ti insegue. Si sblocca un passo alla volta, sempre camminando:
+## niente teletrasporti, quindi niente muri attraversati. Il conto riparte appena si muove.
 func _watch_stuck(delta: float) -> void:
 	_stuck_clock += delta
 	if _stuck_clock < 0.5: return
 	_stuck_clock = 0.0
 	var moved: float = Vector2(global_position.x - _stuck_at.x, global_position.z - _stuck_at.z).length()
 	_stuck_at = global_position
-	if moved > 0.12:
+	# Fermo apposta: è già addosso (o in fila nella calca), oppure è lo sputatore che ti tiene sotto tiro.
+	var gap: float = global_position.distance_to(target.global_position) if is_instance_valid(target) else 0.0
+	if moved > 0.12 or gap < 3.0 or (kind == 4 and gap < 30.0 and clear_line(target)):
 		_stuck_for = 0.0
 		return
 	_stuck_for += 0.5
-	if _stuck_for == 1.0 or _stuck_for == 2.0:
-		_detour_side = -_detour_side if _detour_side != 0.0 else 1.0
-		_heading = -_heading if _heading != Vector3.ZERO else global_basis.x
-	if _stuck_for >= UNSTICK_AFTER:
-		_stuck_for = 0.0
-		_unstick()
+	for step in RECOVER_STEPS:
+		if is_equal_approx(_stuck_for, float(step[0])): _recover(str(step[1]))
+	if _stuck_for >= 4.0: _stuck_for = 0.0
 
 
-func _unstick() -> void:
-	if not is_instance_valid(target): return
-	var to_target: Vector3 = (target.global_position - global_position) * Vector3(1, 0, 1)
-	if to_target.length() < 1.5: return
-	var ahead := to_target.normalized()
-	var size: Array = _body_size()
-	var shape := SphereShape3D.new()
-	shape.radius = float(size[0])
-	var query := PhysicsShapeQueryParameters3D.new()
-	query.shape = shape
-	query.collision_mask = 1
-	var longest: float = minf(9.0, to_target.length())
-	var dist := 2.0
-	while dist <= longest:
-		for turn in [0.0, 0.6, -0.6, 1.2, -1.2]:
-			var spot: Vector3 = global_position + ahead.rotated(Vector3.UP, turn) * dist
-			var floor_hit := _hit_at(spot + Vector3.UP * 3.0, spot + Vector3.DOWN * 3.0)
-			if floor_hit.is_empty(): continue
-			var stand: Vector3 = floor_hit.position
-			if absf(stand.y - global_position.y) > 2.0: continue
-			if world and world.has_method("is_safe") and world.is_safe(stand): continue
-			query.transform = Transform3D(Basis.IDENTITY, stand + Vector3.UP * (float(size[0]) + 0.15))
-			if not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty(): continue
-			# Mai attraverso un muro verso una stanza chiusa: da lì deve vedere il giocatore o esserci strada.
-			if not _hit_at(stand + Vector3.UP * 1.2, target.global_position + Vector3.UP).is_empty() and _hit_at(global_position + Vector3.UP * 1.2, stand + Vector3.UP * 1.2).size() > 0 and global_position.distance_to(stand) > 3.0: continue
-			global_position = stand + Vector3.UP * 0.05
-			_detour_side = 0.0
-			return
-		dist += 1.0
+func _recover(step: String) -> void:
+	recoveries[step] = int(recoveries.get(step, 0)) + 1
+	var radius: float = float(_body_size()[0])
+	match step:
+		"ricalcolo":
+			# Strada nuova da dove si trova adesso. La mano sul muro si molla solo se c'è una navigazione che guida:
+			# senza, ripartire dritti riporta contro lo stesso muro (avanti e indietro nelle U).
+			agent.target_position = last_seen
+			if not agent.get_current_navigation_path().is_empty(): _detour_side = 0.0
+			_probe_clock = 0.0
+		"intermedio":
+			# Il prossimo punto della navigazione che si raggiunge dritti (senza navigazione non c'è: si aspetta la deviazione).
+			_recover_dir = _waypoint_dir(radius)
+			_recover_left = 1.5 if _recover_dir != Vector3.ZERO else 0.0
+		"deviazione":
+			_detour_side = -_detour_side if _detour_side != 0.0 else 1.0
+			_heading = -_heading if _heading != Vector3.ZERO else global_basis.x
+		"arretramento":
+			var back: Vector3 = global_basis.z
+			if is_instance_valid(target): back = ((global_position - target.global_position) * Vector3(1, 0, 1)).normalized()
+			_recover_dir = Vector3.ZERO
+			for turn in [0.0, 0.6, -0.6, 1.2, -1.2]:
+				if _free_way(global_position, back.rotated(Vector3.UP, turn), 1.2, radius * 0.9):
+					_recover_dir = back.rotated(Vector3.UP, turn)
+					break
+			_recover_left = 1.4 if _recover_dir != Vector3.ZERO else 0.0
+		"rinuncia":
+			# i boss restano nell'arena, e chi è a pochi passi non molla: si ricomincia dal ricalcolo
+			if brain or kind == 5 or not is_instance_valid(target) or global_position.distance_to(target.global_position) < 6.0: return
+			# Un altro giocatore a vista e con la strada libera? Allora va da lui.
+			if world and world.get("actors") is Dictionary:
+				for a in world.actors.values():
+					if is_instance_valid(a) and a != target and not a.dead and a.global_position.distance_to(global_position) < 30.0 and clear_line(a) and _hit_at(global_position + Vector3.UP * 0.4, a.global_position + Vector3.UP * 0.4).is_empty():
+						target = a
+						last_seen = a.global_position
+						return
+			# Nessuno raggiungibile: smette di inseguire e gira lì attorno per un po'.
+			state = State.WANDER
+			target = null
+			memory = 0.0
+			home = global_position
+			_give_up_until = clock + 8.0
+
+
+## Il primo punto della strada di navigazione oltre 1,5 m che si raggiunge dritti (ZERO se non c'è).
+## Niente scelta "il punto più vicino al bersaglio": nelle trappole a U riporta dentro.
+func _waypoint_dir(radius: float) -> Vector3:
+	var at := global_position
+	for point in agent.get_current_navigation_path():
+		var way: Vector3 = (point - at) * Vector3(1, 0, 1)
+		if way.length() > 1.5 and _free_way(at, way.normalized(), minf(way.length(), 4.0), radius):
+			return way.normalized()
+	return Vector3.ZERO
 
 
 ## Ogni attacco fa una cosa sua: la manata spinge, il morso fa sanguinare, lo schianto del bruto ti butta via e ti stordisce.
@@ -547,7 +623,7 @@ func _strike(victim: CharacterBody3D) -> void:
 	if kind == 4: fx["poison"] = 4.0
 	if kind == 3: fx["fear"] = 3.0
 	if world.has_method("hit_player"): world.hit_player(victim, damage, fx, global_position)
-	else: victim.take_damage(damage)
+	else: victim.take_damage(damage, global_position)
 
 
 ## Colpo dei boss: onda d'urto. Il Macellaio apre ferite con la mannaia, il Carceriere spacca il pavimento.
@@ -560,7 +636,7 @@ func _boss_hit(victim: CharacterBody3D, center: Vector3) -> void:
 		fx["bleed"] = 8.0
 		damage *= 0.8
 	if world.has_method("hit_player"): world.hit_player(victim, damage, fx, center)
-	else: victim.take_damage(damage)
+	else: victim.take_damage(damage, center, "heavy")
 
 
 ## Polvere e sassi dove il colpo ha toccato terra.

@@ -69,9 +69,9 @@ func _physics_process(delta: float) -> void:
 		if is_instance_valid(a) and not a.dead and (a.global_position + Vector3.UP).distance_to(to) < 0.75:
 			if not cosmetic:
 				if world.has_method("hit_player"):
-					world.hit_player(a, HIT_DAMAGE, {"poison": POISON_SECONDS, "slow": 1.2, "knock": velocity.normalized() * 2.0 * Vector3(1, 0, 1), "shake": 0.3}, global_position)
+					world.hit_player(a, HIT_DAMAGE, {"poison": POISON_SECONDS, "slow": 1.2, "knock": velocity.normalized() * 2.0 * Vector3(1, 0, 1), "shake": 0.3, "env": true}, global_position)
 				else:
-					a.take_damage(HIT_DAMAGE)
+					a.take_damage(HIT_DAMAGE, global_position, "env")
 			_splash(to)
 			return
 	if not hit.is_empty():
@@ -132,4 +132,4 @@ class Puddle:
 			for a in world.actors.values():
 				if is_instance_valid(a) and not a.dead and a.global_position.distance_to(global_position) < 1.3 and absf(a.global_position.y - global_position.y) < 1.0:
 					if a.get("status"): a.status.add("poison", PUDDLE_POISON)
-					else: a.take_damage(2.0)
+					else: a.take_damage(2.0, global_position, "env")

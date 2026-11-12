@@ -1,6 +1,6 @@
 extends Control
-# Pulsante VENDI dallo sceriffo, con la testa in mano: tasto [V] disegnato, 25 crediti, barra che si riempie tenendo
-# premuto (vende tutte le teste) e "+25 CREDITI" che sale e sfuma. Cliccabile se il mouse è libero.
+# Pulsante VENDI dallo sceriffo, con la testa in mano: tasto [V] disegnato, prezzo di una testa, e se ne hai più d'una
+# quante e il totale dello stack in mano (barra che si riempie tenendo premuto). "+25 CREDITI" sale e sfuma quando l'host paga.
 
 const C_LINE := Color("d4a56c")
 var rules: Node3D
@@ -13,7 +13,7 @@ func build(owner_rules: Node3D) -> void:
 	set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	offset_left = -170.0
 	offset_right = 170.0
-	offset_top = -196.0
+	offset_top = -214.0
 	offset_bottom = -132.0
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button = Button.new()
@@ -48,7 +48,15 @@ func _process(_delta: float) -> void:
 	visible = rules.sell_ready()
 	if visible:
 		fill.offset_right = 3.0 + (size.x - 6.0) * clampf(rules.sell_hold, 0.0, 1.0)
-		button.text = Localization.t("[V]  VENDI  ·  {0} CREDITI", [ItemInfo.head_price(rules.world.player.equipped)])
+		var id: String = rules.world.player.equipped
+		var n: int = int(rules.world.player.items.get(id, 0))
+		var price: int = ItemInfo.head_price(id)
+		if rules.sell_wait > 0:
+			button.text = Localization.t("LO SCERIFFO CONTA...")
+		elif n > 1:
+			button.text = Localization.t("[V]  VENDI 1  ·  {0} CREDITI\nTIENI [V]: TUTTE QUESTE ×{1}  ·  {2} CREDITI", [price, n, price * n])
+		else:
+			button.text = Localization.t("[V]  VENDI  ·  {0} CREDITI", [price])
 
 
 ## "+25 CREDITI" che sale e sfuma sopra il pulsante.
