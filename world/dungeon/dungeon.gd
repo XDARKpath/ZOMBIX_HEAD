@@ -44,6 +44,7 @@ const DOORS := [
 ]
 const JAIL_ROWS := [-25, -24, -23, -22, -21, -20]
 const PLATFORMS := [Vector2i(-2, -36), Vector2i(-1, -36), Vector2i(9, -36), Vector2i(10, -36), Vector2i(-2, -33), Vector2i(10, -33)]
+const STAIR_TOP := 2.5                            # quota della piattaforma in cima a StairsLow
 const RAMPS := [Vector2i(-1, -35), Vector2i(9, -35), Vector2i(-2, -32), Vector2i(10, -32)]   # StairsLow, sale verso nord
 const RAMP_FOR_SIDE := {Vector2i(-2, -32): Vector2i(-2, -33), Vector2i(10, -32): Vector2i(10, -33)}
 
@@ -193,6 +194,37 @@ func _place(key: String, pos: Vector3, rot := 0.0, parent: Node = self) -> Node3
 	return n
 
 
+## Rampa invisibile appoggiata sugli spigoli dei gradini di StairsLow (8 gradini da 0,31 m tra +1,7 e -1,4 dal centro della cella): i gradini da 0,3 m fermavano il giocatore.
+func _stair_ramp(a: Vector3, b: Vector3, width := 3.6, thick := 0.16) -> void:
+	var sb := StaticBody3D.new()
+	sb.name = "RampaScala"
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	var dir := b - a
+	box.size = Vector3(width, thick, dir.length() + 0.1)
+	cs.shape = box
+	sb.add_child(cs)
+	add_child(sb)
+	var up := Vector3.UP.cross(dir).cross(dir).normalized() * -1.0
+	sb.transform = Transform3D(Basis.looking_at(dir, up), (a + b) * 0.5 - up * thick * 0.5)
+
+
+## Sopra piattaforme e rampe della cisterna la volta (4 m) taglia la testa di chi sta a 2,5 m: lì la volta resta solo da vedere.
+var _roofless: ConcavePolygonShape3D
+func _open_roof(n: Node3D) -> void:
+	for cs in n.find_children("*", "CollisionShape3D", true, false):
+		if not (cs.shape is ConcavePolygonShape3D): continue
+		if _roofless == null:
+			var faces: PackedVector3Array = cs.shape.get_faces()
+			var keep := PackedVector3Array()
+			for i in range(0, faces.size(), 3):
+				if maxf(faces[i].y, maxf(faces[i + 1].y, faces[i + 2].y)) < 3.0:
+					keep.append_array([faces[i], faces[i + 1], faces[i + 2]])
+			_roofless = ConcavePolygonShape3D.new()
+			_roofless.set_faces(keep)
+		cs.shape = _roofless
+
+
 func _is_big(c: Vector2i) -> bool:
 	return cells.get(c, "") == "arena"
 
@@ -220,7 +252,9 @@ func _geometry() -> void:
 			else:
 				_place("Crossing", cell_pos(c), 0.0)
 		else:
-			_place("CustomCenter", cell_pos(c))
+			var center := _place("CustomCenter", cell_pos(c))
+			if center and (c in PLATFORMS or c in RAMPS):
+				_open_roof(center)
 		# edges
 		for d in [N, S, E, W]:
 			var o: Vector2i = c + d
@@ -249,6 +283,7 @@ func _geometry() -> void:
 		_place("StairsPlatform", cell_pos(c))
 	for c in RAMPS:
 		_place("StairsLow", cell_pos(c))
+		_stair_ramp(cell_pos(c) + Vector3(0, 0, 2.5), cell_pos(c) + Vector3(0, STAIR_TOP + 0.03, -1.5))
 
 
 func _door(kind: String, c: Vector2i, d: Vector2i, mid: Vector3) -> void:
@@ -301,6 +336,8 @@ func _make_boss_door() -> void:
 	gates["uscita"] = {"node": null, "open": false, "y0": 0.0}
 	# scala verso l'alto e luce fredda "dall'esterno"
 	_place("StairsLow", cell_pos(Vector2i(8, -45)) + Vector3(0.6, 0, 2), -PI / 2)   # sale verso est, verso la luce
+	var up_at := cell_pos(Vector2i(8, -45)) + Vector3(0.6, 0, 2)
+	_stair_ramp(up_at + Vector3(-2.5, 0, 0), up_at + Vector3(1.5, STAIR_TOP + 0.03, 0))
 	_door_light = OmniLight3D.new()
 	_door_light.position = Vector3(BOSS_DOOR_X + 2.5, 3.4, BOSS_DOOR_Z)
 	_door_light.light_color = Color("cfe3ff")
