@@ -6,7 +6,8 @@ render_mode cull_disabled, diffuse_lambert, specular_disabled;
 uniform vec3 base_color : source_color = vec3(0.30, 0.38, 0.17);
 uniform vec3 dry : source_color = vec3(0.74, 0.68, 0.44);
 uniform vec3 lush : source_color = vec3(0.34, 0.40, 0.17);
-uniform float sway = 0.11;
+uniform vec3 fresh : source_color = vec3(0.36, 0.52, 0.20);
+uniform float sway = 0.07;
 uniform float mesh_height = 1.0;
 
 varying vec3 tint;
@@ -21,10 +22,12 @@ void vertex() {
 	// Macchie più secche dove il rumore del prato è alto, punte chiare al sole.
 	// Ogni ciuffo ha il suo verde (dal fresco all'oliva); a macchie diventa secco.
 	tint = mix(lush, base_color, COLOR.r) * mix(0.85, 1.15, fract(COLOR.r * 7.3));
+	// Dove il prato è basso e umido l'erba è più verde; dove è alto diventa secca.
+	tint = mix(tint, fresh * mix(0.85, 1.1, fract(COLOR.r * 3.7)), smoothstep(0.45, 0.2, COLOR.b) * 0.55);
 	tint = mix(tint, dry, smoothstep(0.55, 0.9, COLOR.b) * 0.6);
 	tint = mix(tint, dry * 1.1, h * h * 0.18);
 	// Base in ombra, punte al sole: dà volume al prato.
-	tint *= mix(0.25, 1.1, pow(h, 0.7));
+	tint *= mix(0.42, 1.1, pow(h, 0.7));
 	NORMAL = mix(NORMAL, vec3(0.0, 1.0, 0.0), 0.6);
 }
 
