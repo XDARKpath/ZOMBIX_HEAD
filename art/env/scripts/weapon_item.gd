@@ -13,13 +13,24 @@ extends Node3D
 ## glTF (barrel -Z, top +Y) -> bone frame (barrel +Y, top +Z)
 const SOCKET_BASIS := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
 
+## Volata nello spazio del modello (canna -Z). Le righe nuove sono il centro dei vertici sulla punta della canna,
+## misurato dai glb; la balestra sulla linea del dardo, la pistola col carrello chiuso.
 const MUZZLES := {
 	"SM_Wep_AssaultRifle": Vector3(0, 0.07, -0.68),
 	"SM_Wep_PumpShotgun": Vector3(0, 0.066, -0.75),
 	"SM_Wep_SniperRifle": Vector3(0, 0.07, -0.95),
 	"SM_Wep_Revolver": Vector3(0, 0.06, -0.255),
-	"SM_Wep_Pistol": Vector3(0, 0.049, -0.172),
+	"SM_Wep_Pistol": Vector3(0, 0.053, -0.186),
 	"SM_Wep_SMG": Vector3(0, 0.045, -0.49),
+	"SM_Wep_SawnOff": Vector3(0, 0.066, -0.42),
+	"SM_Wep_FlareGun": Vector3(0, 0.04, -0.22),
+	"SM_Wep_LeverRifle": Vector3(0, 0.075, -0.72),
+	"SM_Wep_Crossbow": Vector3(0, 0.095, -0.52),
+	"SM_Wep_Nailgun": Vector3(0, -0.02, -0.21),
+	"SM_Wep_LMG": Vector3(0, 0.06, -0.85),
+	"SM_Wep_GrenadeLauncher": Vector3(0, 0.05, -0.52),
+	"SM_Wep_TeslaRifle": Vector3(0, 0.055, -0.55),
+	"SM_Wep_Fun_LeafBlower": Vector3(0, 0.06, -0.84),
 }
 
 var _anim: AnimationPlayer
@@ -30,7 +41,9 @@ func _ready() -> void:
 
 
 func get_muzzle_global() -> Vector3:
-	return global_transform * MUZZLES.get(String(name), Vector3(0, 0.05, -0.5))
+	# Il nome del nodo cambia se ce ne sono due uguali; il file del modello no.
+	var key := scene_file_path.get_file().get_basename() if scene_file_path != "" else String(name)
+	return global_transform * MUZZLES.get(key, MUZZLES.get(String(name), Vector3(0, 0.05, -0.5)))
 
 
 ## Plays one of the weapon's own part animations ("Wep_Fire", "Wep_Reload") from the start.

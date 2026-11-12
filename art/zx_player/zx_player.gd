@@ -257,8 +257,7 @@ func reload() -> void:
 	var d := current_def()
 	if weapon and d.has("reload"):
 		_play_action(d.reload)
-		if tool_rig.kind == "": weapon.play_part("Wep_Reload")
-		tool_rig.reload()
+		if tool_rig.kind == "": weapon.play_part("Wep_Reload")   # il gesto lo guida zx_avatar_driver con set_reload
 
 
 func attack() -> void:

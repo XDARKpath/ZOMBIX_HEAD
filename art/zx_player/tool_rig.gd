@@ -33,10 +33,8 @@ var sprint := false
 var aim := false
 var charge := 0.0
 var weapon: Node3D
-var _mag: Node3D
-var _mag_base := Vector3.ZERO
-var _slide: Node3D
-var _slide_base := Vector3.ZERO
+var _parts := {}
+var loaded := true                       # c'è un dardo sulla balestra (lo dice zx_avatar_driver)
 var _swing := []
 var _swing_t := 0.0
 var _combo := 0
@@ -85,17 +83,13 @@ func set_weapon(id: String, item: Node3D) -> void:
 	kind = id if ToolMotion.handles(id) else ""
 	_swing = []
 	_reload = -1.0
-	_mag = null
-	_slide = null
+	_parts = {}
 	if kind == "": return
 	motion.outside = true
 	motion.setup(kind)
 	if item:
 		motion.place_item(item)
-		_mag = item.find_child("*_Mag*", true, false) as Node3D
-		_slide = item.find_child("*_Slide*", true, false) as Node3D
-		if _mag: _mag_base = _mag.position
-		if _slide: _slide_base = _slide.position
+		_parts = ToolMotion.find_parts(item, kind)
 
 
 func swing(heavy: bool) -> void:
@@ -110,10 +104,11 @@ func shot() -> void:
 	if kind != "" and motion.is_gun(): motion.shot(aim)
 
 
-func reload(seconds: float = 1.6) -> void:
-	if kind != "" and motion.is_gun():
-		_reload = 0.0
-		_reload_len = seconds
+## La ricarica vista da fuori segue quella vera del giocatore (frazione 0-1, -1 ferma), non un timer suo:
+## dura quanto la sua, si ferma quando lui la interrompe e sta al passo anche per chi arriva a metà.
+func set_reload(fraction: float, total: float) -> void:
+	_reload = fraction if kind != "" and motion.is_gun() else -1.0
+	_reload_len = total
 
 
 func _process(delta: float) -> void:
@@ -133,18 +128,13 @@ func _process(delta: float) -> void:
 		var r: float = (_swing[3] - _swing[2]) / 30.0
 		if _swing_t >= w + a + r: _swing = []
 		else: row = [_swing[0], _swing_t, w, a, r]
-	if _reload >= 0.0:
-		_reload += delta / _reload_len
-		if _reload >= 1.0: _reload = -1.0
+	motion.reload_total = _reload_len
 	# I colpi leggeri sono a una mano: la sinistra lascia il manico e torna appena il colpo è finito.
 	var one_hand: bool = motion.grip("l").is_empty() or (motion.kind == "axe" and not row.is_empty() and row[0] != "H" and _swing_t < float(row[2]) + float(row[3]) + 0.25)
 	_left_w = move_toward(_left_w, 0.0 if one_hand else 1.0, delta / (0.07 if one_hand else 0.2))
 	motion.tick(delta, row, charge, guard, sprint, aim, _reload, -1.0)
 	_body_follow(row, delta)
-	if _mag:
-		_mag.position = _mag_base + Vector3(0, -0.3, 0) * motion.mag_out
-		_mag.visible = motion.mag_out < 0.98
-	if _slide: _slide.position = _slide_base + Vector3(0, 0, 0.03) * motion.slide_back
+	motion.pose_parts(_parts, 0.0, loaded)
 
 
 func _process_modification() -> void:

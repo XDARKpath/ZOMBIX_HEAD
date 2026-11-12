@@ -35,6 +35,6 @@ func run():
 			if arms:
 				for piece in [arms._carry_mag, arms._carry_shell]:
 					print("   piece vis=%s cam=%s on_screen=%s" % [piece.is_visible_in_tree(), cam.global_transform.affine_inverse() * piece.global_position, cam.unproject_position(piece.global_position)])
-				if arms._mag: print("   mag vis=%s cam=%s" % [arms._mag.is_visible_in_tree(), cam.global_transform.affine_inverse() * arms._mag.global_position])
+				if arms._parts.has("mag"): print("   mag vis=%s cam=%s" % [arms._parts.mag[0].is_visible_in_tree(), cam.global_transform.affine_inverse() * arms._parts.mag[0].global_position])
 				else: print("   mag none")
 	quit()

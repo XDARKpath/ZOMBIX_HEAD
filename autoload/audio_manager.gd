@@ -308,6 +308,23 @@ func weapon_reload(equipped: String) -> void:
 		play_sfx("weapon_reload_rifle" if _is_rifle(equipped) else "weapon_reload_pistol", -5.0)
 
 
+## Un evento della ricarica (zx_arsenal.RELOAD_STEPS): chi ricarica lo sente in 2D, gli altri dal punto `at`.
+## Volume sotto i nemici: la ricarica non deve coprire uno zombie che arriva.
+func reload_step(equipped: String, step: String, at: Variant = null) -> void:
+	var size := "rifle" if _is_rifle(equipped) else "pistol"
+	var key: String = {"mag_out": "reload_mag_out_" + size, "mag_in": "reload_mag_in_" + size,
+		"slide": "reload_bolt_rifle" if size == "rifle" else "reload_slide_pistol",
+		"shell_in": "reload_shell_in", "rounds_in": "reload_cyl_round" if equipped == "revolver" else "reload_shell_in",
+		"break_open": "reload_break_open", "break_close": "reload_break_close",
+		"cyl_open": "reload_cyl_open", "cyl_close": "reload_cyl_close",
+		"string": "reload_crossbow_string", "bolt_in": "reload_crossbow_bolt",
+		"chamber": "reload_lever" if equipped == "lever_rifle" else "reload_pump"}.get(step, "")
+	if key == "": return
+	var pitch := randf_range(0.97, 1.03)
+	if at == null: play_sfx(key, -7.0, pitch)
+	else: play_3d(key, at, -10.0, pitch, 18.0)
+
+
 func gun_empty() -> void:
 	play_sfx("gun_empty", -8.0, randf_range(0.96, 1.04))
 

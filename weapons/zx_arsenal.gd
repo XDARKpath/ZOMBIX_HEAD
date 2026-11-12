@@ -89,8 +89,47 @@ const RELOAD_SECONDS := {"pistol": 1.6, "revolver": 2.8, "flare_gun": 1.8, "nail
 	"crossbow": 2.0, "pump_shotgun": 0.6, "lever_rifle": 0.55, "grenade_launcher": 0.9}
 const SHELL_RELOAD := ["pump_shotgun", "lever_rifle", "grenade_launcher"]
 
-static func reload_seconds(equipped: String) -> float:
-	return float(RELOAD_SECONDS.get(equipped, clip_seconds(str(def(equipped).get("reload", "Player_Pistol_Reload")))))
+## Ricarica a eventi: [frazione della ricarica, evento]. Gesto (tool_motion), colpi (player.gd) e suoni leggono
+## questa tabella, così il numero sale quando il caricatore entra, non a fine clip. Una ricarica "shell" è una cartuccia.
+const RELOAD_STEPS := {
+	"mag": [[0.12, "mag_out"], [0.64, "mag_in"], [0.84, "slide"]],       # da vuoto: va riarmato il carrello
+	"mag_tac": [[0.15, "mag_out"], [0.8, "mag_in"]],                     # tattica: c'è già un colpo in canna
+	"shell": [[0.76, "shell_in"]],
+	"break": [[0.1, "break_open"], [0.6, "rounds_in"], [0.8, "break_close"]],
+	"cylinder": [[0.1, "cyl_open"], [0.62, "rounds_in"], [0.82, "cyl_close"]],
+	"string": [[0.35, "string"], [0.72, "bolt_in"]],
+}
+const FILL_STEPS := ["mag_in", "shell_in", "rounds_in", "bolt_in"]
+const TACTICAL := 0.8          # la tattica dura così tanto rispetto a quella da vuoto
+
+static func reload_kind(equipped: String) -> String:
+	return str(preload("res://player/tool_motion.gd").WEAPONS.get(equipped, {}).get("reload", "mag"))
+
+## Da vuoto o tattica: la durata lo dice anche ai client, che vedono solo reload_left.
+static func reload_seconds(equipped: String, dry := true) -> float:
+	var full := float(RELOAD_SECONDS.get(equipped, clip_seconds(str(def(equipped).get("reload", "Player_Pistol_Reload")))))
+	return full if dry or reload_kind(equipped) != "mag" else full * TACTICAL
+
+static func reload_dry(equipped: String, total: float) -> bool:
+	return total > reload_seconds(equipped, false) + 0.02
+
+static func reload_steps(equipped: String, total: float) -> Array:
+	var kind := reload_kind(equipped)
+	if kind == "mag" and not reload_dry(equipped, total): kind = "mag_tac"
+	return RELOAD_STEPS.get(kind, RELOAD_STEPS.mag)
+
+## Frazione della ricarica in cui salgono i colpi.
+static func reload_fill(equipped: String, total: float) -> float:
+	for step in reload_steps(equipped, total):
+		if step[1] in FILL_STEPS: return float(step[0])
+	return 1.0
+
+## Eventi passati fra due frazioni (from escluso, to incluso): ognuno scatta una volta sola.
+static func reload_crossed(equipped: String, total: float, from: float, to: float) -> Array:
+	var out := []
+	for step in reload_steps(equipped, total):
+		if float(step[0]) > from and float(step[0]) <= to: out.append(step[1])
+	return out
 
 static func clip_seconds(clip: String) -> float:
 	var c := curve(clip)

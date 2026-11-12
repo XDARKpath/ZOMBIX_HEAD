@@ -11,13 +11,13 @@ const WEAPONS := {
 	"spartan_sword": {"fam": "blade"}, "machete": {"fam": "blade"},
 	"crowbar": {"fam": "blunt"}, "nail_bat": {"fam": "blunt"}, "frying_pan": {"fam": "blunt"}, "baguette": {"fam": "blunt"}, "trout": {"fam": "blunt"}, "rubber_chicken": {"fam": "blunt"},
 	"knife": {"fam": "knife"}, "combat_knife": {"fam": "knife"},
-	"pistol": {"fam": "pistol", "rec": [1.6, 2.6], "reload": "mag"}, "revolver": {"fam": "pistol", "rec": [2.2, 4.2], "reload": "break"},
+	"pistol": {"fam": "pistol", "rec": [1.6, 2.6], "reload": "mag"}, "revolver": {"fam": "pistol", "rec": [2.2, 4.2], "reload": "cylinder"},
 	"flare_gun": {"fam": "pistol", "rec": [1.4, 3.4], "reload": "break"}, "nailgun": {"fam": "pistol", "rec": [0.6, 0.9], "reload": "mag"},
 	"smg": {"fam": "smg", "rec": [0.7, 1.0], "reload": "mag"},
 	"assault_rifle": {"fam": "rifle", "rec": [1.0, 1.4], "reload": "mag"}, "lmg": {"fam": "rifle", "rec": [1.2, 1.1], "reload": "mag"},
 	"sniper_rifle": {"fam": "rifle", "rec": [3.0, 3.6], "reload": "mag", "cycle": "bolt"}, "tesla_rifle": {"fam": "rifle", "rec": [0.5, 0.6], "reload": "mag"},
 	"pump_shotgun": {"fam": "rifle", "rec": [3.2, 4.2], "reload": "shell", "cycle": "pump"}, "lever_rifle": {"fam": "rifle", "rec": [2.2, 3.0], "reload": "shell", "cycle": "lever"},
-	"sawn_off": {"fam": "smg", "rec": [3.8, 5.2], "reload": "break"}, "crossbow": {"fam": "rifle", "rec": [0.8, 1.0], "reload": "shell"},
+	"sawn_off": {"fam": "smg", "rec": [3.8, 5.2], "reload": "break"}, "crossbow": {"fam": "rifle", "rec": [0.8, 1.0], "reload": "string"},
 	"grenade_launcher": {"fam": "hip", "rec": [2.8, 3.4], "reload": "shell"}, "leaf_blower": {"fam": "hip", "rec": [0.15, 0.1], "reload": "mag"},
 }
 const GUNS := ["pistol", "smg", "rifle", "hip"]
@@ -273,6 +273,11 @@ var mag_out := 0.0
 var slide_back := 0.0
 # Cosa tiene la sinistra durante la ricarica: "mag" (caricatore nuovo), "shell" (cartuccia) o "".
 var carry := ""
+var open := 0.0                          # canne spezzate, tamburo fuori o coperchio alzato (0-1)
+var reload_total := 0.0                  # durata vera della ricarica in corso: dice se è da vuoto (lo imposta chi chiama tick)
+var _steps: Array = []
+var _r := -1.0
+var _aim_w := 0.0
 var left_shift := Vector3.ZERO
 var edge_w := 0.0
 var walk := 0.0                          # da 0 a 1: il passo fa ondeggiare l'arma (da fuori; la prima persona ha il suo)
@@ -452,6 +457,13 @@ func shot(aiming: bool = false) -> void:
 	if WEAPONS[id].has("cycle"): _cycle = 0.0
 
 
+## Fine di una ricarica da vuoto a cartucce: pompa o leva armano il primo colpo. Vero se l'arma ha il gesto.
+func chamber() -> bool:
+	if not WEAPONS[id].has("cycle"): return false
+	_cycle = 0.0
+	return true
+
+
 static func _basis(row: Array) -> Quaternion:
 	var y: Vector3 = (row[1] as Vector3).normalized()
 	var x: Vector3 = row[2]
@@ -501,6 +513,9 @@ func tick(delta: float, swing: Array, charge: float, guard: bool, sprint: bool, 
 	var rate := 11.0
 	mag_out = 0.0
 	slide_back = 0.0
+	open = 0.0
+	_r = reload
+	_aim_w = move_toward(_aim_w, 1.0 if aim and reload < 0.0 and is_gun() else 0.0, delta / 0.14)
 	carry = ""
 	left_shift = Vector3.ZERO
 	if not is_gun():
@@ -522,11 +537,12 @@ func tick(delta: float, swing: Array, charge: float, guard: bool, sprint: bool, 
 		var reload_pose: Array = RELOAD_OUT.get(kind, table["reload"]) if outside else table["reload"]
 		goal_p = reload_pose[0]
 		goal_r = _basis(reload_pose)
-		if reload > 0.9:
-			goal_p = table["idle"][0]
+		_steps = load("res://weapons/zx_arsenal.gd").reload_steps(id, reload_total)
+		if reload > float(_steps[-1][0]) + 0.1 and WEAPONS[id].get("reload", "mag") != "shell":
+			goal_p = table["idle"][0]          # assestamento: l'arma torna in guardia dopo l'ultimo gesto
 			goal_r = _basis(table["idle"])
 		rate = 14.0
-		_reload_hands(reload, delta)
+		goal_r = goal_r * _reload_hands(reload, delta)
 	elif aim:
 		goal_p = Vector3(0.0, -sight, table["aim"][0].z)
 		goal_r = _basis(table["aim"])
@@ -568,29 +584,105 @@ func tick(delta: float, swing: Array, charge: float, guard: bool, sprint: bool, 
 	_spring_r += _spring_rv * delta
 
 
-## La sinistra durante la ricarica: un caricatore nuovo, una cartuccia alla volta, o l'arma che si spezza.
-func _reload_hands(reload: float, delta: float) -> void:
+## La sinistra durante la ricarica, sugli eventi di zx_arsenal.RELOAD_STEPS: il gesto cade dove salgono i colpi.
+## Ritorna quanto ruota l'arma (spazio dell'arma: +X destra, +Y volata, +Z alto).
+func _reload_hands(r: float, delta: float) -> Quaternion:
+	var turn := Quaternion.IDENTITY
 	match str(WEAPONS[id].get("reload", "mag")):
 		"shell":
 			# Una ricarica = una cartuccia (player.gd riparte per la successiva): la mano va alla tasca,
-			# torna con la cartuccia e la spinge nel tubo sotto la canna; la spinta dà un piccolo colpo all'arma.
-			var c: float = sin(clampf(reload / 0.85, 0.0, 1.0) * PI)
+			# torna con la cartuccia e la spinge nel tubo; la spinta dà un piccolo colpo all'arma.
+			var push := _step("shell_in")
+			var c: float = sin(clampf(r / (push + 0.09), 0.0, 1.0) * PI)
 			left_shift = Vector3(-0.04, -0.09, -0.03) * c + Vector3(0, -support * 0.4, 0.04)   # resta in vista sotto la finestra
-			if reload > 0.3 and reload < 0.78: carry = "shell"
-			if reload > 0.74 and reload < 0.8: _spring_pv.y += 0.25 * delta * 30.0
-		"break":
-			var away := smoothstep(0.15, 0.3, reload) * (1.0 - smoothstep(0.55, 0.72, reload))
+			if r > 0.3 and r < push + 0.02: carry = "shell"
+			if r > push and r < push + 0.05: _spring_pv.y += 0.25 * delta * 30.0
+		"break", "cylinder":
+			# Si apre (doppietta: volata giù; tamburo: arma ruotata a sinistra e su per far cadere i bossoli),
+			# la sinistra torna con i colpi, li infila, poi un colpo secco richiude.
+			var open_at := _step("break_open") if _step("break_open") >= 0.0 else _step("cyl_open")
+			var fill := _step("rounds_in")
+			var shut := _step("break_close") if _step("break_close") >= 0.0 else _step("cyl_close")
+			var o := smoothstep(open_at - 0.04, open_at + 0.08, r) * (1.0 - smoothstep(shut - 0.03, shut + 0.02, r))
+			open = o
+			var away := smoothstep(open_at + 0.1, open_at + 0.22, r) * (1.0 - smoothstep(fill - 0.2, fill - 0.06, r))
 			left_shift = Vector3(-0.05, -0.03, -0.14) * away
-			slide_back = smoothstep(0.1, 0.2, reload) * (1.0 - smoothstep(0.78, 0.86, reload))
+			if r > open_at + 0.22 and r < fill: carry = "shell"
+			if WEAPONS[id].reload == "cylinder":
+				var dump := smoothstep(open_at + 0.05, open_at + 0.14, r) * (1.0 - smoothstep(open_at + 0.2, open_at + 0.3, r))
+				turn = Quaternion(Vector3.UP, -0.55 * o) * Quaternion(Vector3.RIGHT, 0.6 * dump)
+			else:
+				turn = Quaternion(Vector3.RIGHT, -0.5 * o)
+			if r > shut and r < shut + 0.04: _spring_rv.x += 1.2 * delta * 30.0
+		"string":
+			# Balestra: la volata va giù, la sinistra tende la corda verso il calcio, poi appoggia il dardo.
+			var pull := _step("string")
+			var load_at := _step("bolt_in")
+			var down := smoothstep(0.02, 0.15, r) * (1.0 - smoothstep(load_at + 0.05, load_at + 0.15, r))
+			turn = Quaternion(Vector3.RIGHT, -0.45 * down)
+			var tug := smoothstep(0.12, pull, r) * (1.0 - smoothstep(pull + 0.02, pull + 0.12, r))
+			left_shift = Vector3(0, -support - 0.05, 0.05) * tug
+			if r > pull + 0.08 and r < load_at: carry = "shell"
+			if r > pull and r < pull + 0.04: _spring_pv.z += 0.3 * delta * 30.0
 		_:
-			mag_out = smoothstep(0.1, 0.34, reload) * (1.0 - smoothstep(0.56, 0.68, reload))
-			# La sinistra scende a prendere il caricatore, lo infila e poi tira indietro il carrello.
-			var away := smoothstep(0.2, 0.34, reload) * (1.0 - smoothstep(0.48, 0.66, reload))
-			var rack := smoothstep(0.72, 0.78, reload) * (1.0 - smoothstep(0.9, 0.96, reload))
-			left_shift = Vector3(-0.06, 0.06, 0.0) * away + Vector3(-0.03, -support * 0.5, 0.12) * rack   # sale col caricatore nuovo, in vista
-			slide_back = smoothstep(0.78, 0.86, reload) * (1.0 - smoothstep(0.87, 0.89, reload))
-			if reload > 0.68 and reload < 0.74: _spring_pv.y += 0.4 * delta * 30.0       # il palmo chiude il caricatore
-			if reload > 0.38 and reload < 0.62: carry = "mag"                               # il caricatore nuovo in mano
+			var o := _step("mag_out")
+			var i := _step("mag_in")
+			var s := _step("slide")
+			# Il vecchio scivola fuori dal pozzetto, il nuovo sale e il palmo lo chiude in i.
+			mag_out = smoothstep(o - 0.02, o + 0.18, r) * (1.0 - smoothstep(i - 0.1, i, r))
+			open = smoothstep(o - 0.08, o, r) * (1.0 - smoothstep(i + 0.04, i + 0.12, r))     # coperchio della mitragliatrice
+			var away := smoothstep(o + 0.06, o + 0.2, r) * (1.0 - smoothstep(i - 0.22, i - 0.06, r))
+			if r > o + 0.22 and r < i - 0.06: carry = "mag"
+			if r > i and r < i + 0.05: _spring_pv.y += 0.4 * delta * 30.0
+			var rack := 0.0
+			if s >= 0.0:      # solo da vuoto: la sinistra tira indietro il carrello e lo lascia andare in s
+				rack = smoothstep(s - 0.12, s - 0.05, r) * (1.0 - smoothstep(s + 0.04, s + 0.1, r))
+				slide_back = smoothstep(s - 0.07, s - 0.01, r) * (1.0 - smoothstep(s, s + 0.02, r))
+			left_shift = Vector3(-0.06, 0.06, 0.0) * away + Vector3(-0.03, -support * 0.5, 0.12) * rack
+	return turn
+
+
+## Parti mobili del glb (nodi separati con il pivot vero): [nodo, trasformazione di riposo] per ruolo.
+## La balestra chiama "Bolt" il dardo; il fucile di precisione l'otturatore.
+static func find_parts(item: Node3D, weapon: String) -> Dictionary:
+	var parts := {}
+	if item == null: return parts
+	var roles := {"mag": ["*_Mag"], "slide": ["*_Slide", "*_Charging", "*_Knob"], "hinge": ["*_Barrels", "*_Barrel"], "cover": ["*_Cover"]}
+	if weapon == "crossbow": roles["dart"] = ["*_Bolt"]
+	else: roles["slide"].append("*_Bolt")
+	if weapon == "revolver": roles["cylinder"] = ["*_Cylinder"]
+	for role in roles:
+		for pattern in roles[role]:
+			var n := item.find_child(pattern, true, false) as Node3D
+			if n:
+				parts[role] = [n, n.transform]
+				break
+	return parts
+
+
+## Mette le parti dove dice la ricarica. `slide` aggiunge il carrello tenuto aperto da fuori (sparo, arma vuota);
+## `loaded` dice se c'è un dardo sulla balestra. Corse prese dalle clip Wep_Reload dei modelli.
+func pose_parts(parts: Dictionary, slide: float, loaded: bool) -> void:
+	if parts.has("mag"):
+		var m: Array = parts.mag
+		m[0].position = (m[1] as Transform3D).origin + Vector3(0, -0.15, 0) * mag_out
+		m[0].visible = mag_out < 0.98
+	if parts.has("slide") and (slide > 0.0 or _r >= 0.0 or not WEAPONS[id].has("cycle")):    # pompa, leva, otturatore: anche Wep_Fire
+		parts.slide[0].position = (parts.slide[1] as Transform3D).origin + Vector3(0, 0, 0.035) * maxf(slide_back, slide)
+	if parts.has("hinge"):
+		parts.hinge[0].transform = parts.hinge[1] * Transform3D(Basis(Vector3.RIGHT, -0.66 * open), Vector3.ZERO)
+	if parts.has("cover"):
+		parts.cover[0].transform = parts.cover[1] * Transform3D(Basis(Vector3.RIGHT, 1.2 * open), Vector3.ZERO)
+	if parts.has("cylinder"):
+		parts.cylinder[0].position = (parts.cylinder[1] as Transform3D).origin + Vector3(-0.04, -0.02, 0) * open
+	if parts.has("dart"):
+		parts.dart[0].visible = loaded or (_r >= 0.0 and _r >= _step("bolt_in"))
+
+
+func _step(name: String) -> float:
+	for step in _steps:
+		if step[1] == name: return float(step[0])
+	return -1.0
 
 
 ## La posa finale dell'arma, con il rinculo e il respiro, nello spazio della camera.
@@ -601,7 +693,7 @@ func frame() -> Transform3D:
 	var at := pos
 	if not outside and kind != "axe":
 		at.z = minf(at.z, -0.3)
-		at.y = minf(at.y, 0.03) - 0.04
+		at.y = minf(at.y, 0.03) - 0.04 * (1.0 - _aim_w)     # mirando la tacca resta sulla linea dell'occhio
 	return Transform3D(Basis(q * rot), at + _spring_p * 0.1 + Vector3(0, sin(_clock * 1.6) * 0.003, 0) + step)
 
 
