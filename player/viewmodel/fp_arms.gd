@@ -42,6 +42,9 @@ const GRIP_OFFSET := {"runic_axe": 0.42, "spartan_sword": 0.09}
 ## Quanto arrivano davvero le braccia di questo rig, dalla spalla al polso.
 const ARM_REACH := 0.57
 const SHOULDER_FORWARD := Vector3(0, -0.02, -0.15)
+## Con l'arma da fuoco le spalle (fuori inquadratura) vanno più avanti: la sinistra arriva al paramano senza tirare l'arma nell'occhio.
+const PISTOL_FIST := Vector3(0, 0, 0.03)
+const GUN_SHOULDER_FORWARD := Vector3(0, -0.03, -0.26)
 const KICK_ARMS_SHIFT := Vector3(0.12, -0.07, 0.02)   # dove va l'arma mentre calci
 const KICK_LEG_RAISE := Vector3(0, 0.14, -0.05)       # la gamba sale in campo: il piede arriva a metà schermo
 const INTER_LIFT :=Vector3(0.04, 0.24, -0.04)    # quanto sale la spalla sinistra mentre raccogli (spazio dello scheletro)
@@ -538,7 +541,7 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 	# Le spalle sono fuori dall'inquadratura: portarle avanti allunga il braccio senza che si veda, e la mano arriva sulla canna.
 	for side in ["r", "l"]:
 		var shoulder := skeleton.find_bone("upperarm_" + side)
-		skeleton.set_bone_pose_position(shoulder, (_rest[shoulder][1] as Vector3).lerp((_rest[shoulder][1] as Vector3) + SHOULDER_FORWARD, _tool_w))
+		skeleton.set_bone_pose_position(shoulder, (_rest[shoulder][1] as Vector3).lerp((_rest[shoulder][1] as Vector3) + (GUN_SHOULDER_FORWARD if _gun else SHOULDER_FORWARD), _tool_w))
 	skeleton.force_update_all_bone_transforms()
 	var w: Transform3D = _reachable(_motion.frame())
 	_swing_trail(w, not row.is_empty() and melee.attack_time >= melee.active_windup * 0.6 and melee.attack_time <= melee.active_windup + melee.active_seconds + 0.12)
@@ -547,7 +550,8 @@ func _tool_pose(delta: float, pose: Dictionary, kicking: bool) -> void:
 	var inside := parent.affine_inverse() * w
 	_blend_bone(slot, pose, inside.basis.get_rotation_quaternion(), inside.origin)
 	skeleton.force_update_all_bone_transforms()
-	_tool_arm("r", w, _motion.grip("r"), Vector3.ZERO, Vector3(0.5, -1.0, 0.2), pose)
+	# Sulle impugnature corte il pugno di queste braccia resta basso: sale a riempire l'impugnatura (come tool_rig da fuori).
+	_tool_arm("r", w, _motion.grip("r"), PISTOL_FIST if _motion.kind == "pistol" else Vector3.ZERO, Vector3(0.5, -1.0, 0.2), pose)
 	var left: Dictionary = _motion.grip("l")
 	if _inter == "" and not left.is_empty(): _tool_arm("l", w, left, _motion.left_shift, Vector3(-0.5, -1.0, 0.2), pose)
 	skeleton.force_update_all_bone_transforms()
@@ -602,6 +606,17 @@ func _reachable(w: Transform3D) -> Transform3D:
 	var fist: Array = ToolMotion.fist_for(w, _motion.grip("r"), "r", shoulder, Vector3.UP, 0.078, 0.029, ARM_REACH, Vector3.ZERO, _motion.edge_w)
 	var gap: Vector3 = (fist[0] as Vector3) - shoulder
 	if gap.length() > ARM_REACH: w.origin -= gap.normalized() * (gap.length() - ARM_REACH)
+	# La sinistra va sul suo appoggio vero: se non ci arriva è l'arma che arretra lungo la canna verso la spalla
+	# (calcio in spalla), non la mano che scivola indietro sotto il castello.
+	var left: Dictionary = _motion.grip("l")
+	if _motion.is_gun() and not left.is_empty():
+		var left_shoulder: Vector3 = skeleton.get_bone_global_pose(skeleton.find_bone("upperarm_l")).origin
+		var barrel: Vector3 = (w.basis * Vector3.UP).normalized()
+		for i in 3:
+			var hand: Array = ToolMotion.fist_for(w, left, "l", left_shoulder, Vector3.UP, 0.078, 0.029, 99.0, _motion.left_shift, _motion.edge_w)
+			var over: float = ((hand[0] as Vector3) - left_shoulder).length() - (ARM_REACH - 0.01)
+			if over <= 0.0: break
+			w.origin -= barrel * over
 	return w
 
 

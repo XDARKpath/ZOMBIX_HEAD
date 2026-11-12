@@ -179,6 +179,16 @@ func _process_modification() -> void:
 		local += LONG_GUN_SHIFT          # calcio sulla spalla destra: la sinistra arriva al paramano senza torcere il polso
 	var w := Transform3D(turn * flip * f.basis, rest.origin + turn * (local - rest.origin) + (chest.origin - rest.origin))
 	var up := turn * Vector3.UP
+	# Come in prima persona: se la sinistra non arriva al suo appoggio è l'arma che arretra lungo la canna, non la mano.
+	var left_row: Dictionary = motion.grip("l")
+	if motion.is_gun() and not left_row.is_empty():
+		var shoulder: Vector3 = sk.get_bone_global_pose(_ids["upperarm_l"]).origin
+		var barrel: Vector3 = (w.basis * Vector3.UP).normalized()
+		for i in 3:
+			var hand: Array = _fist(sk, "l", w, left_row, motion.left_shift, up, 99.0)
+			var over: float = ((hand[0] as Vector3) - shoulder).length() - (ARM_REACH - 0.01)
+			if over <= 0.0: break
+			w.origin -= barrel * over
 	if _left_w < 1.0:
 		# Mano libera: lungo il fianco, segue il busto ma non vola via con la clip.
 		# Durante il colpo a una mano la sinistra si apre per bilanciare, dalla parte opposta all'ascia.
@@ -373,10 +383,10 @@ func _hand_basis(sk: Skeleton3D, side: String, fingers: Vector3, palm: Vector3) 
 	return ArmIk.align(rest_f, rest_p, fingers, palm) * r_ha.basis.orthonormalized()
 
 
-func _fist(sk: Skeleton3D, side: String, w: Transform3D, grip: Dictionary, shift: Vector3, up: Vector3) -> Array:
+func _fist(sk: Skeleton3D, side: String, w: Transform3D, grip: Dictionary, shift: Vector3, up: Vector3, longest := ARM_REACH) -> Array:
 	# Questa mano è più grande di quella in prima persona: sulla pistola sale per riempire l'impugnatura.
 	var place: Vector3 = shift + (Vector3(0, 0, 0.03) if motion.is_gun() and (side == "r" or motion.kind == "pistol") else Vector3.ZERO)
-	return ToolMotion.fist_for(w, grip, side, sk.get_bone_global_pose(_ids["upperarm_" + side]).origin, up, 0.095, 0.035, ARM_REACH, place, motion.edge_w)
+	return ToolMotion.fist_for(w, grip, side, sk.get_bone_global_pose(_ids["upperarm_" + side]).origin, up, 0.095, 0.035, longest, place, motion.edge_w)
 
 
 func _reach(sk: Skeleton3D, side: String, wrist: Vector3, fingers: Vector3, palm: Vector3, pole: Vector3, weight: float) -> void:
