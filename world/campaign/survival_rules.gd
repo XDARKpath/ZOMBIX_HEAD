@@ -523,7 +523,8 @@ func act(peer:int,action:String) -> bool:
 		var cost:int=slot_price()
 		if a.inventory_slots>=MAX_SLOTS or a.credits<cost:return false
 		a.credits-=cost;a.inventory_slots+=1;_publish()
-		world.announce(Localization.t("ZAINO PIÙ GRANDE · {0} SLOT",[a.inventory_slots]),4);return true
+		world.announce(Localization.t("ZAINO PIÙ GRANDE · {0} SLOT",[a.inventory_slots]),4)
+		a.deliver_reserve();_publish();return true
 	if action.begins_with("buyup:"):
 		var kind:String=action.get_slice(":",1)
 		var zone:int=shop_zone(a)
@@ -586,7 +587,7 @@ func _publish() -> void:
 	_refresh_heads()
 	var inventory:Array=[]
 	for peer in world.actors:
-		var a:CharacterBody3D=world.actors[peer];inventory.append([peer,a.credits,a.carried_heads,a.owned,a.equipped,a.baits,a.arrows,a.items,a.hotbar,a.slot,a.inventory_slots,a.health_ups,a.stamina_ups])
+		var a:CharacterBody3D=world.actors[peer];inventory.append([peer,a.credits,a.carried_heads,a.owned,a.equipped,a.baits,a.arrows,a.items,a.hotbar,a.slot,a.inventory_slots,a.health_ups,a.stamina_ups,a.reserve])
 	if Session.online and multiplayer.is_server():
 		for peer in Session.connected_peers():sync.rpc_id(peer,heads,inventory,threat,world.roadblocks.triggered,world.roadblocks.cleared);thrown_sync.rpc_id(peer,_thrown_rows())
 @rpc("authority","call_remote","reliable")
@@ -605,6 +606,7 @@ func sync(items:Array,inventory:Array,tier:int,road_started:Array,road_open:Arra
 			a.items=row[7].duplicate();a.hotbar.assign(row[8]);a.slot=row[9];a.inventory_slots=row[10]
 		if row.size()>12:
 			a.health_ups=row[11].duplicate();a.stamina_ups=row[12].duplicate()
+		if row.size()>13:a.reserve=row[13].duplicate()
 func _build_shop() -> void:
 	shop_ui=Control.new()
 	shop_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

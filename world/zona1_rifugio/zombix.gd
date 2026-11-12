@@ -122,6 +122,8 @@ func continue_save() -> void:
 
 func _begin_play() -> void:
 	super._begin_play()
+	for a in actors.values():
+		if not a.reserve_moved.is_connected(reserve_notice):a.reserve_moved.connect(reserve_notice)
 	if expedition: expedition.start()
 	if survival:survival.reset()
 	if zone_life:zone_life.reset()
@@ -324,24 +326,30 @@ func nearest_player(at:Vector3) -> CharacterBody3D:
 func below_ground_ok() -> bool:
 	return rocca!=null and rocca.entrance_node!=null and player.global_position.distance_to(rocca.entrance_node.global_position)<16.0
 
-## Tutti i colpi ai giocatori passano da qui (solo host). fx: knock (spinta), shake, heavy, e i secondi di poison, bleed, stun, slow, fear.
+## Tutti i colpi ai giocatori passano da qui (solo host). fx: knock (spinta), shake, heavy (colpo pesante: si para a metà),
+## env (fuoco, acido, veleno, pozze: non si para), e i secondi di poison, bleed, stun, slow, fear.
+## from è da dove arriva il colpo: la parata vale solo davanti (player.gd resolve_guard).
 func hit_player(a:CharacterBody3D,amount:float,fx:Dictionary,from:Vector3) -> bool:
 	if a.dead:return false
-	var guarded:bool=a.melee.blocking and a.stamina>0.0
-	if amount>0.0 and not a.take_damage(amount):return false
-	var push:Vector3=fx.get("knock",Vector3.ZERO)
-	if guarded:push*=0.35
+	var kind:String="env" if fx.get("env",false) else ("heavy" if fx.get("heavy",false) else "hit")
+	if amount>0.0:
+		if not a.take_damage(amount,from,kind):return false
+	else:a.last_guard=a.resolve_guard(0.0,from,kind)
+	# Un solo esito per danno, spinta ed effetti: la parata tiene lontano morso e veleno e dimezza lo stordimento.
+	var guard:Dictionary=a.last_guard
+	var push:Vector3=fx.get("knock",Vector3.ZERO)*float(guard.push)
 	a.knock(push)
-	# La parata tiene lontano il morso e il veleno, ma non lo schianto che ti stordisce.
-	for kind in ["poison","bleed","slow","fear"]:
-		if fx.has(kind) and not guarded:a.status.add(kind,float(fx[kind]))
-	if fx.has("stun"):a.status.add("stun",float(fx["stun"])*(0.5 if guarded else 1.0))
+	for effect in ["poison","bleed","slow","fear"]:
+		if fx.has(effect) and not guard.shield:a.status.add(effect,float(fx[effect]))
+	if fx.has("stun"):a.status.add("stun",float(fx["stun"])*float(guard.stun))
 	var heavy:bool=fx.get("heavy",false)
 	var shake:float=float(fx.get("shake",0.2))
 	if heavy:a.set_meta("hit_heavy_until",Time.get_ticks_msec()+500)
 	var peer:int=actors.find_key(a) if actors.values().has(a) else 0
 	if a==player:_feel_hit(from,shake)
-	elif Session.online and peer>0:hit_feedback.rpc_id(peer,from,shake,push)
+	elif Session.online and peer>0:
+		hit_feedback.rpc_id(peer,from,shake,push)
+		if guard.result!=a.GUARD_NONE:guard_seen.rpc_id(peer,int(guard.result))
 	if Session.online and multiplayer.is_server():
 		for other in Session.connected_peers():
 			if heavy:heavy_hit_seen.rpc_id(other,peer)
@@ -368,6 +376,26 @@ func _feel_hit(from:Vector3,shake:float) -> void:
 func hit_feedback(from:Vector3,shake:float,push:Vector3) -> void:
 	_feel_hit(from,shake)
 	player.knock(push)
+
+## Sul client colpito: la parata o la guardia rotta decise dall'host, per l'HUD e il suono.
+@rpc("authority","call_remote","reliable")
+func guard_seen(result:int) -> void:
+	if result==player.GUARD_BLOCKED:AudioManager.play_sfx("weapon_hit_guard",-7.0,randf_range(0.92,1.08))
+	elif result==player.GUARD_BROKEN:AudioManager.play_sfx("weapon_hit_guard",-3.0,0.6)
+	player.guard_result.emit(result)
+
+## Premi senza tasca (player.gd reserve): chi li riceve legge quanti sono e dove vanno.
+func reserve_notice(a:CharacterBody3D,id:String,count:int,pocket:int) -> void:
+	var peer:int=actors.find_key(a) if actors.values().has(a) else 0
+	if a==player:reserve_seen(id,count,pocket)
+	elif Session.online and multiplayer.is_server() and peer>0:reserve_seen.rpc_id(peer,id,count,pocket)
+
+@rpc("authority","call_remote","reliable")
+func reserve_seen(id:String,count:int,pocket:int) -> void:
+	var title:=ItemInfo.title(id).to_upper()
+	# In coda (tip): non copre l'avviso del premio e non viene coperto.
+	if pocket<0:tip(Localization.t("TASCHE PIENE · {0} ×{1} IN RISERVA · ENTRA DA SOLO NELLA PRIMA TASCA LIBERA",[title,count]),6)
+	else:tip(Localization.t("DALLA RISERVA · {0} ×{1} NELLA TASCA {2}",[title,count,pocket+1]),4)
 
 @rpc("authority","call_remote","reliable")
 func heavy_hit_seen(peer:int) -> void:

@@ -128,11 +128,7 @@ func on_boss(index: int) -> void:
 	var actor: CharacterBody3D = world.nearest_player(at) if index < 2 else _inside_actor()
 	var head: String = BOSS_HEADS[index]
 	if is_instance_valid(actor):
-		if actor.can_take(head): actor.add_item(head)
-		else:
-			var spot := Transform3D(Basis(), actor.global_position + Vector3.UP)
-			world.survival.heads.append([world.survival.next_head, "res://art/zx_infected/ZMB_Walker_1.glb", spot, actor.global_position + Vector3(0.6, 0.18, 0.6), head])
-			world.survival.next_head += 1
+		actor.add_item(head)   # con le tasche piene va in riserva (player.gd): si salva e non si perde
 	world.survival._publish()
 	world.announce(Localization.t("{0} È MORTO · Hai la sua testa e {1} del 4×4. Torna dallo sceriffo.", [Localization.t(BOSS_NAMES[index]), Localization.t(PARTS[index])]), 8)
 	if stage == FOREST_BOSS and index == 0: _go(BRING_FOREST)
