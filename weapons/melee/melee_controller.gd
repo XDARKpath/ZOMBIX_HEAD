@@ -110,7 +110,7 @@ func _physics_process(delta: float) -> void:
 		# Le armi automatiche sparano finché tieni premuto.
 		if player.local_control and player.controls_enabled and Input.is_action_pressed("attack") and Arsenal.def(player.equipped).get("auto", false) and player.reload_left <= 0.0 and player.magazine > 0:
 			charging = false
-			perform_attack(false)
+			if begin_charge(): release_attack()      # passa da charge/release: l'host riceve ogni colpo del client
 		if _queued:
 			_queued = false
 			if begin_charge(): release_attack()
@@ -139,10 +139,20 @@ func _physics_process(delta: float) -> void:
 			_last_end = _clock
 
 func begin_charge() -> bool:
-	if attacking or charging or player.dead or player.dodging or player.seated or player.reload_left>0:
+	if attacking or charging or player.dead or player.dodging or player.seated:
 		return false
 	# Oggetti in mano e mani vuote non colpiscono: gli oggetti si usano (survival_rules, tasto sinistro).
 	if player.equipped == "" or player.equipped.begins_with("item_"):
+		return false
+	var gun := Arsenal.is_gun(player.equipped)
+	var interrupt: bool = gun and player.reload_left > 0 and player.magazine > 0 and player.equipped in Arsenal.SHELL_RELOAD
+	if player.reload_left > 0 and not interrupt:
+		return false
+	# Grilletto a vuoto (cilecca + ricarica) o pompa interrotta: lo decide subito perform_attack.
+	# charge_started arriva all'host come "charge", così lo fa anche lì e nessuno resta in carica.
+	if interrupt or (gun and player.magazine <= 0):
+		charge_started.emit()
+		perform_attack(false)
 		return false
 	if player.equipped == "bow":
 		if player.arrows <= 0:
@@ -156,8 +166,8 @@ func begin_charge() -> bool:
 	# Zombie addosso (meno di 1 m): calcio frontale per riprendere la distanza giusta dell'ascia.
 	if tool_in_hand() and _kick_target():
 		return perform_kick()
-	# Con ascia e pala si attacca anche sfiniti: il colpo esce lento e pesante (Axe_Tired).
-	if player.stamina < Weapon.stamina_cost and not (tool_in_hand() and player.stamina > 0.0):
+	# Con ascia e pala si attacca anche sfiniti: il colpo esce lento e pesante (Axe_Tired). Sparare non costa stamina.
+	if not gun and player.stamina < Weapon.stamina_cost and not (tool_in_hand() and player.stamina > 0.0):
 		attack_rejected.emit("Riprendi fiato.")
 		return false
 	charging = true
@@ -190,7 +200,7 @@ func perform_attack(charged: bool) -> bool:
 	if player.seated or player.reload_left>0:return false
 	if tier=="gun" and player.magazine<=0:
 		# A caricatore vuoto il grilletto fa cilecca e parte da solo la ricarica.
-		AudioManager.gun_empty()
+		if player.local_control: AudioManager.gun_empty()
 		player.reload_weapon()
 		return false
 	if attacking or player.dead or player.dodging or player.stamina < cost:
