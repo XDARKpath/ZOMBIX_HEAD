@@ -106,7 +106,10 @@ func _search() -> void:
 	var flat := Vector2(global_position.x - last_seen.x, global_position.z - last_seen.z).length()
 	if _search_at == Vector3.INF:
 		agent.target_position = last_seen
-		if flat > 1.5: return
+		# Sta ancora andando a vedere: non dimentica a metà strada (al massimo 30 s; se si incastra ci pensa lo sblocco).
+		if flat > 1.5:
+			if clock - _contact_at < 30.0: memory = maxf(memory, 1.0)
+			return
 		memory = maxf(memory, 6.0)        # arrivato sul posto: ancora qualche secondo per cercare
 	elif Vector2(global_position.x - _search_at.x, global_position.z - _search_at.z).length() > 1.2 and clock < _search_until:
 		return
