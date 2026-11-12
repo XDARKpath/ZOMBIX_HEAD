@@ -20,6 +20,7 @@ var sell_auto:bool=false
 var sold_once:bool=false
 ## Vendita: il gesto parte subito in locale, il pagamento (+N, testo, testa sul banco) solo con il sì dell'host (sale_result).
 var sell_wait:int=0
+var sell_wait_ms:int=0
 var sell_serial:int=0
 var sell_id:String=""
 var sell_from_hold:bool=false
@@ -782,7 +783,7 @@ func _hand_over() -> void:
 	if id=="" or sell_wait>0:return
 	if world.player.equipped!=id or not sell_ready() or (sell_from_hold and not Input.is_action_pressed("sell")):
 		sell_auto=false;return
-	sell_serial+=1;sell_wait=sell_serial
+	sell_serial+=1;sell_wait=sell_serial;sell_wait_ms=Time.get_ticks_msec()
 	request("sell:%s:%d"%[id,sell_serial])
 func _on_released(kind:String,id:String) -> void:
 	if kind=="Throw":request("throw:%s:%f"%[id,throw_force])
@@ -835,6 +836,10 @@ func _inventory_tick(delta:float) -> void:
 			var rows:=_thrown_rows()
 			for peer in Session.connected_peers():thrown_state.rpc_id(peer,rows)
 func _process(delta:float) -> void:
+	# Nessuna risposta dall'host in 3 s (disconnessione a metà): si sblocca la vendita. Una risposta tardiva viene ignorata,
+	# l'inventario arriva comunque col sync.
+	if sell_wait>0 and Time.get_ticks_msec()-sell_wait_ms>3000:
+		sell_wait=0;sell_auto=false
 	if not world:return
 	if world.started:_inventory_tick(delta)
 	# Prima volta che ti avvicini allo sceriffo: ti ferma lui.
