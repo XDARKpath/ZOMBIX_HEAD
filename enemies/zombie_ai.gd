@@ -45,6 +45,10 @@ var recoveries := {}               # quante volte ha usato ogni passo (letto dai
 var _recover_dir := Vector3.ZERO
 var _recover_left := 0.0
 var _give_up_until := 0.0
+var searched := 0                  # punti di ricerca visitati dopo averti perso (letto dai test)
+var _contact_at := -99.0
+var _search_at := Vector3.INF
+var _search_until := 0.0
 var _probe_clock: float = 0.0
 var _climb_top: float = -INF
 var _climb_left: float = 0.0
@@ -81,6 +85,41 @@ func use_brain(style: String) -> void:
 	brain.setup(self, world, style)
 
 
+## Percezione valida (vista o rumore): aggiorna dove crede che tu sia e quanto se lo ricorda.
+func _contact(at: Vector3, remember: float) -> void:
+	last_seen = at
+	memory = maxf(memory, remember)
+	_contact_at = clock
+	_search_at = Vector3.INF
+
+
+## Vista durante l'inseguimento: testa o fianchi liberi bastano (una cassetta bassa non ti nasconde, un muro sì).
+func _glimpse(candidate: CharacterBody3D) -> bool:
+	var eye := global_position + Vector3.UP * 1.3
+	for h in [1.6, 0.6]:
+		if _hit_at(eye, candidate.global_position + Vector3.UP * h).is_empty(): return true
+	return false
+
+
+## Perso di vista: va dove ti ha visto l'ultima volta, poi gira lì attorno finché se lo ricorda.
+func _search() -> void:
+	var flat := Vector2(global_position.x - last_seen.x, global_position.z - last_seen.z).length()
+	if _search_at == Vector3.INF:
+		agent.target_position = last_seen
+		# Sta ancora andando a vedere: non dimentica a metà strada (al massimo 30 s; se si incastra ci pensa lo sblocco).
+		if flat > 1.5:
+			if clock - _contact_at < 30.0: memory = maxf(memory, 1.0)
+			return
+		memory = maxf(memory, 6.0)        # arrivato sul posto: ancora qualche secondo per cercare
+	elif Vector2(global_position.x - _search_at.x, global_position.z - _search_at.z).length() > 1.2 and clock < _search_until:
+		return
+	searched += 1
+	var turn := randf() * TAU
+	_search_at = last_seen + Vector3(cos(turn), 0, sin(turn)) * randf_range(2.5, 5.0)
+	_search_until = clock + 4.0
+	agent.target_position = _search_at
+
+
 func see(candidate: CharacterBody3D) -> bool:
 	if not is_instance_valid(candidate) or candidate.dead: return false
 	if world and world.has_method("is_safe") and world.is_safe(candidate.position):return false
@@ -99,8 +138,7 @@ func hear(candidate: CharacterBody3D, radius: float = 15) -> void:
 	if dead or candidate.dead or global_position.distance_to(candidate.global_position)>radius: return
 	if world and world.has_method("is_safe") and world.is_safe(candidate.position):return
 	target = candidate
-	last_seen = candidate.global_position
-	memory = 6
+	_contact(candidate.global_position, 6.0)
 	state = State.CHASE
 
 ## Fa partire subito un attacco "scriptato" (il Carceriere che atterra dalla gabbia: Z_Boss_Drop_Arrival).
@@ -169,14 +207,15 @@ func _physics_process(delta: float) -> void:
 				_voice("alert")
 				if kind == 3: _scream(nearest)
 			target = nearest
-			last_seen = target.global_position
-			memory = 6
+			_contact(target.global_position, 8.0)
 			if state != State.ATTACK: state = State.CHASE
-		# Chi ti insegue non ti perde per un albero: ti segue a naso, non solo dove ti ha visto l'ultima volta.
-		if state == State.CHASE and is_instance_valid(target) and memory > 0.0 and target.global_position.distance_to(global_position) < 25.0:
-			last_seen = target.global_position
-			memory = maxf(memory, 3.0)
-		if state == State.CHASE:
+		# Chi ti insegue ti tiene d'occhio tutt'attorno, ma solo se ti vede davvero: niente telepatia dietro i muri.
+		if state == State.CHASE and is_instance_valid(target) and not target.dead and target.global_position.distance_to(global_position) < 25.0 and _glimpse(target):
+			_contact(target.global_position, 8.0)
+		if state == State.CHASE and clock - _contact_at > 0.6:
+			_search()
+		elif state == State.CHASE:
+			_search_at = Vector3.INF
 			agent.target_position = last_seen
 			# Da vicino ti accerchiano: ognuno prende il suo lato invece di mettersi in fila dietro al primo.
 			if is_instance_valid(target) and kind < 4 and not crawling:
@@ -313,7 +352,10 @@ func _physics_process(delta: float) -> void:
 				var flank: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
 				if flank.length() > 0.5: direction = flank.normalized()
 				elif straight.length() > 0.8: direction = straight.normalized()
-			elif direction == Vector3.ZERO and straight.length() > 0.8: direction = straight.normalized()
+			elif direction == Vector3.ZERO:
+				# senza strada calcolata: dritti verso dove crede che tu sia (vista, rumore o ricerca), non dove sei davvero
+				var guess: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
+				if guess.length() > 0.8: direction = guess.normalized()
 		if direction != Vector3.ZERO: direction = _steer(direction, delta, chasing)
 		var separation := Vector3.ZERO
 		if world:
