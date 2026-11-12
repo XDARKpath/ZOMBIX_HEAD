@@ -24,6 +24,12 @@ uniform float patch_scale = 0.09;
 // Ogni specie ha la sua griglia sfalsata e cresce solo nella sua fascia di macchie.
 uniform float seed_shift = 0.0;
 uniform vec2 patch_band = vec2(0.0, 1.0);
+// Le specie rare (cespugli, felci, fiori) hanno macchie loro: non crescono tutte nello stesso punto.
+uniform float patch_offset = 0.0;
+// Quanto si piega ogni ciuffo da un lato (0 = tutti dritti come soldatini).
+uniform float lean = 0.0;
+// Strato lontano: vuoto vicino al giocatore, dove ci sono già i ciuffi veri.
+uniform float inner = 0.0;
 
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -63,7 +69,9 @@ void process() {
 	float d = 0.0;
 	if (uv.x > 0.0 && uv.y > 0.0 && uv.x < 1.0 && uv.y < 1.0) d = texture(density, uv).r;
 	float fade = 1.0 - smoothstep(radius * 0.72, radius, length(p - center));
-	float patchy = vnoise(p * patch_scale) * 0.65 + vnoise(p * patch_scale * 3.1 + 5.0) * 0.35;
+	if (inner > 0.0) fade *= smoothstep(inner * 0.6, inner, length(p - center));
+	vec2 pp = p + patch_offset;
+	float patchy = vnoise(pp * patch_scale) * 0.65 + vnoise(pp * patch_scale * 3.1 + 5.0) * 0.35;
 	d *= keep < 1.0 ? smoothstep(0.55, 0.8, patchy) * keep * 6.0 : mix(0.7, 1.0, smoothstep(0.25, 0.6, patchy));
 	d *= smoothstep(patch_band.x - 0.08, patch_band.x + 0.08, patchy) * (1.0 - smoothstep(patch_band.y - 0.08, patch_band.y + 0.08, patchy));
 	float s = hash(seed * 1.31 + 3.0) < d ? mix(scale_range.x, scale_range.y, hash(seed + 11.0)) * fade : 0.0;
@@ -73,7 +81,7 @@ void process() {
 	float tall = s * mix(tall_range.x, tall_range.y, hash(seed + 2.0)) * mix(0.6, 1.25, smoothstep(0.2, 0.75, patchy));
 	TRANSFORM = mat4(
 		vec4(cos(a) * s, 0.0, -sin(a) * s, 0.0),
-		vec4(0.0, tall, 0.0, 0.0),
+		vec4((hash(seed + 13.0) - 0.5) * 2.0 * lean * tall, tall, (hash(seed + 17.0) - 0.5) * 2.0 * lean * tall, 0.0),
 		vec4(sin(a) * s, 0.0, cos(a) * s, 0.0),
 		vec4(p.x, ground(p) + 0.03, p.y, 1.0));
 	COLOR = vec4(hash(seed + 9.0), d, patchy, 1.0);

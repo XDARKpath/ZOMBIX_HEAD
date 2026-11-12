@@ -49,6 +49,10 @@ void fragment() {
 		vec2 muv = (world_pos.xz - mask_bounds.xy) / mask_bounds.zw;
 		if (muv.x > 0.0 && muv.y > 0.0 && muv.x < 1.0 && muv.y < 1.0) {
 			float bare = 1.0 - texture(grass_mask, muv).r;
+			// Sotto il prato il suolo ha i colori dell'erba (fresca nelle conche, secca a chiazze): da lontano il prato continua.
+			vec3 meadow = mix(vec3(0.085, 0.115, 0.036), vec3(0.150, 0.165, 0.055), broad);
+			meadow = mix(meadow, vec3(0.215, 0.195, 0.085), smoothstep(0.50, 0.80, medium) * 0.4);
+			albedo = mix(albedo, meadow, (1.0 - bare) * 0.8);
 			// Terra battuta e fango scuro, come il piazzale del concept.
 			vec3 mud = mix(vec3(0.11, 0.075, 0.045), vec3(0.19, 0.13, 0.08), fine);
 			albedo = mix(albedo, mud, smoothstep(0.35, 0.95, bare) * 0.65);
