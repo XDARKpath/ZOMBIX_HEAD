@@ -330,20 +330,54 @@ func chest_context(p: Node3D) -> String:
 			return Localization.t("E  APRI IL FORZIERE")
 	return ""
 
+## [E] vicino a un forziere: decide l'host (premio dato una volta sola), poi lo stato aperto va a tutti.
 func open_chest(p: Node3D) -> bool:
-	for c in chests:
+	for i in chests.size():
+		var c: Dictionary = chests[i]
 		if c["opened"] or p.global_position.distance_to(c["node"].global_position) >= 2.2: continue
-		c["opened"] = true
-		LootChest.set_open(c["node"], true)
-		if c["loot"] == "soldi":
-			p.credits += 30
-			world.announce(Localization.t("FORZIERE · +30 CREDITI"), 4)
-		else:
-			p.health = minf(p.health + 35.0, load("res://autoload/balance.gd").PLAYER_MAX_HEALTH)
-			world.announce(Localization.t("FORZIERE · BENDE, +35 SALUTE"), 4)
-		if world.get("survival"): world.survival._publish()
+		if _is_host(): _open(p, i)
+		else: _ask_chest.rpc_id(1, i)
 		return true
 	return false
+
+func _is_host() -> bool:
+	return not Session.online or multiplayer.is_server()
+
+@rpc("any_peer", "call_remote", "reliable")
+func _ask_chest(i: int) -> void:
+	var peer := multiplayer.get_remote_sender_id()
+	if world.actors.has(peer): _open(world.actors[peer], i)
+
+func _open(p: Node3D, i: int) -> void:
+	if i < 0 or i >= chests.size(): return
+	var c: Dictionary = chests[i]
+	if c["opened"] or p.global_position.distance_to(c["node"].global_position) >= 3.0: return
+	c["opened"] = true
+	LootChest.set_open(c["node"], true)
+	if c["loot"] == "soldi":
+		p.credits += 30
+		world.announce(Localization.t("FORZIERE · +30 CREDITI"), 4)
+	else:
+		p.health = minf(p.health + 35.0, p.max_health())
+		world.announce(Localization.t("FORZIERE · BENDE, +35 SALUTE"), 4)
+	if world.get("survival"): world.survival._publish()
+	push_chests()
+
+## Host: manda a tutti quali forzieri sono aperti (anche a chi entra dopo).
+func push_chests(peer := 0) -> void:
+	if not Session.online or not multiplayer.is_server(): return
+	var opened := []
+	for c in chests: opened.append(c["opened"])
+	if peer > 0: _chest_state.rpc_id(peer, opened)
+	else:
+		for id in Session.connected_peers(): _chest_state.rpc_id(id, opened)
+
+@rpc("authority", "call_remote", "reliable")
+func _chest_state(opened: Array) -> void:
+	for i in mini(opened.size(), chests.size()):
+		if bool(opened[i]) and not chests[i]["opened"]:
+			chests[i]["opened"] = true
+			LootChest.set_open(chests[i]["node"], true)
 
 # ---------------------------------------------------------------- rocce e natura
 func _nature() -> void:

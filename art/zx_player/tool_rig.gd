@@ -16,7 +16,7 @@ const PISTOL := {"index": [0.32, 0.12, 0.08], "middle": [1.15, 1.3, 0.75], "ring
 const RELAXED := {"index": [0.25, 0.35, 0.2], "middle": [0.32, 0.42, 0.25], "ring": [0.4, 0.5, 0.3], "pinky": [0.48, 0.55, 0.32], "thumb": [0.15, 0.2, 0.15]}
 const RELAXED_LEFT := Vector3(0.30, 0.98, 0.10)
 ## Da fuori le armi lunghe vanno alla spalla destra (+X è la sinistra del personaggio), un poco più in basso.
-const LONG_GUN_SHIFT := Vector3(-0.11, -0.05, 0.0)
+const LONG_GUN_SHIFT := Vector3(-0.08, -0.05, 0.04)
 const ROLL := {"index": [0.5, 0.65, 0.4], "middle": [0.6, 0.7, 0.45], "ring": [0.65, 0.75, 0.45], "pinky": [0.7, 0.75, 0.45], "thumb": [0.35, 0.3, 0.2]}
 ## Altre armi: canna o lama lungo le dita piegate di 90 gradi, in alto il dorso (asse +Z dell'arma).
 const OTHER_GRIP := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
@@ -185,7 +185,9 @@ func _process_modification() -> void:
 	var left_grip: Dictionary = motion.grip("l")
 	if not left_grip.is_empty():
 		var left: Array = _fist(sk, "l", w, left_grip, motion.left_shift, up)
-		_reach(sk, "l", left[0], left[1], left[2], Vector3(0.45, -1.0, -0.1), _left_w)
+		# Col fucile il gomito sinistro sta in fuori e in basso, sotto il paramano: l'avambraccio non taglia il petto.
+		var pole := Vector3(1.0, -0.8, 0.35) if motion.is_gun() and kind != "pistol" else Vector3(0.45, -1.0, -0.1)
+		_reach(sk, "l", left[0], left[1], left[2], pole, _left_w)
 	var right: Array = _fist(sk, "r", w, motion.grip("r"), Vector3.ZERO, up)
 	_reach(sk, "r", right[0], right[1], right[2], Vector3(-0.45, -1.0, -0.1), 1.0)
 	_fingers(sk, "r", PISTOL if motion.is_gun() else POWER)
