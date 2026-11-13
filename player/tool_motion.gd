@@ -249,6 +249,28 @@ const VARIANT_ROW := ["A", "B", "C"]
 const RIGHT_MELEE := {"c": Vector3.ZERO, "t": Vector3(0, 1, 0)}
 const RIGHT_GUN := {"c": Vector3(0, 0, -0.023), "t": Vector3(0, -0.31, 0.95), "f": Vector3(0, 0.95, 0.31)}
 const LEFT_PISTOL := {"c": Vector3(-0.017, 0.018, -0.055), "t": Vector3(0, 0, 1), "f": Vector3(0, 1, 0)}
+## Prese di ogni arma da fuoco, misurate sui modelli (spazio del modello: canna -Z, alto +Y; note misure_prese_armi_20261112).
+## r: centro dell'impugnatura a metà altezza; ra: asse dell'impugnatura verso il basso; l: dove poggia la sinistra
+## (sulla faccia inferiore di paramano, astina o pompa); lk: "wrap" = la sinistra avvolge la destra (niente astina),
+## "under" = palmo sotto e dita sul fianco destro.
+const HOLDS := {
+	"pistol": {"r": Vector3(0, -0.060, 0.012), "ra": Vector3(0, -0.98, 0.18), "lk": "wrap"},
+	"revolver": {"r": Vector3(0, -0.040, 0.041), "ra": Vector3(0, -0.912, 0.411), "lk": "wrap"},
+	"flare_gun": {"r": Vector3(0, -0.062, 0.032), "ra": Vector3(0, -0.954, 0.299), "lk": "wrap"},
+	"nailgun": {"r": Vector3(0, -0.060, 0.041), "ra": Vector3(0, -0.954, 0.299), "lk": "wrap"},
+	"smg": {"r": Vector3(0, -0.070, -0.005), "ra": Vector3(0, -0.997, 0.077), "l": Vector3(0, 0.010, -0.150), "lk": "under"},
+	"assault_rifle": {"r": Vector3(0, -0.085, 0.037), "ra": Vector3(0, -0.933, 0.361), "l": Vector3(0, 0.035, -0.300), "lk": "under"},
+	"lmg": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.005, -0.320), "lk": "under"},
+	"sniper_rifle": {"r": Vector3(0, -0.075, 0.036), "ra": Vector3(0, -0.950, 0.313), "l": Vector3(0, 0.002, -0.240), "lk": "under"},
+	"tesla_rifle": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, -0.024, -0.300), "lk": "under"},
+	"pump_shotgun": {"r": Vector3(0, -0.070, 0.037), "ra": Vector3(0, -0.942, 0.336), "l": Vector3(0, 0.003, -0.250), "lk": "under"},
+	"sawn_off": {"r": Vector3(0, -0.055, 0.035), "ra": Vector3(0, -0.934, 0.356), "l": Vector3(0, 0.025, -0.175), "lk": "under"},
+	"lever_rifle": {"r": Vector3(0, -0.010, 0.060), "ra": Vector3(0, -0.94, 0.34), "l": Vector3(0, 0.015, -0.300), "lk": "under"},
+	"crossbow": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.000, -0.320), "lk": "under"},
+	"grenade_launcher": {"r": Vector3(0, -0.065, 0.028), "ra": Vector3(0, -0.988, 0.156), "l": Vector3(0, -0.020, -0.320), "lk": "under"},
+	"leaf_blower": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.018, -0.200), "lk": "under"},
+}
+const PALM_DEPTH := 0.022                 # dal palmo al centro del pugno: la mano sta sotto la superficie, non dentro
 const LEFT_TWO := {"axe": -0.15, "heavy": -0.18, "sword": -0.14, "katana": -0.14}
 ## Il modello rispetto alla mano. Armi bianche: manico +Y, filo -Z. Armi da fuoco: canna -Z, alto +Y.
 const MELEE_BASIS := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0))
@@ -431,7 +453,22 @@ func is_gun() -> bool:
 	return is_gun_family(kind)
 
 
+## Dal modello allo spazio della mano (GUN_BASIS + GUN_OFFSET): -Z del modello va su +Y, +Y su +Z.
+static func to_hand(p: Vector3) -> Vector3:
+	return Vector3(p.x, -p.z + GUN_OFFSET.y, p.y + GUN_OFFSET.z)
+
+
 func grip(side: String) -> Dictionary:
+	if is_gun() and HOLDS.has(id):
+		var h: Dictionary = HOLDS[id]
+		var up: Vector3 = to_hand(-(h.ra as Vector3)) - to_hand(Vector3.ZERO)      # lungo l'impugnatura, verso la canna
+		var right := {"c": to_hand(h.r), "t": up.normalized(), "f": (Vector3.UP - up * Vector3.UP.dot(up)).normalized()}
+		if side == "r": return right
+		if h.lk == "wrap":
+			# Niente astina: la sinistra chiude da sotto e da sinistra le dita della destra e la parte libera dell'impugnatura.
+			return {"c": right.c + Vector3(-0.017, 0.006, -0.03), "t": right.t, "f": right.f}
+		# Palmo sotto la superficie, dita che salgono sul fianco destro. Pompa e leva spostano l'appoggio (left_shift).
+		return {"c": to_hand(h.l) + Vector3(0, 0, -PALM_DEPTH), "t": Vector3(0, 1, 0), "f": Vector3(1, 0, 0.6)}
 	if side == "r":
 		return RIGHT_GUN if is_gun() else RIGHT_MELEE
 	if LEFT_TWO.has(kind):
