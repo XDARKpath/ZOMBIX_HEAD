@@ -267,6 +267,7 @@ func _process(delta: float) -> void:
 			var closest := nearest_player(point)
 			if closest and closest.position.distance_to(point)>12: _spawn_enemy(point)
 	if Session.online:
+		if not multiplayer.is_server(): _smooth_replicas(delta)
 		net_clock += delta
 		if net_clock >= 0.05:
 			net_clock = 0
@@ -274,6 +275,31 @@ func _process(delta: float) -> void:
 			else:
 				var movement := Input.get_vector("move_left","move_right","move_forward","move_back") if not ui_open else Vector2.ZERO
 				input_packet.rpc_id(1,movement,player.rig.yaw,Input.is_action_pressed("sprint") and not ui_open,Input.is_action_pressed("crouch") if not ui_open else player.crouching,player.rig.pitch,player.melee.blocking)
+
+## Sui client gli altri giocatori e gli infetti arrivano 20 volte al secondo: qui si muovono a ogni fotogramma,
+## proseguendo con la loro velocità fino al prossimo pacchetto. Senza, da fuori si vedono andare a scatti.
+func _smooth_replicas(delta: float) -> void:
+	var k := 1.0 - exp(-delta * 18.0)
+	var now := Time.get_ticks_msec()
+	for group in [actors.values(), targets]:
+		for body in group:
+			if not is_instance_valid(body) or body == player or not body.has_meta("net_pos") or body.get("seated") == true: continue
+			var goal: Vector3 = body.get_meta("net_pos")
+			# Pacchetti persi: dopo 150 ms smette di proseguire da solo.
+			if now - int(body.get_meta("net_at", 0)) < 150: goal += body.velocity * delta
+			body.set_meta("net_pos", goal)
+			body.position = body.position.lerp(goal, k)
+			var turning: Node3D = body.visual if body.has_method("try_jump") else body
+			turning.rotation.y = lerp_angle(turning.rotation.y, float(body.get_meta("net_yaw")), k)
+
+## Posizione arrivata dall'host: lontano si salta lì, vicino ci arriva _smooth_replicas.
+func _net_place(body: Node3D, at: Vector3, yaw: float) -> void:
+	if body.position.distance_to(at) > 3.0 or not body.has_meta("net_pos"):
+		body.position = at
+		(body.visual if body.has_method("try_jump") else body).rotation.y = yaw
+	body.set_meta("net_pos", at)
+	body.set_meta("net_yaw", yaw)
+	body.set_meta("net_at", Time.get_ticks_msec())
 
 func _noise(body: CharacterBody3D) -> void:
 	# Con il sistema del rumore ogni arma ha il suo raggio (pistola 45 m, coltello 5 m).
@@ -320,7 +346,7 @@ func _send_snapshot() -> void:
 	var people: Array = []
 	for id in actors:
 		var body: CharacterBody3D = actors[id]
-		people.append([id,body.position,body.visual.rotation.y,body.velocity,body.health,body.stamina,body.dead,body.melee.attacking,body.melee.attack_time,body.melee.charged_attack,body.dodging,body.dodge_elapsed,body.crouching,body.equipped,body.magazine,body.reload_left,body.credits,body.carried_heads,body.owned,body.items,body.hotbar,body.slot,body.status.packed(),body.melee.blocking,body.rig.pitch,body.melee.attack_clip,body.melee.charging,body.melee.charge_time])
+		people.append([id,body.position,body.visual.rotation.y,body.velocity,body.health,body.stamina,body.dead,body.melee.attacking,body.melee.attack_time,body.melee.charged_attack,body.dodging,body.dodge_elapsed,body.crouching,body.equipped,body.magazine,body.reload_left,body.credits,body.carried_heads,body.owned,body.items,body.hotbar,body.slot,body.status.packed(),body.melee.blocking,body.rig.pitch,body.melee.attack_clip,body.melee.charging,body.melee.charge_time,body.is_on_floor()])
 	var enemies: Array = []
 	for body in targets:
 		if is_instance_valid(body): enemies.append([body.network_id,body.position,body.rotation.y,body.velocity,body.health,body.dead,int(body.state),body.visual.rotation.x,body.visual.position.y,body.stagger,body.attack_clock,body.kind,body.max_health,body.crawling,body.beheaded,body.death_style,body.death_clock,body.attack_clip,body.attack_serial,body.alert_time,body.reaction,body.reaction_time,body.hit_serial,body.hit_zone,body.hit_dir,body.hit_power,body.custom_skin,body.boss_weapon,body.anim_scale,body.title])
@@ -340,9 +366,9 @@ func snapshot(people: Array, enemies: Array, count: int) -> void:
 			if body.position.distance_to(row[1])>2.0 or body.dead != row[6]: body.position = row[1]
 			else: body.position = body.position.lerp(row[1],0.12)
 		elif not body.seated:
-			body.position = body.position.lerp(row[1],0.6)
-			body.visual.rotation.y = row[2]
+			_net_place(body,row[1],row[2])
 			body.velocity = row[3]
+			if row.size()>28: body.set_meta("airborne",not row[28])
 			body.melee.attacking = row[7]
 			body.melee.attack_time = row[8]
 			body.melee.charged_attack = row[9]
@@ -379,8 +405,7 @@ func snapshot(people: Array, enemies: Array, count: int) -> void:
 		if row[4] < body.health and body.position.distance_to(player.position)<3:
 			_play("hit")
 			player.rig.add_shake(0.25)
-		body.position = row[1]
-		body.rotation.y = row[2]
+		_net_place(body,row[1],row[2])
 		body.velocity = row[3]
 		body.health = row[4]
 		body.dead = row[5]

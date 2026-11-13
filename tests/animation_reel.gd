@@ -329,7 +329,7 @@ func _others_section(at: Vector3) -> void:
 	other.equipped = "axe"
 	await frames(0.5)
 	_say("colpito · sbalzato")
-	other.damaged.emit(10.0)
+	other.health -= 10.0
 	await frames(1.1)
 	other.set_meta("hit_heavy_until", Time.get_ticks_msec() + 500)
 	await frames(1.3)

@@ -125,7 +125,7 @@ func _run() -> void:
 	other.equipped = ""
 	await frames(15)
 	await run.call("saluta", func() -> void: world.survival._set_gesture(other, "wave"), 16, 4)
-	await run.call("colpito", func() -> void: other.damaged.emit(10.0), 16, 2)
+	await run.call("colpito", func() -> void: other.health -= 10.0, 16, 2)
 	await run.call("sbalzato", func() -> void: other.set_meta("hit_heavy_until", Time.get_ticks_msec() + 500), 16, 3)
 	await run.call("cade", func() -> void: other.dead = true, 16, 4)
 	print("FINE")

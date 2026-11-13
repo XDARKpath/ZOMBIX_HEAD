@@ -24,6 +24,10 @@ var heavy_seen := 0
 var hand_item: Node3D
 var hand_id := ""
 var stun_seen := false
+var last_health := -1.0
+var was_air := false
+var last_local := Vector3.ZERO
+var lean := Vector2.ZERO
 ## Il gesto che vedono gli altri, per ogni cosa che si può fare a mani piene o vuote.
 const GESTURES := {"throw": "Player_Grenade_Throw", "pickup": "Player_Interact_Reach_Low", "wave": "Player_Emote_Wave", "dance": "Player_Emote_Dance"}
 ## Clip che muovono anche le gambe (ci si china davvero a raccogliere).
@@ -35,8 +39,6 @@ const DRINKS := ["Cibo", "Tanica"]
 func setup(zx_player: Node3D, owner_actor: Node3D) -> void:
 	model = zx_player
 	actor = owner_actor
-	if actor.has_signal("damaged"):
-		actor.damaged.connect(func(_amount): if not actor.dead and seat < 0: model.play_action("Player_Hit_Impact_Front"))
 
 static func weapon_id(equipped: String) -> String:
 	if ZXWeapons.DEFS.has(equipped): return equipped
@@ -49,10 +51,16 @@ func tick(_delta: float) -> void:
 	if actor.dead:
 		if not was_dead: model.die(posmod(actor.get_instance_id(), 3) == 0)
 		was_dead = true
+		_upright()
 		return
 	if was_dead:
 		was_dead = false
 		model.revive()
+	# Colpo ricevuto: la vita cala di colpo. Vale anche sui client, dove la vita arriva dall'host
+	# (veleno e sangue tolgono poco per volta e non fanno sobbalzare).
+	var hp: float = actor.health
+	if last_health - hp > 2.0 and seat < 0: model.play_action("Player_Hit_Impact_Front")
+	last_health = hp
 	# Arma in mano.
 	var wanted := weapon_id(str(actor.get("equipped")) if actor.get("equipped") != null else "")
 	_hold_item(str(actor.get("equipped")) if actor.get("equipped") != null else "")
@@ -68,6 +76,7 @@ func tick(_delta: float) -> void:
 		seat = now_seat
 	if seat >= 0:
 		if seat == 0: model.set_steer(actor.get_meta("steer", 0.0))
+		_upright()
 		return
 	# Riparazione: chino sul motore davanti al cofano, in ginocchio alle ruote.
 	var kind: String = actor.get_meta("repair_kind", "wheel") if int(actor.get_meta("repair_until", 0)) > now else ""
@@ -131,9 +140,29 @@ func tick(_delta: float) -> void:
 	var velocity: Vector3 = actor.velocity if actor.get("velocity") != null else Vector3.ZERO
 	var local: Vector3 = model.global_basis.inverse() * Vector3(velocity.x, 0, velocity.z)
 	var dir := Vector2(-local.x, local.z) / WALK_SPEED
+	# In aria: gambe raccolte al posto del passo, e un piegamento quando tocca terra. Sui client lo dice l'host.
+	var rig: Node = model.tool_rig
+	var air: bool = actor.get_meta("airborne") if actor.has_meta("airborne") else not actor.is_on_floor()
+	rig.air = move_toward(rig.air, 1.0 if air else 0.0, _delta * (9.0 if air else 6.0))
+	if was_air and not air: rig.land()
+	was_air = air
+	dir *= 1.0 - rig.air
 	model.set_move(dir, actor.get("sprinting") == true and dir.y > 0.5, Vector2(local.x, local.z).length())
 	var pitch: float = actor.rig.pitch if actor.get("rig") != null else 0.0
-	model.tool_rig.look_pitch = lerpf(model.tool_rig.look_pitch, clampf(pitch, -0.6, 0.6), minf(1.0, _delta * 8.0))
+	rig.look_pitch = lerpf(rig.look_pitch, clampf(pitch, -0.6, 0.6), minf(1.0, _delta * 8.0))
+	# Il corpo si butta dove accelera: in avanti alla partenza, indietro alla frenata, di lato nei cambi di direzione.
+	var accel: Vector3 = (local - last_local) / maxf(_delta, 0.001)
+	last_local = local
+	var want := Vector2(clampf(accel.z * 0.006, -0.12, 0.12), clampf(-accel.x * 0.006, -0.12, 0.12))
+	lean = lean.lerp(want, 1.0 - exp(-_delta * 6.0))
+	model.rotation.x = lean.x
+	model.rotation.z = lean.y
+
+
+func _upright() -> void:
+	lean = Vector2.ZERO
+	model.rotation.x = 0.0
+	model.rotation.z = 0.0
 
 
 func _gesture(what: String) -> void:

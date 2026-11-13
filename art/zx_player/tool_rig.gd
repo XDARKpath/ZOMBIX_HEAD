@@ -151,6 +151,7 @@ func _process(delta: float) -> void:
 func _process_modification() -> void:
 	var sk := get_skeleton()
 	if sk == null or _ids.is_empty(): return
+	_air_pose(sk)
 	# Mani libere (arma nel fodero, mani vuote): le clip le chiudono a pugno storto e da fuori sembrano spezzate.
 	if not enabled:
 		if relax_free:
@@ -207,6 +208,25 @@ func _process_modification() -> void:
 	var inside := parent.affine_inverse() * final
 	sk.set_bone_pose_position(_anchor, inside.origin)
 	sk.set_bone_pose_rotation(_anchor, inside.basis.get_rotation_quaternion())
+
+
+## Salto visto da fuori: 0 = a terra, 1 = in aria (lo dà zx_avatar_driver). Una gamba raccolta, l'altra un poco indietro.
+var air := 0.0
+const AIR_LEGS := [["thigh_l", -0.8], ["calf_l", 1.15], ["thigh_r", -0.2], ["calf_r", 0.6]]
+
+func _air_pose(sk: Skeleton3D) -> void:
+	if air <= 0.01: return
+	for row in AIR_LEGS:
+		var id := sk.find_bone(row[0])
+		if id < 0: continue
+		var parent := sk.get_bone_global_pose(sk.get_bone_parent(id)).basis.orthonormalized()
+		var now := sk.get_bone_global_pose(id).basis.orthonormalized()
+		sk.set_bone_pose_rotation(id, (parent.inverse() * Basis(Vector3.RIGHT, float(row[1]) * air) * now).get_rotation_quaternion())
+
+
+## Atterraggio: il busto cede in avanti e torna su (_body_follow lo riporta a zero).
+func land() -> void:
+	_bend = 0.4
 
 
 ## Dove deve stare il corpo in questo istante del colpo: carica (spalle indietro), colpo (gira e si piega), recupero (torna dritto).

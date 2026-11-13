@@ -64,6 +64,14 @@ var _stuck_at := Vector3.ZERO
 var brain: Node
 var voice_id := "capomacello"
 var speed_mul := 1.0              # ognuno ha il suo passo: non si muovono a tempo come soldatini
+## Il colpo è "deciso" poco prima di arrivare: da lì non ti segue più, un passo di lato o la scivolata lo manda a vuoto.
+const COMMIT := 0.22
+## Al massimo due addosso allo stesso giocatore: gli altri gli girano attorno e aspettano il turno.
+const MAX_ATTACKERS := 2
+var whiffed := false              # colpo a vuoto: resta sbilanciato e i colpi che prende valgono di più
+var combo_left := 0               # secondo colpo veloce dopo uno andato a segno
+var pounce_cooldown := 3.0        # slancio da due passi di distanza
+var _waiting := false
 
 func setup(variant: int) -> void:
 	super.setup(variant)
@@ -157,6 +165,10 @@ func force_attack(clip: String) -> void:
 
 func receive_hit(zone:String,amount:float,force:Vector3,weapon:String,heavy:bool=false) -> bool:
 	if replica:return false
+	# Contrattacco: colpito mentre è sbilanciato dopo un colpo a vuoto, incassa di più e barcolla.
+	if whiffed and state == State.ATTACK and not dead:
+		amount *= 1.35
+		heavy = true
 	if brain and not dead: amount = brain.on_hit(zone, amount, weapon, heavy)
 	var result:=super.receive_hit(zone,amount,force,weapon,heavy)
 	if kind==5 and result:
@@ -190,6 +202,7 @@ func _physics_process(delta: float) -> void:
 	stagger = maxf(0,stagger-delta)
 	spit_cooldown = maxf(0,spit_cooldown-delta)
 	leap_cooldown = maxf(0,leap_cooldown-delta)
+	pounce_cooldown = maxf(0,pounce_cooldown-delta)
 	frenzy = maxf(0,frenzy-delta)
 	scream_cooldown = maxf(0,scream_cooldown-delta)
 	think -= delta
@@ -244,7 +257,8 @@ func _physics_process(delta: float) -> void:
 			to_target.y = 0
 		# wind-up: keep facing the target and lunge in (leap for runners) until the hit frame
 		if attack_clock < attack_hit and to_target.length() > 0.05:
-			rotation.y = lerp_angle(rotation.y, atan2(-to_target.x, -to_target.z), delta * 10)
+			if attack_clock < attack_hit - COMMIT * anim_scale:
+				rotation.y = lerp_angle(rotation.y, atan2(-to_target.x, -to_target.z), delta * 10)
 			var push := attack_lunge * clampf((attack_clock / attack_hit - 0.35) / 0.65, 0.0, 1.0)
 			if to_target.length() < 0.9: push = 0.0
 			velocity.x = -sin(rotation.y) * push
@@ -270,15 +284,28 @@ func _physics_process(delta: float) -> void:
 				for a in world.actors.values():
 					if is_instance_valid(a) and not a.dead and a.global_position.distance_to(impact_at) < radius:
 						_boss_hit(a, impact_at)
-			elif is_instance_valid(target) and not target.dead and global_position.distance_to(target.global_position)<attack_reach and clear_line(target):
-				if not (world.has_method("is_safe") and world.is_safe(target.position)):
+			else:
+				var landed := false
+				if is_instance_valid(target) and not target.dead and _in_swing(target) and clear_line(target) and not (world.has_method("is_safe") and world.is_safe(target.position)):
 					# Colpo parato con ascia o pala: lo zombie viene respinto e resta scoperto.
 					var parried: bool = target.get("melee") != null and target.melee.get("blocking") == true and not crawling
-					_strike(target)
+					landed = _strike(target)
 					if parried:
 						var away := global_position - target.global_position
 						react("blocked", Vector3(away.x, 0, away.z))
 						state = State.CHASE
+				if not landed:
+					# A vuoto (schivato, fuori portata, di lato): il peso lo porta avanti e resta scoperto per un attimo.
+					whiffed = true
+					combo_left = 0
+					attack_len += Motion.WHIFF_SECONDS
+					velocity -= global_basis.z * 2.5
+		# Uno-due: dopo un colpo a segno alcuni tirano subito il secondo dall'altro lato, più veloce.
+		if combo_left > 0 and attack_done and state == State.ATTACK and attack_clock >= attack_hit + 0.2:
+			combo_left = 0
+			if is_instance_valid(target) and not target.dead and to_target.length() < 3.0:
+				anim_scale = 0.8
+				_begin_attack("Z_Attack_Swipe_R" if attack_clip == "Z_Attack_Swipe_L" else "Z_Attack_Swipe_L", 2.2)
 		if attack_clock >= attack_len:
 			state = State.CHASE
 			visual.rotation.x = 0
@@ -291,6 +318,7 @@ func _physics_process(delta: float) -> void:
 			rotation.y = lerp_angle(rotation.y, atan2(-look.x, -look.z), delta * 6)
 	else:
 		var speed: float = WANDER_SPEED[kind] * speed_mul
+		_waiting = false
 		if state == State.CHASE:
 			speed = CHASE_SPEED[kind] * speed_mul * (1.4 if frenzy > 0.0 else 1.0) * _surge(delta)
 			if not is_instance_valid(target) or target.dead or memory <= 0:
@@ -307,17 +335,19 @@ func _physics_process(delta: float) -> void:
 					next_clip = "Z_Attack_Leap" if leap_cooldown <= 0 and dist > 4.5 else ("Z_Attack_Overhead_Smash" if attack_serial % 3 != 2 else "Z_Attack_Swipe_R")
 					start = 10.0 if next_clip == "Z_Attack_Leap" else 2.9
 				var timing: Array = Motion.attack_timing(next_clip)
-				if dist < start and clear_line(target):
-					attack_serial += 1
-					attack_clip = next_clip
-					attack_len = timing[0] * anim_scale
-					attack_hit = timing[1] * anim_scale
-					attack_reach = timing[2] * (1.7 if kind == 5 else 1.0)
-					attack_lunge = timing[3] * (1.6 if kind == 5 else 1.0)
-					state = State.ATTACK
-					attack_clock = 0
-					attack_done = false
-					_voice("attack")
+				# Slancio: da due passi si butta in avanti e arriva fin dove eri. Chi si sposta di lato lo vede passare.
+				var lunge := -1.0
+				if kind in [0, 3] and not crawling and pounce_cooldown <= 0.0 and dist > 1.9 and dist < 2.9:
+					start = 2.9
+					lunge = (dist - 1.1) / maxf(float(timing[1]) * 0.325, 0.05)
+				if dist < start + 1.0 and not _may_attack():
+					_waiting = true
+				elif dist < start and clear_line(target):
+					if kind < 4:
+						anim_scale = 1.0
+						combo_left = 1 if kind in [0, 3] and not crawling and (network_id + attack_serial) % 3 == 0 else 0
+					if lunge >= 0.0: pounce_cooldown = randf_range(4.0, 7.0)
+					_begin_attack(next_clip, lunge)
 		elif patrol.size() > 0:
 			# pattuglia in cerchio: punto dopo punto, senza fermarsi (zoppicando, vedi infected_motion)
 			var goal := patrol[patrol_i % patrol.size()]
@@ -378,9 +408,18 @@ func _physics_process(delta: float) -> void:
 				speed = 0.9
 			elif gap < 30.0 and clear_line(target):
 				direction = Vector3.ZERO
+		var facing := direction
+		if _waiting and is_instance_valid(target):
+			# Aspetta il turno girandoti attorno a due passi, sempre dallo stesso lato e con gli occhi su di te.
+			var from: Vector3 = (global_position - target.global_position) * Vector3(1, 0, 1)
+			var gap := maxf(from.length(), 0.01)
+			var around: Vector3 = (from / gap).cross(Vector3.UP) * (1.0 if network_id % 2 == 0 else -1.0)
+			direction = (around + from / gap * clampf(2.1 - gap, -1.0, 1.0)).normalized()
+			facing = -from
+			speed *= 0.7
 		velocity.x = direction.x*speed+separation.x
 		velocity.z = direction.z*speed+separation.z
-		if direction.length_squared()>0.01: rotation.y = lerp_angle(rotation.y,atan2(-direction.x,-direction.z),delta*5)
+		if facing.length_squared()>0.01: rotation.y = lerp_angle(rotation.y,atan2(-facing.x,-facing.z),delta*5)
 	if _climb_top > -INF:
 		# Sta scavalcando: sale fino a superare l'ostacolo, poi avanza e ricade dall'altra parte.
 		_climb_left -= delta
@@ -399,6 +438,36 @@ func _physics_process(delta: float) -> void:
 		velocity.y = 0 if is_on_floor() else velocity.y-22*delta
 	move_and_slide()
 	_audio_steps(delta)
+
+func _begin_attack(clip: String, lunge: float = -1.0) -> void:
+	var timing: Array = Motion.attack_timing(clip)
+	attack_serial += 1
+	attack_clip = clip
+	attack_len = timing[0] * anim_scale
+	attack_hit = timing[1] * anim_scale
+	attack_reach = timing[2] * (1.7 if kind == 5 else 1.0)
+	attack_lunge = lunge if lunge >= 0.0 else timing[3] * (1.6 if kind == 5 else 1.0)
+	state = State.ATTACK
+	attack_clock = 0
+	attack_done = false
+	whiffed = false
+	_voice("attack")
+
+
+## Il colpo prende solo chi è a portata e davanti (o proprio addosso): alle spalle e di fianco va a vuoto.
+func _in_swing(victim: Node3D) -> bool:
+	if global_position.distance_to(victim.global_position) >= attack_reach: return false
+	var to: Vector3 = (victim.global_position - global_position) * Vector3(1, 0, 1)
+	return to.length() < 0.8 or (-global_basis.z).dot(to.normalized()) > 0.3
+
+
+func _may_attack() -> bool:
+	if kind >= 4 or frenzy > 0.0 or not world: return true
+	var busy := 0
+	for other in world.targets:
+		if is_instance_valid(other) and other != self and not other.dead and other.get("state") == State.ATTACK and other.get("target") == target: busy += 1
+	return busy < MAX_ATTACKERS
+
 
 ## Passo che cambia: rallenta e accelera a ondate, e ogni tanto uno scatto quando la preda è a pochi metri.
 var _open_clock := 0.0
@@ -591,7 +660,7 @@ func _waypoint_dir(radius: float) -> Vector3:
 
 
 ## Ogni attacco fa una cosa sua: la manata spinge, il morso fa sanguinare, lo schianto del bruto ti butta via e ti stordisce.
-func _strike(victim: CharacterBody3D) -> void:
+func _strike(victim: CharacterBody3D) -> bool:
 	var damage: float = HIT_DAMAGE[kind] * (0.65 if crawling else 1.0)
 	var away: Vector3 = (victim.global_position - global_position) * Vector3(1, 0, 1)
 	away = away.normalized() if away.length_squared() > 0.001 else -global_basis.z
@@ -622,8 +691,8 @@ func _strike(victim: CharacterBody3D) -> void:
 			fx = {"knock": away * 2.5, "shake": 0.2}
 	if kind == 4: fx["poison"] = 4.0
 	if kind == 3: fx["fear"] = 3.0
-	if world.has_method("hit_player"): world.hit_player(victim, damage, fx, global_position)
-	else: victim.take_damage(damage, global_position)
+	if world.has_method("hit_player"): return world.hit_player(victim, damage, fx, global_position)
+	return victim.take_damage(damage, global_position)
 
 
 ## Colpo dei boss: onda d'urto. Il Macellaio apre ferite con la mannaia, il Carceriere spacca il pavimento.
