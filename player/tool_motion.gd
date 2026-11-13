@@ -252,23 +252,24 @@ const LEFT_PISTOL := {"c": Vector3(-0.017, 0.018, -0.055), "t": Vector3(0, 0, 1)
 ## Prese di ogni arma da fuoco, misurate sui modelli (spazio del modello: canna -Z, alto +Y; note misure_prese_armi_20261112).
 ## r: centro dell'impugnatura a metà altezza; ra: asse dell'impugnatura verso il basso; l: dove poggia la sinistra
 ## (sulla faccia inferiore di paramano, astina o pompa); lk: "wrap" = la sinistra avvolge la destra (niente astina),
-## "under" = palmo sotto e dita sul fianco destro.
+## "under" = palmo sotto e dita sul fianco destro; eye: altezza della linea di mira (tacca e mirino, asse dell'ottica, o sopra
+## il blocco pieno del fucile d'assalto, il tamburo del lanciagranate; il dorso per le armi senza mire).
 const HOLDS := {
-	"pistol": {"r": Vector3(0, -0.060, 0.012), "ra": Vector3(0, -0.98, 0.18), "lk": "wrap"},
-	"revolver": {"r": Vector3(0, -0.040, 0.041), "ra": Vector3(0, -0.912, 0.411), "lk": "wrap"},
-	"flare_gun": {"r": Vector3(0, -0.062, 0.032), "ra": Vector3(0, -0.954, 0.299), "lk": "wrap"},
-	"nailgun": {"r": Vector3(0, -0.060, 0.041), "ra": Vector3(0, -0.954, 0.299), "lk": "wrap"},
-	"smg": {"r": Vector3(0, -0.070, -0.005), "ra": Vector3(0, -0.997, 0.077), "l": Vector3(0, 0.010, -0.150), "lk": "under"},
-	"assault_rifle": {"r": Vector3(0, -0.085, 0.037), "ra": Vector3(0, -0.933, 0.361), "l": Vector3(0, 0.035, -0.300), "lk": "under"},
-	"lmg": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.005, -0.320), "lk": "under"},
-	"sniper_rifle": {"r": Vector3(0, -0.075, 0.036), "ra": Vector3(0, -0.950, 0.313), "l": Vector3(0, 0.002, -0.240), "lk": "under"},
-	"tesla_rifle": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, -0.024, -0.300), "lk": "under"},
-	"pump_shotgun": {"r": Vector3(0, -0.070, 0.037), "ra": Vector3(0, -0.942, 0.336), "l": Vector3(0, 0.003, -0.250), "lk": "under"},
-	"sawn_off": {"r": Vector3(0, -0.055, 0.035), "ra": Vector3(0, -0.934, 0.356), "l": Vector3(0, 0.025, -0.175), "lk": "under"},
-	"lever_rifle": {"r": Vector3(0, -0.010, 0.060), "ra": Vector3(0, -0.94, 0.34), "l": Vector3(0, 0.015, -0.300), "lk": "under"},
-	"crossbow": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.000, -0.320), "lk": "under"},
-	"grenade_launcher": {"r": Vector3(0, -0.065, 0.028), "ra": Vector3(0, -0.988, 0.156), "l": Vector3(0, -0.020, -0.320), "lk": "under"},
-	"leaf_blower": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.018, -0.200), "lk": "under"},
+	"pistol": {"r": Vector3(0, -0.060, 0.012), "ra": Vector3(0, -0.98, 0.18), "lk": "wrap", "eye": 0.089},
+	"revolver": {"r": Vector3(0, -0.040, 0.041), "ra": Vector3(0, -0.912, 0.411), "lk": "wrap", "eye": 0.092},
+	"flare_gun": {"r": Vector3(0, -0.062, 0.032), "ra": Vector3(0, -0.954, 0.299), "lk": "wrap", "eye": 0.066},
+	"nailgun": {"r": Vector3(0, -0.060, 0.041), "ra": Vector3(0, -0.954, 0.299), "lk": "wrap", "eye": 0.089},
+	"smg": {"r": Vector3(0, -0.070, -0.005), "ra": Vector3(0, -0.997, 0.077), "l": Vector3(0, 0.010, -0.150), "lk": "under", "eye": 0.078},
+	"assault_rifle": {"r": Vector3(0, -0.085, 0.037), "ra": Vector3(0, -0.933, 0.361), "l": Vector3(0, 0.035, -0.300), "lk": "under", "eye": 0.174},
+	"lmg": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.005, -0.320), "lk": "under", "eye": 0.152},
+	"sniper_rifle": {"r": Vector3(0, -0.075, 0.036), "ra": Vector3(0, -0.950, 0.313), "l": Vector3(0, 0.002, -0.240), "lk": "under", "eye": 0.140},
+	"tesla_rifle": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, -0.024, -0.300), "lk": "under", "eye": 0.128},
+	"pump_shotgun": {"r": Vector3(0, -0.070, 0.037), "ra": Vector3(0, -0.942, 0.336), "l": Vector3(0, 0.003, -0.250), "lk": "under", "eye": 0.106},
+	"sawn_off": {"r": Vector3(0, -0.055, 0.035), "ra": Vector3(0, -0.934, 0.356), "l": Vector3(0, 0.025, -0.175), "lk": "under", "eye": 0.087},
+	"lever_rifle": {"r": Vector3(0, -0.010, 0.060), "ra": Vector3(0, -0.94, 0.34), "l": Vector3(0, 0.015, -0.300), "lk": "under", "eye": 0.093},
+	"crossbow": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.000, -0.320), "lk": "under", "eye": 0.150},
+	"grenade_launcher": {"r": Vector3(0, -0.065, 0.028), "ra": Vector3(0, -0.988, 0.156), "l": Vector3(0, -0.020, -0.320), "lk": "under", "eye": 0.140},
+	"leaf_blower": {"r": Vector3(0, -0.065, 0.033), "ra": Vector3(0, -0.954, 0.299), "l": Vector3(0, 0.018, -0.200), "lk": "under", "eye": 0.095},
 }
 const PALM_DEPTH := 0.022                 # dal palmo al centro del pugno: la mano sta sotto la superficie, non dentro
 const LEFT_TWO := {"axe": -0.15, "heavy": -0.18, "sword": -0.14, "katana": -0.14}
@@ -421,7 +422,7 @@ func place_item(item: Node3D) -> void:
 		item.transform = Transform3D(GUN_BASIS, AXE_OFFSET)
 	elif is_gun_family(kind):
 		item.transform = Transform3D(GUN_BASIS, GUN_OFFSET)
-		sight = box.end.y + GUN_OFFSET.z + 0.01
+		sight = (float(HOLDS[id].eye) if HOLDS.has(id) else box.end.y + 0.01) + GUN_OFFSET.z
 		var length: float = -box.position.z
 		# Oltre 0,30 m il braccio del modello non arriva: la mano scivolava indietro dove la canna è più spessa.
 		support = clampf(length * 0.48, 0.14, 0.30)
