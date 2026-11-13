@@ -349,7 +349,7 @@ func _send_snapshot() -> void:
 		people.append([id,body.position,body.visual.rotation.y,body.velocity,body.health,body.stamina,body.dead,body.melee.attacking,body.melee.attack_time,body.melee.charged_attack,body.dodging,body.dodge_elapsed,body.crouching,body.equipped,body.magazine,body.reload_left,body.credits,body.carried_heads,body.owned,body.items,body.hotbar,body.slot,body.status.packed(),body.melee.blocking,body.rig.pitch,body.melee.attack_clip,body.melee.charging,body.melee.charge_time,body.is_on_floor()])
 	var enemies: Array = []
 	for body in targets:
-		if is_instance_valid(body): enemies.append([body.network_id,body.position,body.rotation.y,body.velocity,body.health,body.dead,int(body.state),body.visual.rotation.x,body.visual.position.y,body.stagger,body.attack_clock,body.kind,body.max_health,body.crawling,body.beheaded,body.death_style,body.death_clock,body.attack_clip,body.attack_serial,body.alert_time,body.reaction,body.reaction_time,body.hit_serial,body.hit_zone,body.hit_dir,body.hit_power,body.custom_skin,body.boss_weapon,body.anim_scale,body.title])
+		if is_instance_valid(body): enemies.append([body.network_id,body.position,body.rotation.y,body.velocity,body.health,body.dead,int(body.state),body.visual.rotation.x,body.visual.position.y,body.stagger,body.attack_clock,body.kind,body.max_health,body.crawling,body.beheaded,body.death_style,body.death_clock,body.attack_clip,body.attack_serial,body.alert_time,body.reaction,body.reaction_time,body.hit_serial,body.hit_zone,body.hit_dir,body.hit_power,body.custom_skin,body.boss_weapon,body.anim_scale,body.title,body.injury_pack()])
 	for id in Session.connected_peers(): snapshot.rpc_id(id,people,enemies,kills)
 
 @rpc("authority","call_remote","unreliable_ordered")
@@ -425,6 +425,8 @@ func snapshot(people: Array, enemies: Array, count: int) -> void:
 		if row.size()>25 and body.hit_serial!=row[22]:
 			body.hit_serial=row[22];body.hit_zone=row[23];body.hit_dir=row[24];body.hit_power=row[25];body.hit_age=0.0
 		body.max_health=row[12];body.crawling=row[13];body.beheaded=row[14];body.death_style=row[15];body.death_clock=row[16]
+		# Lesioni per parte decise dall'host: monconi e arti a terra anche qui.
+		if row.size()>30 and body.injury_pack()!=row[30]:body.injury_apply(row[30])
 		# Stesso attacco e stesso urlo dell'host (infected_motion sceglie la clip da questi campi).
 		if row.size()>19: body.attack_clip=row[17];body.attack_serial=row[18];body.alert_time=row[19]
 		# Reazione direzionale al colpo: il client riprende la stessa clip dallo stesso punto.
