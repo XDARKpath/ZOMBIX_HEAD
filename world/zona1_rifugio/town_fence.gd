@@ -123,16 +123,23 @@ func _wall(from: Vector2, to: Vector2, dir: Vector2) -> void:
 		var up := (top - foot).normalized()
 		var along := Vector3(dir.x, 0, dir.y)
 		brace.transform = Transform3D(Basis(along, up, along.cross(up)), (foot + top) * 0.5)
-	# Collisione unica per tratto.
-	var body := StaticBody3D.new()
-	var shape := CollisionShape3D.new()
-	var cube := BoxShape3D.new()
-	cube.size = Vector3(length, 3.2, 0.4)
-	shape.shape = cube
-	body.add_child(shape)
-	add_child(body)
-	body.position = Vector3(mid.x, my + 1.4, mid.y)
-	body.rotation.y = yaw
+	# Collisione a pezzi da ~3 m che seguono il terreno come i tronchi: dal punto più basso a 3 m sopra il più alto,
+	# così non resta luce sotto dove il terreno scende e non si scavalca dove sale.
+	var parts := maxi(1, ceili(length / 3.0))
+	for k in parts:
+		var a := from + dir * (length * k / parts)
+		var b := from + dir * (length * (k + 1) / parts)
+		var low := minf(minf(_ground(a), _ground(b)), _ground((a + b) * 0.5)) - 0.2
+		var high := maxf(maxf(_ground(a), _ground(b)), _ground((a + b) * 0.5)) + 3.0
+		var body := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var cube := BoxShape3D.new()
+		cube.size = Vector3(length / parts, high - low, 0.4)
+		shape.shape = cube
+		body.add_child(shape)
+		add_child(body)
+		body.position = Vector3((a.x + b.x) * 0.5, (low + high) * 0.5, (a.y + b.y) * 0.5)
+		body.rotation.y = yaw
 
 
 func _inside_sign(from: Vector2, dir: Vector2) -> float:

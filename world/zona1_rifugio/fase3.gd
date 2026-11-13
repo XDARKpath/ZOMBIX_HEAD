@@ -651,7 +651,8 @@ func _apply_render_quality() -> void:
 			child.environment.glow_enabled = effects and RenderingServer.get_current_rendering_method() != "gl_compatibility"
 	var shadow := clampi(int(settings_data.shadow_quality),0,4)
 	if not bool(settings_data.shadows): shadow = 0
-	var max_distance: float = [0.0,55.0,85.0,130.0,200.0][shadow]
+	# Oltre ~120 m la nebbia copre le ombre: a 200 m il sole ridisegnava 10-15 mila oggetti per frame.
+	var max_distance: float = [0.0,55.0,80.0,100.0,120.0][shadow]
 	var blur: float = [0.0,1.6,1.2,0.8,0.5][shadow]
 	for child in landscape.get_children():
 		if child is DirectionalLight3D:

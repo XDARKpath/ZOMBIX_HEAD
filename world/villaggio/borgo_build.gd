@@ -31,12 +31,16 @@ static func fit_ranges(node: Node, scale_so_far: float = 1.0) -> void:
 	if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
 		var longest: float = (node as MeshInstance3D).get_aabb().size[(node as MeshInstance3D).get_aabb().get_longest_axis_index()] * size
 		(node as GeometryInstance3D).visibility_range_end = RANGE_HOUSE if longest >= 2.5 else RANGE_SMALL
+		# Ombra del sole inutile per sassolini, bottiglie e lastre a terra (sangue, pozzanghere, vie).
+		if longest < 0.5 or (node as MeshInstance3D).get_aabb().size.y * size < 0.06:
+			(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	elif node is Label3D or node is CPUParticles3D:
 		(node as GeometryInstance3D).visibility_range_end = RANGE_SMALL
-	elif node is OmniLight3D:
-		(node as OmniLight3D).distance_fade_enabled = true
-		(node as OmniLight3D).distance_fade_begin = 120.0
-		(node as OmniLight3D).distance_fade_length = 40.0
+	elif node is Light3D and not (node as Light3D).distance_fade_enabled:
+		# Le luci con un fade già scelto (torce di Rocca e Cripta, lampade del rifugio) restano corte.
+		(node as Light3D).distance_fade_enabled = true
+		(node as Light3D).distance_fade_begin = 120.0
+		(node as Light3D).distance_fade_length = 40.0
 	for child in node.get_children():
 		fit_ranges(child, size)
 
@@ -91,26 +95,52 @@ func _roof(parent: Node3D, width: int, y: float) -> void:
 	for i in range(width): asset(parent, "Bld_Roof_01", Vector3(-width * 1.5 + (i + 1) * 3, y, 4.5), 0, true)
 	for z in [-4.5, 4.5]: box(parent, Vector3(0, y + 0.08, z), Vector3(width * 3, 0.3, 0.22), Color("403e34"))
 	for x in [-width * 1.5, width * 1.5]: asset(parent, "Bld_Roof_Truss_01", Vector3(x, y, 4.5), 0, false)
-	# Chiude i timpani sotto il tetto a falde.
+	# Timpani: prisma spesso come il muro, con il bordo appena sotto le falde (misurate su Bld_Roof_01:
+	# la falda dietro è più alta di quella davanti), così da dentro non passa il cielo.
 	for x in [-width * 1.5, width * 1.5]:
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for p in [Vector3(x, y + 0.17, -4.5), Vector3(x, y + 1.75, 0), Vector3(x, y + 0.17, 4.5)]: st.add_vertex(p)
-		st.generate_normals()
 		var gable := MeshInstance3D.new()
-		gable.mesh = st.commit()
+		gable.mesh = _gable_mesh()
+		gable.position = Vector3(x, y, 0)
+		gable.material_override = _gable_mat
 		parent.add_child(gable)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color("403e34")
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		gable.material_override = mat
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		cs.shape = gable.mesh.create_convex_shape()
+		body.add_child(cs)
+		gable.add_child(body)
 		box(parent, Vector3(x, y + 0.02, 0), Vector3(0.15, 0.3, 9), Color("403e34"))
 
 
-func _entry_ramp(parent: Node3D, width: float) -> void:
+static var _gable: ArrayMesh
+static var _gable_mat: StandardMaterial3D
+
+
+## Profilo (z, y) del timpano sotto Bld_Roof_01, spesso 0.34 m in x, condiviso da tutte le case.
+static func _gable_mesh() -> ArrayMesh:
+	if _gable: return _gable
+	_gable_mat = StandardMaterial3D.new()
+	_gable_mat.albedo_color = Color("403e34")
+	_gable_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var poly := [Vector2(4.5, 0.0), Vector2(4.5, 0.08), Vector2(0.0, 1.7), Vector2(-0.3, 1.8), Vector2(-4.5, 0.17), Vector2(-4.5, 0.0)]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var points := [Vector3(-width / 2, 0, 5.4), Vector3(width / 2, 0, 5.4), Vector3(-width / 2, 0.095, 4.3), Vector3(width / 2, 0.095, 4.3)]
+	for x in [-0.17, 0.17]:
+		for i in range(1, poly.size() - 1):
+			for p in [poly[0], poly[i], poly[i + 1]]: st.add_vertex(Vector3(x, p.y, p.x))
+	for i in poly.size():
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % poly.size()]
+		for p in [Vector3(-0.17, a.y, a.x), Vector3(0.17, a.y, a.x), Vector3(0.17, b.y, b.x), Vector3(-0.17, a.y, a.x), Vector3(0.17, b.y, b.x), Vector3(-0.17, b.y, b.x)]:
+			st.add_vertex(p)
+	st.generate_normals()
+	_gable = st.commit()
+	return _gable
+
+
+func _entry_ramp(parent: Node3D, width: float, x: float = 0.0) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var points := [Vector3(x - width / 2, 0, 5.4), Vector3(x + width / 2, 0, 5.4), Vector3(x - width / 2, 0.095, 4.3), Vector3(x + width / 2, 0.095, 4.3)]
 	for i in [0, 2, 1, 1, 2, 3]: st.add_vertex(points[i])
 	st.generate_normals()
 	var ramp := MeshInstance3D.new()
@@ -343,9 +373,9 @@ func _crate(parent: Node3D, at: Vector3, yaw: float, s: float = 1.0) -> void:
 func _junk(parent: Node3D, at: Vector3) -> void:
 	# piccoli dettagli che si ripetono: sacchi, scatole, bottiglie, latte, carte
 	match rng.randi_range(0, 7):
-		0: asset(parent, "Prop_Bag_01", at + Vector3(0, 0.15, 0), rng.randf_range(0, TAU), false, Vector3.ONE * rng.randf_range(4, 6))
+		0: asset(parent, "Prop_Bag_01", at, rng.randf_range(0, TAU), false, Vector3.ONE * rng.randf_range(4, 6))
 		1: asset(parent, "Prop_CardboardBox_Stack_01", at, rng.randf_range(0, TAU), true, Vector3.ONE * rng.randf_range(0.6, 0.9))
-		2: asset(parent, "Prop_Bottle_01", at, rng.randf_range(0, TAU), false).rotation.z = PI / 2
+		2: _lay(asset(parent, "Prop_Bottle_01", at, rng.randf_range(0, TAU), false), 0.05)
 		3: asset(parent, "Prop_PaintCan_01", at, rng.randf_range(0, TAU), false)
 		4: asset(parent, "Prop_Papers_01", at + Vector3(0, 0.03, 0), rng.randf_range(0, TAU), false, Vector3.ONE * 0.6)
 		5: asset(parent, "Prop_Pallet_01", at, rng.randf_range(0, TAU), true)
@@ -377,7 +407,7 @@ func _wires(parent: Node3D, a: Vector3, b: Vector3) -> void:
 
 func _streetlamp(parent: Node3D, at: Vector3, yaw: float) -> void:
 	var g := _node(parent, at, yaw)
-	Props.cylinder(g, Vector3(0, 2.4, 0), 0.07, 4.8, Color("3e4644"), 0.5)
+	Props.cylinder(g, Vector3(0, 2.4, 0), 0.07, 4.8, Color("3e4644"), 0.5).create_convex_collision()
 	box(g, Vector3(0, 4.8, 0.45), Vector3(0.12, 0.1, 0.9), Color("3e4644"), false)
 	box(g, Vector3(0, 4.72, 0.85), Vector3(0.35, 0.12, 0.45), Color("2d3332"), false)
 	box(g, Vector3(0, 4.65, 0.85), Vector3(0.28, 0.02, 0.36), Color("c8c6b0"), false)
@@ -395,13 +425,13 @@ func _bench(parent: Node3D, at: Vector3, yaw: float) -> void:
 
 func _mailbox(parent: Node3D, at: Vector3, yaw: float) -> void:
 	var g := _node(parent, at, yaw)
-	box(g, Vector3(0, 0.55, 0), Vector3(0.08, 1.1, 0.08), Color("4b4134"), false)
+	box(g, Vector3(0, 0.55, 0), Vector3(0.08, 1.1, 0.08), Color("4b4134"), true)
 	box(g, Vector3(0, 1.18, 0), Vector3(0.28, 0.24, 0.45), Color("a03a2c" if rng.randf() < 0.5 else "4f6a6a"), false)
 
 
 func _laundry(parent: Node3D, a: Vector3, b: Vector3) -> void:
 	for p in [a, b]:
-		box(parent, p + Vector3(0, 1.0, 0), Vector3(0.08, 2.0, 0.08), Color("4b4134"), false)
+		box(parent, p + Vector3(0, 1.0, 0), Vector3(0.08, 2.0, 0.08), Color("4b4134"), true)
 	Props.rod(parent, a + Vector3(0, 1.95, 0), b + Vector3(0, 1.95, 0), 0.01, Color("d8d4c4"))
 	var cloth := [Color("b8b2a0"), Color("7d8f9a"), Color("9a5a4a"), Color("c7c09a"), Color("5f6f52")]
 	var n := int(a.distance_to(b) / 0.7)
@@ -414,61 +444,105 @@ func _laundry(parent: Node3D, a: Vector3, b: Vector3) -> void:
 
 
 func _flat_roof(h: Node3D, w: int, y: float, plaza: bool) -> void:
-	for x in w:
-		for z in 3:
-			asset(h, "Bld_Roof_Flat_Closed_01", Vector3(-w * 1.5 + x * 3, y, 4.5 - z * 3), 0, true)
+	# Il modulo è 3.39 x 3.39 (da -0.19 a 3.2, da -3.19 a 0.2): uno solo, stirato su tutto il tetto.
+	var sx := (w * 3 + 0.38) / 3.39
+	var sz := 9.38 / 3.39
+	asset(h, "Bld_Roof_Flat_Closed_01", Vector3(-w * 1.5 - 0.19 + 0.19 * sx, y, 4.69 - 0.2 * sz), 0, true, Vector3(sx, 1, sz))
 	var top := y + 0.22
 	var c := Color("5d5f55")
 	box(h, Vector3(0, top + 0.3, 4.6), Vector3(w * 3 + 0.3, 0.6, 0.25), c, true)
 	box(h, Vector3(0, top + 0.3, -4.6), Vector3(w * 3 + 0.3, 0.6, 0.25), c, true)
 	for s in [-1, 1]:
 		box(h, Vector3(s * (w * 1.5 + 0.02), top + 0.3, 0), Vector3(0.25, 0.6, 9.3), c, true)
-	asset(h, "Prop_Warehouse_Venting_01", Vector3(1.5, top, -2.5), 0, false)
+	asset(h, "Prop_Warehouse_Venting_01", Vector3(1.5, top + 0.66, -2.5), 0, false)   # la mesh scende a -0.66
 	if rng.randf() < 0.6:
 		asset(h, "Prop_Powerbox_01", Vector3(-w * 1.5 + 1.2, top, -3.0), 0, true)
 	_perch(h, Vector3(-w * 0.75, top + 0.1, 1.5), plaza)
 	_perch(h, Vector3(w * 0.75, top + 0.1, 0.5), plaza)
 
 
-func _boarded(h: Node3D, w: int) -> void:
-	# assi inchiodate sulle finestre della facciata (non su tutte)
+func _boarded(h: Node3D, w: int, door_i: int) -> void:
+	# assi inchiodate sulle finestre della facciata (non su tutte, mai sulla porta: le case con porta si visitano)
 	for i in w:
-		if rng.randf() < 0.45:
+		if rng.randf() < 0.45 or i == door_i:
 			continue
 		var x := -w * 1.5 + i * 3 + 1.5
 		for k in 2:
 			_tilted(h, Vector3(x, 1.55 + k * 0.35, 4.72), Vector3(1.5, 0.18, 0.05), Color("7b5d3b").darkened(rng.randf_range(0, 0.25)), Vector3(0, 0, rng.randf_range(-0.35, 0.35)))
 
 
-func _interior(h: Node3D, w: int, shop: bool) -> void:
+## Profondità (lato verso il muro) e altezza dei mobili del kit, per appoggiarli al muro senza entrarci.
+const DEPTH := {"Prop_Shelf_Preset_01": 0.5, "Prop_Shelf_01": 0.5, "Prop_Cabinets_01": 0.59, "Prop_Table_Metal_01": 0.88,
+	"Prop_Office_Desk_01": 0.92, "Prop_CardboardBox_Stack_01": 1.53, "Prop_Office_Shelf_01": 0.44, "Prop_Sink_01": 0.79, "Prop_Chair_01": 0.54}
+## Mobili alti: non davanti alle finestre.
+const TALL := ["Prop_Shelf_Preset_01", "Prop_Shelf_01", "Prop_Office_Shelf_01", "Prop_Cabinets_01"]
+## Misure di casa (il kit è da banco): tavolo e scrivania a ~0.75 m, piano cucina a 0.9, seduta a 0.45.
+const HOME_SCALE := {"Prop_Table_Metal_01": 0.82, "Prop_Office_Desk_01": 0.78, "Prop_Sink_01": 0.89, "Prop_Chair_01": 0.92}
+const INNER := 4.33           # faccia interna del muro di fondo e mezza larghezza interna = w*1.5 - 0.17
+
+
+## Coricato su un fianco (ruota attorno all'origine a terra): rialzato di mezza larghezza, così non affonda.
+func _lay(n: Node3D, half: float) -> Node3D:
+	n.rotation.z = PI / 2
+	n.position.y += half
+	return n
+
+
+func _interior(h: Node3D, w: int, shop: bool, kit: Array = []) -> void:
+	var first := h.get_child_count()
+	var side := w * 1.5 - 0.17
+	var bed := not shop and rng.randf() < 0.6
+	# posti: lungo il muro di fondo (uno per modulo) e sui due fianchi verso la facciata
 	var spots := []
 	for x in range(w):
-		spots.append(Vector3(-w * 1.5 + x * 3 + 1.5, 0.08, -3.6))
-	spots.append(Vector3(-w * 1.5 + 0.8, 0.08, 0.5))
-	spots.append(Vector3(w * 1.5 - 0.8, 0.08, 0.5))
-	var pool := ["Prop_Shelf_Preset_01", "Prop_Shelf_01", "Prop_Cabinets_01", "Prop_Table_Metal_01", "Prop_Office_Desk_01", "Prop_CardboardBox_Stack_01"] if shop \
-		else ["Prop_Table_Metal_01", "Prop_Cabinets_01", "Prop_Office_Shelf_01", "Prop_Sink_01", "Prop_Chair_01", "Prop_CardboardBox_Stack_01"]
+		if bed and x == w - 1:
+			continue                                  # in fondo a destra c'è il letto
+		spots.append(Vector3(-w * 1.5 + x * 3 + 1.5, 0.08, -INNER))
+	spots.append(Vector3(-side, 0.08, 0.5))
+	spots.append(Vector3(side, 0.08, 0.5))
+	var pool := ["Prop_Shelf_Preset_01", "Prop_Shelf_01", "Prop_Cabinets_01", "Prop_Table_Metal_01", "Prop_Office_Desk_01", "Prop_CardboardBox_Stack_01"] if shop 		else ["Prop_Table_Metal_01", "Prop_Cabinets_01", "Prop_Office_Shelf_01", "Prop_Sink_01", "Prop_Chair_01", "Prop_CardboardBox_Stack_01"]
+	if not kit.is_empty(): pool = kit
 	for s in spots:
 		if rng.randf() < 0.25:
 			continue
 		var id: String = pool[rng.randi_range(0, pool.size() - 1)]
-		var yaw := 0.0 if s.z < -3 else (PI / 2 if s.x < 0 else -PI / 2)
-		var n := asset(h, id, s, yaw, true)
+		var back: bool = s.z < -3
+		# finestre (_walls): a metà dei fianchi e, sul fondo, i moduli dispari contati da destra
+		if id in TALL and (not back or (w - 1 - int((s.x + w * 1.5) / 3.0)) % 2 == 1):
+			id = "Prop_Table_Metal_01"
+		var d: float = DEPTH[id] * 0.5
+		var at: Vector3 = s + (Vector3(0, 0, d) if back else Vector3(-signf(s.x) * d, 0, 0))
+		var n := asset(h, id, at, 0.0 if back else (PI / 2 if s.x < 0 else -PI / 2), true)
+		if not shop and HOME_SCALE.has(id):
+			n.scale.y = HOME_SCALE[id]
 		if rng.randf() < 0.15 and id == "Prop_Chair_01":
-			n.rotation.z = PI / 2
+			_lay(n, 0.25)
+	# per terra, nel mezzo della stanza (lontano dai mobili): carte, bottiglie, libri caduti, sangue
 	for i in 4:
-		var at := Vector3(rng.randf_range(-w * 1.5 + 0.8, w * 1.5 - 0.8), 0.09, rng.randf_range(-3, 3))
+		var at := Vector3(rng.randf_range(-side + 1.2, side - 1.2), 0.09, rng.randf_range(-0.8, 3))
 		match rng.randi_range(0, 3):
 			0: asset(h, "Prop_Papers_01", at, rng.randf_range(0, TAU), false, Vector3.ONE * 0.5)
-			1: asset(h, "Prop_Bottle_01", at, rng.randf_range(0, TAU), false).rotation.z = PI / 2
-			2: asset(h, "Prop_Book_Group_01", at, rng.randf_range(0, TAU), false)
+			1: _lay(asset(h, "Prop_Bottle_01", at, rng.randf_range(0, TAU), false), 0.05)
+			2:
+				var books := asset(h, "Prop_Book_Group_01", at + Vector3(0, 0.12, 0), rng.randf_range(0, TAU), false)
+				books.rotation.x = PI / 2                     # caduti sul dorso, non in fila sul pavimento
 			_: _blood(h, at - Vector3(0, 0.02, 0), 0.6)
-	if not shop and rng.randf() < 0.6:
-		# letto (come nell'alloggio di servizio)
-		var bx := w * 1.5 - 1.2
-		box(h, Vector3(bx, 0.3, -2.2), Vector3(1.3, 0.45, 2.2), Color("413e31"))
-		box(h, Vector3(bx, 0.58, -2.2), Vector3(1.25, 0.18, 2.1), Color("6f7560"))
-		box(h, Vector3(bx, 0.71, -2.95), Vector3(0.8, 0.15, 0.45), Color("b5ac89"), false)
+	if bed:
+		# letto (come nell'alloggio di servizio), in fondo a destra contro i due muri
+		var bx := side - 0.66
+		box(h, Vector3(bx, 0.3, -INNER + 1.11), Vector3(1.3, 0.45, 2.2), Color("413e31"))
+		box(h, Vector3(bx, 0.58, -INNER + 1.11), Vector3(1.25, 0.18, 2.1), Color("6f7560"))
+		box(h, Vector3(bx, 0.71, -INNER + 0.4), Vector3(0.8, 0.15, 0.45), Color("b5ac89"), false)
+	# dentro casa il sole non arriva: niente passaggio d'ombra per i mobili
+	for i in range(first, h.get_child_count()):
+		_no_sun_shadow(h.get_child(i))
+
+
+func _no_sun_shadow(node: Node) -> void:
+	if node is GeometryInstance3D:
+		(node as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for c in node.get_children():
+		_no_sun_shadow(c)
 
 
 ## casa modulare (come quelle del rifugio): w = 2..4 moduli da 3 m, profonda 9 m, facciata verso +Z locale
@@ -486,7 +560,7 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 				box(h, Vector3(x0 + 1.5, 2.3 + (3 * hs - 2.3) * 0.5, 4.5), Vector3(3, 3 * hs - 2.3, 0.22), Color("4c5d5b"), true)
 				if w >= 4:
 					continue                                      # officina: portone aperto
-				asset(h, "Bld_Metal_Door_01", Vector3(x0 + 2.0, 0, 4.5), rng.randf_range(-1.4, 0.0), true)
+				asset(h, "Bld_Metal_Door_01", Vector3(x0 + 2.88, 0, 4.5), -PI / 2, true)   # anta aperta contro lo stipite: il vano resta libero
 			else:
 				asset(h, "Bld_Wall_Brick_Door_01", Vector3(x0, 0, 4.5), 0, true, Vector3(1, hs, 1))
 		else:
@@ -503,7 +577,7 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 			box(h, Vector3(sx, rng.randf_range(1.9, 2.6), 4.68), Vector3(rng.randf_range(0.6, 1.3), rng.randf_range(0.6, 1.4), 0.02), Color("2b2725"), false)
 		box(h, Vector3(0, 0.1, 0), Vector3(w * 3 - 0.5, 0.04, 8), Color("2a2622"), false)
 		for i in 6:
-			_tilted(h, Vector3(rng.randf_range(-w, w), 0.3, rng.randf_range(-3, 3)), Vector3(0.22, 0.22, rng.randf_range(2.0, 4.0)), Color("231f1a"),
+			_tilted(h, Vector3(rng.randf_range(-w, w), 0.3, rng.randf_range(-3, 1)), Vector3(0.22, 0.22, rng.randf_range(2.0, 4.0)), Color("231f1a"),   # lontano dalla porta
 				Vector3(rng.randf_range(-0.4, 0.4), rng.randf_range(0, TAU), rng.randf_range(-0.3, 0.3)), i < 2)
 		if rng.randf() < 0.6:
 			_fire(h, Vector3(rng.randf_range(-w, w), 0.08, rng.randf_range(-2, 1)))
@@ -512,13 +586,18 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 	else:
 		_roof(h, w, 3 * hs + 0.05)
 		if rng.randf() < 0.6:
-			box(h, Vector3(-w * 1.5 + 1.2, 3 * hs + 1.6, -1.8), Vector3(0.7, 1.8, 0.7), Color("6d4a3a"), true)   # comignolo
-	_entry_ramp(h, 2.2)
+			# comignolo: canna fumaria dal pavimento contro il muro di sinistra fino a 1 m sopra la falda
+			# (la falda è più sottile della pendenza sotto il comignolo: una base sospesa si vedeva da dentro)
+			var top := 3 * hs + 0.05 + 2.3
+			box(h, Vector3(-w * 1.5 + 0.52, (0.08 + top) * 0.5, -1.8), Vector3(0.7, top - 0.08, 0.7), Color("6d4a3a"), true)
+	var door_x := -w * 1.5 + door_i * 3 + 1.5
+	_entry_ramp(h, 2.2, door_x)
+	h.set_meta("door_x", door_x)                 # per i controlli di navigazione (tests/borgo_solid_checks.gd)
 	if not metal:
-		asset(h, "Bld_Exterior_Shade_01", Vector3(-w * 1.5 + door_i * 3 + 1.5, 2.7, 4.8), 0, false, Vector3(1.1, 0.7, 1))
+		asset(h, "Bld_Exterior_Shade_01", Vector3(door_x, 2.7, 4.8), 0, false, Vector3(1.1, 0.7, 1))
 	if rng.randf() < 0.6:
-		_boarded(h, w)
-	_interior(h, w, false)
+		_boarded(h, w, door_i)
+	_interior(h, w, metal and w >= 4)              # officina: niente letto
 	if metal and w >= 4:
 		# officina: ruote, banco, macchina sul ponte
 		asset(h, "Prop_Shelf_Preset_01", Vector3(w * 1.5 - 0.6, 0.08, -1.8), -PI / 2, true)
@@ -529,7 +608,7 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 			ring.inner_radius = 0.24
 			ring.outer_radius = 0.4
 			wheel.mesh = ring
-			wheel.position = Vector3(-w * 1.5 + 1.0, 0.25 + i * 0.28, 1.5)
+			wheel.position = Vector3(-w * 1.5 + 1.0, 0.25 + i * 0.28, 3.2)
 			wheel.material_override = Props.material(Color("252e2b"))
 		if rng.randf() < 0.7:
 			_glb(h, BK + "SM_Borgo_Car_Wreck.glb", Vector3(0, 0.08, -0.5), PI / 2 + rng.randf_range(-0.1, 0.1))
