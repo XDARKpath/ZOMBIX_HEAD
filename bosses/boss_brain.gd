@@ -1142,7 +1142,7 @@ func _m_fissure() -> void:
 ## La scultura non ha ossa: le zone si colpiscono a quote fisse.
 func _place_hitboxes() -> void:
 	for area in host.hitboxes:
-		var zone: String = area.get_meta("zone")
+		var zone: String = host.coarse(area.get_meta("zone"))      # zone fini (#27): thigh_l, hand_r... tornano ai gruppi
 		area.position = Vector3(0, {"head": 3.4, "neck": 3.0, "torso": 2.0, "legs": 1.0, "feet": 0.5}.get(zone, 2.0), 0)
 
 
