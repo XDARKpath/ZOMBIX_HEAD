@@ -635,7 +635,9 @@ func _may_attack() -> bool:
 	if kind >= 4 or frenzy > 0.0 or not world: return true
 	var busy := 0
 	for other in world.targets:
-		if is_instance_valid(other) and other != self and not other.dead and other.get("state") == State.ATTACK and other.get("target") == target: busy += 1
+		# Conta solo chi gli è davvero addosso (entro 4 m): uno lontano non tiene il posto agli altri.
+		if is_instance_valid(other) and other != self and not other.dead and other.get("state") == State.ATTACK and other.get("target") == target \
+				and other.global_position.distance_to(target.global_position) < 4.0: busy += 1
 	if busy >= MAX_ATTACKERS: return false
 	# Sfalsati: chi arriva subito dopo un altro aspetta un attimo, non colpiscono tutti insieme.
 	var last: int = int(target.get_meta("zx_attacked_at", -100000)) if is_instance_valid(target) else -100000

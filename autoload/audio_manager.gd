@@ -370,7 +370,7 @@ func weapon_hit(equipped: String, zone: String, heavy: bool = false, kick: bool 
 	var key := "weapon_hit_flesh"
 	if zone == "head":
 		key = "weapon_hit_head"
-	elif zone in ["feet", "legs"]:
+	elif preload("res://enemies/zombie_target.gd").coarse(zone) in ["feet", "legs"]:   # anche le zone fini (calf_l, foot_r...)
 		key = "weapon_hit_bone"
 	var pitch := randf_range(0.92, 1.06) * (0.86 if heavy else 1.0)
 	play_sfx(key, -1.5 if heavy else -3.0, pitch)
