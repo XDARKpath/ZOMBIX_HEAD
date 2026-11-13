@@ -311,6 +311,8 @@ func _late_parts() -> void:
 	for j in _pending_jails:
 		var bars := _place("JailGate", j[0], j[1])
 		if bars:
+			_jail_doors(bars)
+			bars.set_meta("y0", bars.position.y)
 			jail_bars.append(bars)
 	var door_pos := cell_pos(Vector2i(1, 2)) + Vector3(2, 0, 1.8)
 	_place("DoorIronL", door_pos, PI)
@@ -373,7 +375,7 @@ func set_gate(gname: String, open: bool) -> void:
 		var tw2 := create_tween().set_parallel(true)
 		for i in _boss_door.size():
 			var sgn := 1.0 if i == 0 else -1.0
-			tw2.tween_property(_boss_door[i], "rotation:y", -PI / 2 + (sgn * 1.75 if open else 0.0), 1.8 if open else 0.4) \
+			tw2.tween_property(_boss_door[i], "rotation:y", -PI / 2 + (sgn * 1.5 if open else 0.0), 1.8 if open else 0.4) \
 				.set_trans(Tween.TRANS_BACK if open else Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tw2.tween_property(_door_light, "light_energy", 2.2 if open else 0.0, 1.5)
 		_exit_label.visible = open
@@ -558,18 +560,21 @@ func _lights() -> void:
 	# arena & big rooms: chandeliers glow brighter
 	var ar: Rect2i = rooms["arena"].rect
 	for i in 3:
-		_torch_light(cell_pos(Vector2i(2 + i * 2, ar.position.y + 3)) + Vector3(CELL * 0.5, 3.6, 0), 14.0, 2.2)
+		# Raggio dentro l'arena: a 14 m passavano i muri verso anticamera e risalita.
+		_torch_light(cell_pos(Vector2i(2 + i * 2, ar.position.y + 3)) + Vector3(CELL * 0.5, 3.6, 0), 10.0, 2.4)
 	for p in [Vector2i(2, -44), Vector2i(7, -44), Vector2i(4, -42)]:
 		_torch_light(cell_pos(p) + Vector3(0, 3.2, 0), 9.0, 1.4)
-	_torch_light(cell_pos(Vector2i(4, -23)) + Vector3(-2, 2.8, 0), 12.0, 1.8)
+	_torch_light(cell_pos(Vector2i(4, -23)) + Vector3(-2, 2.8, 0), 9.5, 1.9)
 	# prigioni: un secondo lampadario a sud, bracieri al centro della cisterna
 	_place("P_Chandelier", cell_pos(Vector2i(4, -20)) + Vector3(-2, 4.3, 0))
-	_torch_light(cell_pos(Vector2i(4, -20)) + Vector3(-2, 2.8, 0), 11.0, 1.6)
+	_torch_light(cell_pos(Vector2i(4, -20)) + Vector3(-2, 2.8, 0), 9.5, 1.7)
 	for c in [Vector2i(1, -33), Vector2i(4, -33), Vector2i(7, -33)]:
 		_place("P_Chandelier", cell_pos(c) + Vector3(0, 4.3, 0))
 		_torch_light(cell_pos(c) + Vector3(0, 2.9, 0), 11.0, 1.5, Color("ffb35a"))
 	for c in PLATFORMS:
 		_torch_light(cell_pos(c) + Vector3(0, 4.0, 0), 7.0, 1.0, Color("7dff9a"))
+	# Centro della cisterna: prima era quasi nero, il pavimento non si leggeva.
+	_torch_light(cell_pos(Vector2i(4, -30)) + Vector3(0, 2.6, 0), 8.0, 1.3, Color("ffb35a"))
 
 
 func _torch_light(pos: Vector3, rng_m: float, energy := 1.35, color := Color("ffa245")) -> void:
@@ -659,8 +664,9 @@ func _bake_navigation() -> void:
 	nav = NavigationRegion3D.new()
 	var nm := NavigationMesh.new()
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	nm.agent_radius = 0.5
-	nm.agent_height = 1.75
+	# Archi larghi 1,84 m (1,46 m a 1,7 m d'altezza): con raggio 0,5 e altezza 1,75 la navmesh si spezzava in ogni varco.
+	nm.agent_radius = 0.25
+	nm.agent_height = 1.5
 	nm.agent_max_climb = 0.5
 	nm.cell_size = 0.25
 	nm.cell_height = 0.25
@@ -687,6 +693,7 @@ func reset() -> void:
 	for g in gates:
 		set_gate(g, g == "arena")
 	for b in jail_bars:
+		b.position.y = float(b.get_meta("y0", 0.0))
 		b.visible = true
 		_bars_collision(b, true)
 	for ch in chests:
@@ -871,11 +878,30 @@ func _cleared(room: String) -> void:
 
 func _open_jails() -> void:
 	for b in jail_bars:
+		# Salgono quanto basta a sparire nella volta (4,3 m), poi si nascondono: prima attraversavano il soffitto.
 		var tw := create_tween()
-		tw.tween_property(b, "position:y", b.position.y + 3.2, 1.2).set_trans(Tween.TRANS_BACK)
+		tw.tween_property(b, "position:y", float(b.get_meta("y0", 0.0)) + 1.25, 0.9).set_trans(Tween.TRANS_SINE)
+		tw.tween_callback(b.hide)
 		_bars_collision(b, false)
 	if _host:
 		_push_state()
+
+
+## Ante chiuse nel vano del cancello (il kit lo lascia aperto): salgono con le sbarre, la collisione la gestisce _bars_collision.
+func _jail_doors(gate: Node3D) -> void:
+	for key in ["M_JailDoorL", "M_JailDoorR"]:
+		var leaf := _place(key, Vector3(0, 0, 0.13), 0.0, gate)
+		if leaf == null: return
+		leaf.scale = Vector3(0.68, 1.0, 1.0)
+		for body in leaf.find_children("*", "StaticBody3D", true, false): body.free()
+	var sb := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(1.7, 2.12, 0.14)
+	cs.shape = box
+	cs.position = Vector3(0, 1.12, 0.12)
+	sb.add_child(cs)
+	gate.add_child(sb)
 
 
 func _bars_collision(b: Node3D, on: bool) -> void:
@@ -962,17 +988,11 @@ func _local_view() -> void:
 	if inside == _inside:
 		return
 	_inside = inside
-	p.rig.camera.environment = env if inside else null
-	if inside:
-		_suns = world.find_children("*", "DirectionalLight3D", true, false)
-		for s in _suns:
-			s.set_meta("was_visible", s.visible)
-			s.visible = false
+	# Ambiente e sole li decide la Rocca, che sa anche se sei nella Cripta.
+	if rocca:
+		rocca.apply_view()
 	else:
-		for s in _suns:
-			if is_instance_valid(s):
-				s.visible = s.get_meta("was_visible", true)
-		_suns.clear()
+		p.rig.camera.environment = env if inside else null
 
 
 func _update_boss_bar() -> void:
