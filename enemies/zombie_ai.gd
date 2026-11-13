@@ -72,6 +72,40 @@ var whiffed := false              # colpo a vuoto: resta sbilanciato e i colpi c
 var combo_left := 0               # secondo colpo veloce dopo uno andato a segno
 var pounce_cooldown := 3.0        # slancio da due passi di distanza
 var _waiting := false
+## Colpi misurati sulle clip (ossa delle mani e della testa, tests/zombie_attack_matrix.gd): [parti che colpiscono,
+## inizio e fine della finestra attiva, contatto, distanza radice-bersaglio a cui il gesto arriva], secondi a velocità 1.
+## Nei dati lo schianto dall'alto colpiva a 0,80 s con le mani ancora alzate: scendono tra 1,30 e 1,50 s.
+## Le due manate le dà entrambe la mano destra del modello.
+const STRIKES := {
+	"Z_Attack_Swipe_R": [["hand_r"], 0.62, 0.84, 0.72, 0.75],
+	"Z_Attack_Swipe_L": [["hand_r"], 0.60, 0.82, 0.70, 0.75],
+	"Z_Attack_Headbutt": [["head", "hand_l", "hand_r"], 0.60, 0.80, 0.70, 0.6],
+	"Z_Attack_Jab": [["hand_r"], 0.56, 0.76, 0.66, 0.75],
+	"Z_Attack_Overhead_Smash": [["hand_l", "hand_r"], 1.28, 1.52, 1.40, 1.0],
+	"Z_Attack_Leap": [["hand_l", "hand_r", "head"], 0.42, 0.62, 0.50, 0.9],
+	"Z_Crawl_Attack": [["head", "hand_l", "hand_r"], 0.42, 0.66, 0.53, 0.7],
+	"Z_Tank_Swipe": [["hand_l", "hand_r"], 0.58, 0.78, 0.68, 1.1],
+	"Z_Tank_Punch": [["hand_r"], 0.24, 0.40, 0.30, 1.05],
+}
+## Passo durante la carica (m/s), per tipo: chi ti è addosso ti viene incontro mentre carica, non colpisce l'aria dov'eri.
+const STEP_MAX := [2.2, 3.0, 1.6, 2.2, 1.4, 2.0]
+## Previsione breve e limitata: mira dove sarai fra poco, al massimo 0,4 s e 1,4 m più in là.
+const LEAD_TIME := 0.4
+const LEAD_MAX := 1.4
+## Giro massimo (rad/s) mentre carica e dopo il colpo deciso: dopo non ti segue più del tutto, la schivata giusta funziona.
+const TURN_AIM := 7.0
+const TURN_COMMIT := 1.2
+## Due attacchi sullo stesso giocatore partono sfalsati di almeno tanto.
+const STAGGER_START := 0.35
+var attack_parts: Array = []
+var attack_from := 0.0           # finestra attiva (s, già scalata)
+var attack_until := 0.0
+var attack_gap := 0.95           # distanza a cui il gesto arriva
+var _sweep_prev := {}
+var _sweep_best := INF           # quanto ci è andato vicino (m dalla capsula), per i test e il motivo del mancato
+var _sweep_wall := false
+## L'ultimo attacco, misurato (lo leggono i test): distanza, velocità, clip, tempi, rotazione, spostamento, esito.
+var last_attack := {}
 
 func setup(variant: int) -> void:
 	super.setup(variant)
@@ -145,23 +179,15 @@ func clear_line(candidate: CharacterBody3D) -> bool:
 func hear(candidate: CharacterBody3D, radius: float = 15) -> void:
 	if dead or candidate.dead or global_position.distance_to(candidate.global_position)>radius: return
 	if world and world.has_method("is_safe") and world.is_safe(candidate.position):return
-	target = candidate
 	_contact(candidate.global_position, 6.0)
+	# Un rumore (passi, colpi, spari) non interrompe un attacco già partito: prima lo annullava a metà carica.
+	if state == State.ATTACK: return
+	target = candidate
 	state = State.CHASE
 
 ## Fa partire subito un attacco "scriptato" (il Carceriere che atterra dalla gabbia: Z_Boss_Drop_Arrival).
 func force_attack(clip: String) -> void:
-	var timing: Array = Motion.attack_timing(clip)
-	attack_serial += 1
-	attack_clip = clip
-	attack_len = timing[0] * anim_scale
-	attack_hit = timing[1] * anim_scale
-	attack_reach = timing[2]
-	attack_lunge = 0.0
-	attack_clock = 0
-	attack_done = false
-	state = State.ATTACK
-	_voice("attack")
+	_begin_attack(clip, 0.0)
 
 func receive_hit(zone:String,amount:float,force:Vector3,weapon:String,heavy:bool=false) -> bool:
 	if replica:return false
@@ -255,18 +281,28 @@ func _physics_process(delta: float) -> void:
 		if is_instance_valid(target):
 			to_target = target.global_position - global_position
 			to_target.y = 0
-		# wind-up: keep facing the target and lunge in (leap for runners) until the hit frame
-		if attack_clock < attack_hit and to_target.length() > 0.05:
-			if attack_clock < attack_hit - COMMIT * anim_scale:
-				rotation.y = lerp_angle(rotation.y, atan2(-to_target.x, -to_target.z), delta * 10)
-			var push := attack_lunge * clampf((attack_clock / attack_hit - 0.35) / 0.65, 0.0, 1.0)
-			if to_target.length() < 0.9: push = 0.0
-			velocity.x = -sin(rotation.y) * push
-			velocity.z = -cos(rotation.y) * push
-		else:
-			velocity.x = move_toward(velocity.x, 0, 12 * delta)
-			velocity.z = move_toward(velocity.z, 0, 12 * delta)
-		if attack_clock >= attack_hit and not attack_done:
+		_track(delta)
+		var melee_hit: bool = attack_clip != "Z_Spit" and kind != 5
+		if melee_hit and not attack_done and attack_clock >= attack_from:
+			# Finestra attiva: mano, avambraccio o testa devono toccare davvero la capsula (vedi _sweep).
+			var victim: CharacterBody3D = _sweep()
+			if victim:
+				attack_done = true
+				var parried: bool = victim.get("melee") != null and victim.melee.get("blocking") == true and not crawling
+				var dodged: bool = victim.has_method("is_invulnerable") and victim.is_invulnerable()
+				var landed := _strike(victim)
+				_close_attack("parato" if landed and parried else ("colpito" if landed else ("schivato" if dodged else "protetto")))
+				if parried and landed:
+					var away := global_position - victim.global_position
+					react("blocked", Vector3(away.x, 0, away.z))
+					state = State.CHASE
+				if not landed: _whiff()
+			elif attack_clock >= attack_until:
+				# A vuoto (schivato, fuori portata, di lato): il peso lo porta avanti e resta scoperto per un attimo.
+				attack_done = true
+				_close_attack(_miss_reason())
+				_whiff()
+		elif attack_clock >= attack_hit and not attack_done:
 			attack_done = true
 			if attack_clip == "Z_Spit":
 				spit_cooldown = 2.7
@@ -284,22 +320,6 @@ func _physics_process(delta: float) -> void:
 				for a in world.actors.values():
 					if is_instance_valid(a) and not a.dead and a.global_position.distance_to(impact_at) < radius:
 						_boss_hit(a, impact_at)
-			else:
-				var landed := false
-				if is_instance_valid(target) and not target.dead and _in_swing(target) and clear_line(target) and not (world.has_method("is_safe") and world.is_safe(target.position)):
-					# Colpo parato con ascia o pala: lo zombie viene respinto e resta scoperto.
-					var parried: bool = target.get("melee") != null and target.melee.get("blocking") == true and not crawling
-					landed = _strike(target)
-					if parried:
-						var away := global_position - target.global_position
-						react("blocked", Vector3(away.x, 0, away.z))
-						state = State.CHASE
-				if not landed:
-					# A vuoto (schivato, fuori portata, di lato): il peso lo porta avanti e resta scoperto per un attimo.
-					whiffed = true
-					combo_left = 0
-					attack_len += Motion.WHIFF_SECONDS
-					velocity -= global_basis.z * 2.5
 		# Uno-due: dopo un colpo a segno alcuni tirano subito il secondo dall'altro lato, più veloce.
 		if combo_left > 0 and attack_done and state == State.ATTACK and attack_clock >= attack_hit + 0.2:
 			combo_left = 0
@@ -326,11 +346,12 @@ func _physics_process(delta: float) -> void:
 				target = null
 			else:
 				var dist := global_position.distance_to(target.global_position)
-				var next_clip := Motion.pick_attack(kind, network_id, attack_serial + 1, crawling)
-				var start: float = 3.0 if next_clip == "Z_Attack_Leap" else 1.5
+				var next_clip := _usable(Motion.pick_attack(kind, network_id, attack_serial + 1, crawling))
+				# start = distanza di scelta: da qui in poi valuta se il colpo ti arriva (reachable più sotto).
+				var start: float = 4.5 if next_clip == "Z_Attack_Leap" else 3.0
 				if kind == 4 and not crawling:
 					next_clip = "Z_Spit" if spit_cooldown <= 0 and dist > 2.2 else "Z_Attack_Swipe_R"
-					start = 30.0 if next_clip == "Z_Spit" else 1.5
+					start = 30.0 if next_clip == "Z_Spit" else 3.0
 				elif kind == 5:
 					next_clip = "Z_Attack_Leap" if leap_cooldown <= 0 and dist > 4.5 else ("Z_Attack_Overhead_Smash" if attack_serial % 3 != 2 else "Z_Attack_Swipe_R")
 					start = 10.0 if next_clip == "Z_Attack_Leap" else 2.9
@@ -338,11 +359,10 @@ func _physics_process(delta: float) -> void:
 				# Slancio: da due passi si butta in avanti e arriva fin dove eri. Chi si sposta di lato lo vede passare.
 				var lunge := -1.0
 				if kind in [0, 3] and not crawling and pounce_cooldown <= 0.0 and dist > 1.9 and dist < 2.9:
-					start = 2.9
 					lunge = (dist - 1.1) / maxf(float(timing[1]) * 0.325, 0.05)
 				if dist < start + 1.0 and not _may_attack():
 					_waiting = true
-				elif dist < start and clear_line(target):
+				elif dist < start and (next_clip == "Z_Spit" or kind == 5 or _reachable(next_clip, lunge)) and clear_line(target):
 					if kind < 4:
 						anim_scale = 1.0
 						combo_left = 1 if kind in [0, 3] and not crawling and (network_id + attack_serial) % 3 == 0 else 0
@@ -362,6 +382,7 @@ func _physics_process(delta: float) -> void:
 				wander_timer = randf_range(3,6)
 				agent.target_position = NavigationServer3D.map_get_closest_point(get_world_3d().navigation_map,home+Vector3(randf_range(-5,5),0,randf_range(-5,5)))
 		if crawling:speed=0.45
+		elif has_method("move_factor"): speed *= call("move_factor")   # zoppia (lesioni, pacchetto B)
 		var direction := Vector3.ZERO
 		if NavigationServer3D.map_get_iteration_id(get_world_3d().navigation_map)>0 and not agent.is_navigation_finished() and (state != State.CHASE or agent.is_target_reachable()):
 			direction = agent.get_next_path_position()-global_position
@@ -441,32 +462,186 @@ func _physics_process(delta: float) -> void:
 
 func _begin_attack(clip: String, lunge: float = -1.0) -> void:
 	var timing: Array = Motion.attack_timing(clip)
+	var strike: Array = STRIKES.get(clip, [["hand_l", "hand_r", "head"], float(timing[1]) - 0.1, float(timing[1]) + 0.12, float(timing[1]), 0.9])
 	attack_serial += 1
 	attack_clip = clip
-	attack_len = timing[0] * anim_scale
-	attack_hit = timing[1] * anim_scale
+	attack_parts = strike[0]
+	attack_from = float(strike[1]) * anim_scale
+	attack_until = float(strike[2]) * anim_scale
+	attack_hit = float(strike[3]) * anim_scale
+	attack_len = maxf(float(timing[0]), float(strike[2]) + 0.45) * anim_scale
+	attack_gap = float(strike[4])
 	attack_reach = timing[2] * (1.7 if kind == 5 else 1.0)
-	attack_lunge = lunge if lunge >= 0.0 else timing[3] * (1.6 if kind == 5 else 1.0)
+	attack_lunge = lunge if lunge >= 0.0 else maxf(float(timing[3]), STEP_MAX[kind]) * (1.6 if kind == 5 else 1.0)
+	if clip == "Z_Attack_Leap" and lunge < 0.0: attack_lunge = float(timing[3])
 	state = State.ATTACK
 	attack_clock = 0
 	attack_done = false
 	whiffed = false
+	_sweep_prev.clear()
+	_sweep_best = INF
+	_sweep_wall = false
+	if is_instance_valid(target):
+		target.set_meta("zx_attacked_at", Time.get_ticks_msec())
+		var rel: Vector3 = (target.velocity - velocity) * Vector3(1, 0, 1)
+		last_attack = {"clip": clip, "dist": global_position.distance_to(target.global_position), "speed": rel.length(),
+			"windup": attack_hit, "window": [attack_from, attack_until], "yaw": rotation.y, "from": global_position, "result": ""}
 	_voice("attack")
 
 
-## Il colpo prende solo chi è a portata e davanti (o proprio addosso): alle spalle e di fianco va a vuoto.
-func _in_swing(victim: Node3D) -> bool:
-	if global_position.distance_to(victim.global_position) >= attack_reach: return false
-	var to: Vector3 = (victim.global_position - global_position) * Vector3(1, 0, 1)
-	return to.length() < 0.8 or (-global_basis.z).dot(to.normalized()) > 0.3
+## Il lato rotto non colpisce (lesioni, pacchetto B): con la mano destra inutilizzabile niente manate, testata al loro posto.
+func _usable(clip: String) -> String:
+	if not has_method("can_strike") or not STRIKES.has(clip): return clip
+	for part in STRIKES[clip][0]:
+		if part.begins_with("hand") and not call("can_strike", part.substr(5)):
+			return "Z_Attack_Headbutt" if clip != "Z_Attack_Headbutt" else clip
+	return clip
+
+
+## Il colpo ti arriva? Conta dove sarai al contatto (previsione breve) e quanto può avanzare caricando.
+## Se ti allontani più in fretta di quanto lui avanzi non parte: niente colpi tirati all'aria mentre arretri.
+func _reachable(clip: String, lunge: float) -> bool:
+	var timing: Array = Motion.attack_timing(clip)
+	var strike: Array = STRIKES.get(clip, [[], 0.0, 0.0, float(timing[1]), 0.9])
+	var contact: float = float(strike[3]) * anim_scale
+	var step_speed: float = lunge if lunge >= 0.0 else (float(timing[3]) if clip == "Z_Attack_Leap" else maxf(float(timing[3]), STEP_MAX[kind]))
+	# Avanza solo dal 20% della carica al colpo deciso (poi resta lo slancio): tanto può accorciare.
+	var step: float = step_speed * maxf(contact * 0.8 - COMMIT * anim_scale, 0.0) + 0.1
+	# Più in alto o più in basso di quanto arrivano le braccia (rialzo, scala, buca): niente colpo all'aria.
+	if absf(target.global_position.y - global_position.y) > 0.9 * visual.scale.y: return false
+	var flat: Vector3 = (target.global_position - global_position) * Vector3(1, 0, 1)
+	var moving: Vector3 = target.velocity * Vector3(1, 0, 1)
+	var ahead: float = (flat + (moving * minf(contact, LEAD_TIME)).limit_length(LEAD_MAX)).length()
+	# Ti giri attorno o mi passi di fianco senza allontanarti: conta anche la distanza di adesso.
+	var away: float = moving.dot(flat.normalized()) if flat.length() > 0.05 else 0.0
+	var now: float = flat.length() if away < step_speed * 0.5 else INF
+	return minf(ahead, now) - step <= float(strike[4]) + 0.15
+
+
+## Carica: si gira verso dove sarai (giro limitato, quasi fermo dopo il colpo deciso) e ti viene incontro fino a portata.
+func _track(delta: float) -> void:
+	var aim := Vector3.ZERO
+	if is_instance_valid(target) and not target.dead:
+		var left: float = maxf(attack_hit - attack_clock, 0.0)
+		var lead: Vector3 = (target.velocity * Vector3(1, 0, 1) * minf(left, LEAD_TIME)).limit_length(LEAD_MAX)
+		aim = (target.global_position + lead - global_position) * Vector3(1, 0, 1)
+	var committed: bool = attack_clock >= attack_hit - COMMIT * anim_scale
+	if aim.length() > 0.05 and attack_clock < attack_until:
+		var turn: float = (TURN_COMMIT if committed else TURN_AIM) * delta
+		rotation.y += clampf(wrapf(atan2(-aim.x, -aim.z) - rotation.y, -PI, PI), -turn, turn)
+	var push := 0.0
+	if committed and not attack_done and attack_clock < attack_until:
+		# Colpo deciso: niente più inseguimento della distanza, resta solo lo slancio che aveva (chi arretra al momento giusto lo evita).
+		velocity.x = move_toward(velocity.x, 0, 3 * delta)
+		velocity.z = move_toward(velocity.z, 0, 3 * delta)
+		return
+	if not committed and attack_clock > attack_hit * 0.2 and aim.length() > 0.6:
+		push = clampf((aim.length() - attack_gap) / maxf(attack_hit - attack_clock, 0.08), 0.0, attack_lunge)
+	if push > 0.0:
+		velocity.x = -sin(rotation.y) * push
+		velocity.z = -cos(rotation.y) * push
+	else:
+		velocity.x = move_toward(velocity.x, 0, 12 * delta)
+		velocity.z = move_toward(velocity.z, 0, 12 * delta)
+
+
+## Finestra attiva: ogni parte che colpisce (mano, testa) traccia il segmento fatto da un fotogramma di fisica all'altro,
+## le mani anche l'avambraccio. Prende il primo giocatore la cui capsula vera (accucciato compreso) tocca quei segmenti,
+## se tra il petto dello zombie e il punto toccato non c'è un muro. Niente sfere grandi attorno allo zombie.
+func _sweep() -> CharacterBody3D:
+	if avatar == null or avatar.skeleton == null: return null
+	avatar._pose(0.0)       # posa al tempo esatto della fisica, anche quando il disegno va più lento
+	var sk: Skeleton3D = avatar.skeleton
+	var size: float = visual.scale.x
+	var chest: Vector3 = global_position + Vector3.UP * 1.2 * visual.scale.y
+	for part in attack_parts:
+		var id: int = avatar.bone_ids.get(part, -1)
+		if id < 0: continue
+		var now: Vector3 = sk.global_transform * sk.get_bone_global_pose(id).origin
+		var before: Vector3 = _sweep_prev.get(part, now)
+		_sweep_prev[part] = now
+		var elbow := now
+		if part.begins_with("hand"):
+			var e: int = avatar.bone_ids.get("lowerarm" + part.substr(4), -1)
+			if e >= 0: elbow = sk.global_transform * sk.get_bone_global_pose(e).origin
+		var r: float = (0.13 if part == "head" else 0.12) * size
+		for victim in _victims():
+			var axis: Array = _capsule(victim)
+			var swing: PackedVector3Array = Geometry3D.get_closest_points_between_segments(before, now, axis[0], axis[1])
+			var arm: PackedVector3Array = Geometry3D.get_closest_points_between_segments(elbow, now, axis[0], axis[1])
+			var gap: float = minf(swing[0].distance_to(swing[1]) - r, arm[0].distance_to(arm[1]) - r * 0.8) - float(axis[2])
+			if gap > 0.0:
+				_sweep_best = minf(_sweep_best, gap)
+				continue
+			var touch: Vector3 = swing[1] if swing[0].distance_to(swing[1]) - r < arm[0].distance_to(arm[1]) - r * 0.8 else arm[1]
+			if not _hit_at(chest, touch).is_empty():
+				_sweep_wall = true
+				continue
+			_sweep_best = 0.0
+			return victim
+	return null
+
+
+func _victims() -> Array:
+	var out := []
+	var all: Array = world.actors.values() if world and world.get("actors") is Dictionary and not world.actors.is_empty() else [target]
+	for a in all:
+		if is_instance_valid(a) and not a.dead and not (world and world.has_method("is_safe") and world.is_safe(a.position)): out.append(a)
+	return out
+
+
+## Asse e raggio della capsula vera di chi può essere colpito (accucciato si accorcia).
+func _capsule(victim: Node3D) -> Array:
+	var shape: CollisionShape3D = victim.get("body_collider")
+	if shape == null:
+		for child in victim.get_children():
+			if child is CollisionShape3D and (child as CollisionShape3D).shape is CapsuleShape3D:
+				shape = child
+				break
+	if shape == null or not (shape.shape is CapsuleShape3D):
+		return [victim.global_position + Vector3.UP * 0.3, victim.global_position + Vector3.UP * 1.5, 0.32]
+	var cap := shape.shape as CapsuleShape3D
+	var half: float = maxf(cap.height * 0.5 - cap.radius, 0.0)
+	var at: Transform3D = shape.global_transform
+	return [at.origin - at.basis.y.normalized() * half, at.origin + at.basis.y.normalized() * half, cap.radius]
+
+
+## Colpo a vuoto: il peso lo porta avanti e resta scoperto per un attimo (i colpi che prende valgono di più).
+func _whiff() -> void:
+	whiffed = true
+	combo_left = 0
+	attack_len += Motion.WHIFF_SECONDS
+	velocity -= global_basis.z * 2.5
+
+
+func _close_attack(result: String) -> void:
+	if last_attack.is_empty(): return
+	last_attack["result"] = result
+	last_attack["turned"] = absf(wrapf(rotation.y - float(last_attack.yaw), -PI, PI))
+	last_attack["moved"] = (global_position - (last_attack.from as Vector3)).length()
+	last_attack["closest"] = _sweep_best
+	if is_instance_valid(target): last_attack["end_dist"] = global_position.distance_to(target.global_position)
+
+
+func _miss_reason() -> String:
+	if _sweep_wall: return "muro"
+	if not is_instance_valid(target) or target.dead: return "nessun bersaglio"
+	var to: Vector3 = (target.global_position - global_position) * Vector3(1, 0, 1)
+	if to.length() > 0.3 and (-global_basis.z).dot(to.normalized()) < 0.0: return "alle spalle"
+	return "fuori portata"
 
 
 func _may_attack() -> bool:
 	if kind >= 4 or frenzy > 0.0 or not world: return true
 	var busy := 0
 	for other in world.targets:
-		if is_instance_valid(other) and other != self and not other.dead and other.get("state") == State.ATTACK and other.get("target") == target: busy += 1
-	return busy < MAX_ATTACKERS
+		# Conta solo chi gli è davvero addosso (entro 4 m): uno lontano non tiene il posto agli altri.
+		if is_instance_valid(other) and other != self and not other.dead and other.get("state") == State.ATTACK and other.get("target") == target \
+				and other.global_position.distance_to(target.global_position) < 4.0: busy += 1
+	if busy >= MAX_ATTACKERS: return false
+	# Sfalsati: chi arriva subito dopo un altro aspetta un attimo, non colpiscono tutti insieme.
+	var last: int = int(target.get_meta("zx_attacked_at", -100000)) if is_instance_valid(target) else -100000
+	return busy == 0 or Time.get_ticks_msec() - last > int(STAGGER_START * 1000.0)
 
 
 ## Passo che cambia: rallenta e accelera a ondate, e ogni tanto uno scatto quando la preda è a pochi metri.
