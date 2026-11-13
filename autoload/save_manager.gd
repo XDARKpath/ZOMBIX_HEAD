@@ -19,6 +19,13 @@ func erase() -> void:
 func _vec(point: Vector3) -> Array:
 	return [point.x, point.y, point.z]
 
+## Chi salva seduto nel 4×4 riparte in piedi accanto all'auto, non dentro la sua collisione.
+func _standing_point(world: Node, mission) -> Vector3:
+	var seat: int = mission.car.seat_of(multiplayer.get_unique_id())
+	if seat < 0: return world.player.global_position
+	var exit_at: Vector3 = mission.car.safe_exit(seat, world.player)
+	return exit_at if exit_at != Vector3.INF else mission.car.global_position + Vector3.UP * 2.2
+
 func write(world: Node) -> bool:
 	var mission = world.get("expedition")
 	if mission == null or not world.started:
@@ -35,7 +42,7 @@ func write(world: Node) -> bool:
 		"collected": mission.collected,
 		"car_repaired": mission.car.repaired,
 		"car": _vec(mission.car.global_position),
-		"player": _vec(world.player.global_position),
+		"player": _vec(_standing_point(world, mission)),
 		"credits": world.player.credits,
 		"heads": world.player.carried_heads,
 		"owned": world.player.owned,

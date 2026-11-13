@@ -288,9 +288,9 @@ func _record_camp(folder: String) -> void:
 
 func respawn_point() -> Vector3:
 	if expedition and expedition.car.repaired:
-		var point:Vector3=expedition.car.position+Vector3(4,0,0)
-		point.y=terrain.height(point.x,point.z)+0.5
-		return point
+		# Accanto al 4×4, con lo stesso controllo di chi scende dal posto di guida (linea libera, pavimento, capsula).
+		var point:Vector3=expedition.car.safe_exit(0,player)
+		if point!=Vector3.INF: return point+Vector3.UP*0.35
 	return Vector3(3,0.5,2)
 
 func activate_zone(index:int) -> void:

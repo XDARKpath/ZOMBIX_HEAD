@@ -613,7 +613,8 @@ func _distances(samples:Array) -> void:
 	mark_material.roughness=0.9
 	_commit(tools,mark_material)
 
-const WRECKS:=["car_sedan","car_hatchback","car_stationwagon","car_taxi","car_police"]
+# Relitti del kit (tools/borgo_kit): la bruciata due volte, come prima il 45% di carcasse.
+const WRECKS:=["SM_Borgo_Car_Wreck","SM_Borgo_Car_Wreck_Red","SM_Borgo_Police_Wreck","SM_Borgo_Car_Wreck_Burnt","SM_Borgo_Car_Wreck_Burnt"]
 # Detriti: sacchi della spazzatura e latte d'olio (niente casse verdi né casse di munizioni).
 const JUNK:=["res://art/kaykit_city/trash_A.gltf","res://art/kaykit_city/trash_B.gltf","res://art/env/shop/SM_Prop_OilTin.glb"]
 var _scene_cache:Dictionary={}
@@ -696,11 +697,7 @@ func _zombie_road(points:Array, from_index:int, count:int, rng:RandomNumberGener
 			if Village.inside(at.x,at.z) or RoadNet.site_distance(Vector2(at.x,at.z))<RoadNet.SITE_RADIUS or RoadNet.junction_distance(Vector2(at.x,at.z))<12.0:continue
 			var yaw:=atan2(-dir.x,-dir.z)
 			if roll<0.38:
-				var car:=_scene("res://art/kaykit_city/%s.gltf"%WRECKS[rng.randi_range(0,WRECKS.size()-1)])
-				car.scale=Vector3.ONE*4.0
-				_place(car,at+side*flip*rng.randf_range(4.4,6.2),yaw+rng.randf_range(-0.9,0.9))
-				if rng.randf()<0.45:_burn(car)
-				_collide_box(car)
+				_wreck_car(WRECKS[rng.randi_range(0,WRECKS.size()-1)],at+side*flip*rng.randf_range(4.6,6.2),yaw+rng.randf_range(-0.6,0.6))
 				_stain(at+side*flip*rng.randf_range(1.0,2.6),rng.randf_range(0.8,1.6),rng.randf_range(0,TAU),Color(0.22,0.03,0.02,0.75))
 			elif roll<0.70:
 				for k in rng.randi_range(2,4):
@@ -720,6 +717,22 @@ func _zombie_road(points:Array, from_index:int, count:int, rng:RandomNumberGener
 				dead.scale=Vector3.ONE*rng.randf_range(0.9,1.4)
 				_place(dead,at+side*flip*rng.randf_range(9.0,13.0),rng.randf_range(0,TAU))
 		travelled+=length-s
+
+func _wreck_car(id:String,at:Vector3,yaw:float) -> void:
+	# Relitto appoggiato sulle quattro ruote (quota e pendenza dal terreno sotto le ruote) e due scatole
+	# che seguono la sagoma: scocca fino alla cintura e abitacolo, niente muro sopra cofano e baule.
+	var car:=_place(_scene("res://art/zx_borgo/%s.glb"%id),at,yaw)
+	var h:Array[float]=[]
+	for c in [Vector3(-0.85,0,1.42),Vector3(0.85,0,1.42),Vector3(-0.85,0,-1.42),Vector3(0.85,0,-1.42)]:
+		var p:Vector3=at+c.rotated(Vector3.UP,yaw)
+		h.append(height(p.x,p.z))
+	car.position.y=(h[0]+h[1]+h[2]+h[3])*0.25-0.03
+	car.rotation=Vector3(atan2(h[2]+h[3]-h[0]-h[1],5.68),yaw,atan2(h[1]+h[3]-h[0]-h[2],3.4))
+	var front:=2.0 if id.ends_with("_Red") else 2.4
+	var body:=StaticBody3D.new();car.add_child(body)
+	for part in [[Vector3(1.84,0.85,front+2.4),Vector3(0,0.475,(front-2.4)*0.5)],[Vector3(1.56,0.52,2.3),Vector3(0,1.16,-0.33)]]:
+		var shape:=CollisionShape3D.new();var cube:=BoxShape3D.new();cube.size=part[0]
+		shape.shape=cube;shape.position=part[1];body.add_child(shape)
 
 func _roadside() -> void:
 	# Palo della luce spento, relitti e detriti: la strada deve raccontare l'abbandono.
@@ -753,11 +766,7 @@ func _roadside() -> void:
 		head.mesh=shade;head.position=Vector3(-1.4,6.2,0);head.material_override=_metal(Color("2c322e"))
 		pole.add_child(head)
 		if i%2==0:
-			var wreck:Node3D=load("res://art/kaykit_city/car_police.gltf").instantiate()
-			wreck.scale=Vector3.ONE*4.0
-			_place(wreck,a-side*7.2+dir*20,atan2(-dir.x,-dir.z)+0.5)
-			_burn(wreck)
-			_collide_box(wreck)
+			_wreck_car("SM_Borgo_Police_Wreck",a-side*7.2+dir*20,atan2(-dir.x,-dir.z)+0.5)
 		if i==2 or i==5:
 			var barricade:=Node3D.new()
 			for k in range(3): _box(barricade,Vector3(1.6,0.8,0.5),Vector3(k*1.7-1.7,0.4,0),Color("6a6555"))
