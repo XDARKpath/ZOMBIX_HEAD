@@ -612,11 +612,23 @@ func _reachable(w: Transform3D) -> Transform3D:
 	if _motion.is_gun() and not left.is_empty():
 		var left_shoulder: Vector3 = skeleton.get_bone_global_pose(skeleton.find_bone("upperarm_l")).origin
 		var barrel: Vector3 = (w.basis * Vector3.UP).normalized()
+		# In mira la tacca deve restare lontana dall'occhio: lì l'arma arretra poco e la sinistra, fuori quadro, scivola.
+		var room: float = lerpf(0.3, 0.05, _motion._aim_w)
 		for i in 3:
 			var hand: Array = ToolMotion.fist_for(w, left, "l", left_shoulder, Vector3.UP, 0.078, 0.029, 99.0, _motion.left_shift, _motion.edge_w)
-			var over: float = ((hand[0] as Vector3) - left_shoulder).length() - (ARM_REACH - 0.01)
+			var over: float = minf(((hand[0] as Vector3) - left_shoulder).length() - (ARM_REACH - 0.01), room)
 			if over <= 0.0: break
+			room -= over
 			w.origin -= barrel * over
+		# Finito lo spazio per arretrare, è la spalla (fuori quadro) che va incontro alla mano: la sinistra resta sull'appoggio.
+		var hand: Array = ToolMotion.fist_for(w, left, "l", left_shoulder, Vector3.UP, 0.078, 0.029, 99.0, _motion.left_shift, _motion.edge_w)
+		var gap_l: Vector3 = (hand[0] as Vector3) - left_shoulder
+		var short: float = gap_l.length() - (ARM_REACH - 0.01)
+		if short > 0.0:
+			var bone := skeleton.find_bone("upperarm_l")
+			var parent := skeleton.get_bone_global_pose(skeleton.get_bone_parent(bone)).basis
+			skeleton.set_bone_pose_position(bone, skeleton.get_bone_pose_position(bone) + parent.inverse() * (gap_l.normalized() * short))
+			skeleton.force_update_all_bone_transforms()
 	return w
 
 
