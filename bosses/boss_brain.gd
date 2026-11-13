@@ -26,6 +26,10 @@ const SPEED := {"capomacello": 1.75, "macellaio": 3.3, "carceriere": 1.9, "matri
 const GAP := {"capomacello": [1.25, 0.95, 0.6], "macellaio": [0.7, 0.5, 0.32], "carceriere": [1.2, 0.9, 0.6], "matriarca": [1.2, 0.9, 0.65], "signore": [0.75, 0.55, 0.35]}
 const LONG_SHOTS := ["bow", "crossbow", "lever_rifle", "sniper_rifle", "revolver"]
 const BLADES := ["axe", "fire_axe", "machete", "katana", "longsword", "runic_axe", "spartan_sword", "knife", "combat_knife"]
+## Secondi (a velocità 1) in cui le mani toccano davvero, misurati sulle clip. attack_timing dà 0,80 allo schianto,
+## quando le mani sono ancora alzate: stirando la clip su quel numero il boss colpiva a braccia in aria.
+const CONTACT := {"Z_Attack_Overhead_Smash": 1.40, "Z_Attack_Swipe_R": 0.72, "Z_Attack_Swipe_L": 0.70, "Z_Attack_Headbutt": 0.70,
+	"Z_Attack_Jab": 0.66, "Z_Attack_Leap": 0.50, "Z_Tank_Swipe": 0.68, "Z_Tank_Punch": 0.30}
 const SKULL_HP := 70.0
 const MAX_ADDS := 4
 const PLATE_HP := 110.0
@@ -445,7 +449,7 @@ func begin(id: String) -> void:
 ## clip mostrata, windup = secondi prima del colpo. La clip viene stirata perché il suo fotogramma di colpo cada lì.
 func _start(id: String, clip: String, windup: float, opts: Dictionary = {}) -> void:
 	var timing: Array = Motion.attack_timing(clip)
-	var scale: float = windup / maxf(float(timing[1]), 0.05)
+	var scale: float = windup / maxf(float(CONTACT.get(clip, timing[1])), 0.05)
 	host.anim_scale = scale
 	host.attack_clip = clip
 	host.attack_serial += 1
@@ -455,6 +459,8 @@ func _start(id: String, clip: String, windup: float, opts: Dictionary = {}) -> v
 	move = {"id": id, "clip": clip, "windup": windup, "total": float(opts.get("total", float(timing[0]) * scale)), "hold": float(opts.get("hold", 0.0)),
 		"aim_until": float(opts.get("aim_until", windup * 0.45)), "steps": opts.get("steps", []), "next": opts.get("next", Callable()),
 		"cooldown": float(opts.get("cooldown", 2.0)), "lunge": float(opts.get("lunge", 0.0)), "gap": float(opts.get("gap", -1.0))}
+	# Il colpo non finisce prima del suo ultimo passo (le fessure cadono dopo il fotogramma del colpo).
+	for step in move.steps: move.total = maxf(float(move.total), float(step[0]) + 0.05)
 	cooldowns[id] = move.cooldown
 
 
@@ -508,6 +514,9 @@ func _end_move() -> void:
 
 ## Il colpo scriptato di chi lo chiama da fuori (il Carceriere che atterra dalla gabbia).
 func _scripted(delta: float) -> void:
+	# Anche l'atterraggio scriptato ha il suo cerchio prima dell'onda.
+	if host.attack_clock <= 0.0 and not host.attack_done:
+		fx("warn", host.global_position, {"r": 5.0, "t": maxf(host.attack_hit, 0.3), "color": "steel"})
 	host.attack_clock += delta
 	host.velocity.x = 0.0
 	host.velocity.z = 0.0
@@ -657,7 +666,8 @@ func _tick_waves(delta: float) -> void:
 
 
 func _hazard(at: Vector3, radius: float, life: float, type: String, dps: float, extra: Dictionary = {}) -> void:
-	hazards.append({"at": at, "r": radius, "t": life, "type": type, "dps": dps, "extra": extra, "clock": 0.0})
+	# Il primo morso dopo mezzo secondo: la pozza appare (è lei l'avviso) e chi ci nasce sopra fa in tempo a uscire.
+	hazards.append({"at": at, "r": radius, "t": life, "type": type, "dps": dps, "extra": extra, "clock": 0.5})
 	fx("patch", at, {"r": radius, "life": life, "type": type})
 
 
@@ -716,9 +726,11 @@ func _m_slam() -> void:
 
 func _m_sweep() -> void:
 	var angle := 2.5
-	_start("sweep", "Z_Tank_Swipe", 0.78 - phase * 0.06, {"cooldown": 3.0, "aim_until": 0.32, "steps": [[0.33, func() -> void:
-			fx("warn", host.global_position, {"shape": "cone", "yaw": host.rotation.y, "angle": angle, "r": 5.4, "t": 0.45})],
-			[0.78 - phase * 0.06, func() -> void:
+	var windup: float = 0.78 - phase * 0.06
+	# L'avviso si riempie proprio sul colpo anche nelle fasi veloci (prima finiva dopo il danno).
+	_start("sweep", "Z_Tank_Swipe", windup, {"cooldown": 3.0, "aim_until": 0.32, "steps": [[0.33, func() -> void:
+			fx("warn", host.global_position, {"shape": "cone", "yaw": host.rotation.y, "angle": angle, "r": 5.4, "t": windup - 0.33})],
+			[windup, func() -> void:
 				_hit_cone(host.global_position, host.rotation.y, 5.4, angle, 22.0, 9.0, {"shake": 0.6})
 				_slash(5.4, angle, "fire" if style == "capomacello" else "danger", 0.0, 0.5)
 				Fx._sound(world, "swing_blunt", host.global_position, 2.0, 0.6)]]})
@@ -832,13 +844,16 @@ func _m_inferno() -> void:
 				var a: float = TAU * float(i) / 5.0 + 0.4
 				var spot: Vector3 = _spot_on_floor(host.global_position + Vector3(cos(a), 0, sin(a)) * 7.0)
 				fx("warn", spot, {"r": 2.6, "t": windup * 0.6, "color": "fire"})
-			if is_instance_valid(target): fx("warn", _spot_on_floor(target.global_position), {"r": 2.6, "t": windup * 0.6, "color": "fire"})],
+			# Il cerchio sotto di te resta dov'era: chi esce in tempo non si brucia (prima il fuoco ti seguiva).
+			if is_instance_valid(target):
+				move["marked"] = _spot_on_floor(target.global_position)
+				fx("warn", move.marked, {"r": 2.6, "t": windup * 0.6, "color": "fire"})],
 			[windup, func() -> void:
 				for i in 5:
 					var a: float = TAU * float(i) / 5.0 + 0.4
 					var spot: Vector3 = _spot_on_floor(host.global_position + Vector3(cos(a), 0, sin(a)) * 7.0)
 					_fire_burst(spot)
-				if is_instance_valid(target): _fire_burst(_spot_on_floor(target.global_position))
+				if move.has("marked"): _fire_burst(move.marked)
 				fx("crack", host.global_position, {"r": 4.2, "ember": true, "shake": 1.0, "life": 9.0})
 				expose(1.8)]]})
 
@@ -875,8 +890,11 @@ func _m_guardbreak() -> void:
 			[0.42, func() -> void:
 				_slash(3.2, 0.9, "steel", 0.0, 0.7)
 				Fx._sound(world, "weapon_hit_guard", host.global_position, 4.0, 0.6)
+				# Solo dentro lo spicchio avvisato: chi gli è girato attorno non prende il calcio.
+				var forward := -host.global_basis.z
 				for a in _players():
-					if ((a.global_position - host.global_position) * Vector3(1, 0, 1)).length() < 3.2:
+					var gap: Vector3 = (a.global_position - host.global_position) * Vector3(1, 0, 1)
+					if gap.length() < 3.2 and (gap.length() < 0.6 or forward.dot(gap.normalized()) >= cos(0.6)):
 						a.melee.blocking = false
 						_hurt(a, 10.0, host.global_position, 8.0, {"stun": 1.1, "shake": 0.8})]]})
 
@@ -1328,8 +1346,19 @@ func on_hit(zone: String, amount: float, weapon: String, heavy: bool) -> float:
 		"signore": multiplier *= _hit_signore(amount, weapon)
 		_: multiplier *= _hit_carceriere(amount, weapon, heavy)
 	if phase >= 0 and zone == "head" and style == "carceriere" and plates > 0: multiplier *= 0.6
-	if amount * multiplier >= host.health and not dying: _death()
-	return amount * multiplier
+	var dealt: float = amount * multiplier
+	# La vita la toglie zombie_target.receive_hit con il suo fattore di zona: la morte si decide su quella cifra, non prima.
+	# Gambe e piedi lì non scendono mai sotto 1 (il boss non striscia): il colpo che ucciderebbe lo finisce subito dopo.
+	if _low(zone):
+		if dealt * 0.45 >= host.health - 1.0 and host.health > 0.0 and not dying:
+			host.call_deferred("receive_hit", "torso", host.max_health * 10.0, Vector3.ZERO, weapon, true)
+	elif dealt * (2.5 if zone == "head" else (1.3 if zone == "neck" else 1.0)) >= host.health and not dying:
+		_death()
+	return dealt
+
+
+static func _low(zone: String) -> bool:
+	return zone in ["legs", "feet"] or zone.begins_with("thigh") or zone.begins_with("calf") or zone.begins_with("foot")
 
 
 ## Il colpo che lo uccide: la morte la disegna boss_fx su ogni computer. Dopo, niente più colpi rimasti in sospeso.
@@ -1339,7 +1368,19 @@ func _death() -> void:
 	events.clear()
 	waves.clear()
 	hazards.clear()
+	_free_bars()
 	fx("death", host.global_position, {"look": style, "id": host.network_id})
+
+
+## Le sbarre della gabbia sono corpi nel mondo, non figli del boss: da morto o tolto di scena non le toglierebbe più nessuno.
+func _free_bars() -> void:
+	for row in bars:
+		if is_instance_valid(row[1]): row[1].queue_free()
+	bars.clear()
+
+
+func _exit_tree() -> void:
+	_free_bars()
 
 
 func _hit_capomacello(weapon: String) -> float:
@@ -1363,7 +1404,9 @@ func _hit_capomacello(weapon: String) -> float:
 
 func _hit_macellaio(weapon: String) -> float:
 	if SHOTGUN.has(weapon):
-		var dist: float = host.global_position.distance_to(target.global_position) if is_instance_valid(target) else 99.0
+		# Conta chi è vicino, non solo la sua preda: in coop spara spesso l'altro.
+		var near: CharacterBody3D = world.nearest_player(host.global_position)
+		var dist: float = host.global_position.distance_to(near.global_position) if is_instance_valid(near) else 99.0
 		_weak("DEBOLE!")
 		# Da vicino, a metà carica o a metà colpo: la rosa lo butta giù.
 		var committed: bool = move.get("rush", false) or move.get("id", "") in ["charge", "combo"]

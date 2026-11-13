@@ -1,6 +1,6 @@
 extends SceneTree
 # I boss nel gioco vero, colpo per colpo: chi resta fermo si fa male, chi si sposta in tempo no, ogni boss teme la sua arma.
-# Serve la finestra (fa foto in res://../ZOMBIX-HEAD-Boss-Foto/): godot --path . -s res://tests/boss_fight_checks.gd
+# Con la finestra fa foto in res://../ZOMBIX-HEAD-Boss-Foto/; con --headless solo i controlli: godot --path . -s res://tests/boss_fight_checks.gd
 var fails := 0
 var world
 var p
@@ -25,6 +25,8 @@ func _initialize() -> void:
 
 
 func shot(id: String) -> void:
+	# Senza finestra niente foto, ma i controlli girano lo stesso (--headless).
+	if DisplayServer.get_name() == "headless": return
 	await RenderingServer.frame_post_draw
 	var img: Image = root.get_texture().get_image()
 	img.resize(960, 540)
