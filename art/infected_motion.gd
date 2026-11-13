@@ -11,6 +11,8 @@ const WALK_SPEED := 0.9        # m/s the walk clips were authored for
 const RUN_SPEED := 4.0         # m/s of Z_Run
 const DEATHS := ["Z_Death_Back", "Z_Death_Front", "Z_Death_Spin", "Z_Death_Front"]
 const HITS := ["Z_Hit_Front", "Z_Hit_Head", "Z_Hit_L", "Z_Hit_R"]
+## Dopo un colpo a vuoto resta sbilanciato così a lungo (zombie_ai allunga l'attacco, qui si vede il corpo che cede).
+const WHIFF_SECONDS := 0.45
 
 static var _data: Resource
 static var _rigs := {}          # model id -> {index, parent_basis, rest_basis, rest_origin, scale}
@@ -263,6 +265,13 @@ static func _layers(v: Node3D, a: Node3D, st: Dictionary, pose: Dictionary, rig:
 		var force: float = 1.35 if heavy else 1.0
 		_bend(pose, named, "spine_01", Vector3.RIGHT, (-0.1 * back + 0.14 * throw_in) * force)
 		_bend(pose, named, "spine_03", Vector3.RIGHT, (-0.15 * back + 0.24 * throw_in) * force)
+		# Colpo a vuoto: la clip è finita ma l'attacco no. Il peso lo porta avanti, testa giù, poi si riprende.
+		var over: float = a.attack_clock - float(attack_timing(str(a.attack_clip))[0]) * (float(a.anim_scale) if a.get("anim_scale") != null else 1.0)
+		if over > 0.0 and a.kind < 4:
+			var slump: float = sin(clampf(over / WHIFF_SECONDS, 0.0, 1.0) * PI)
+			_bend(pose, named, "spine_01", Vector3.RIGHT, 0.24 * slump)
+			_bend(pose, named, "spine_03", Vector3.RIGHT, 0.2 * slump)
+			_bend(pose, named, "head", Vector3.RIGHT, 0.3 * slump)
 		if spit:
 			# Sputare: inghiotte, butta indietro la testa, frusta in avanti.
 			_bend(pose, named, "neck_01", Vector3.RIGHT, -0.38 * back + 0.42 * throw_in)
