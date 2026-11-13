@@ -668,5 +668,28 @@ func _scatter() -> void:
 				for k in 5:
 					_put(group, DESERT % "SM_Desert_Rib", at + Vector3(0, 0, k * 2.4), 0.05 * k, 1.0 + 0.12 * (2 - absi(k - 2)))
 			_:
-				var wreck := _put(group, KIT % "SM_Borgo_Truck_Wreck", at, rng.randf() * TAU, 1.0, 0.25)
-				if wreck: wreck.rotation.x = rng.randf_range(-0.08, 0.08)
+				var yaw := rng.randf() * TAU
+				rng.randf()   # numero che prima dava l'inclinazione: i relitti successivi restano dove erano
+				# Il punto più piatto entro 15 m (spirale): un camion non resta parcheggiato sul fianco ripido di una duna.
+				var flat := INF
+				var spot := at
+				for k in 25:
+					var q: Vector3 = at + Vector3(cos(k * 2.4), 0, sin(k * 2.4)) * 3.0 * sqrt(k)
+					if Route.road_distance(Vector2(q.x, q.z)) < 22.0: continue
+					var slope := Vector2(Terrain.ground_height(q.x + 2.0, q.z) - Terrain.ground_height(q.x - 2.0, q.z), Terrain.ground_height(q.x, q.z + 2.0) - Terrain.ground_height(q.x, q.z - 2.0)).length()
+					if slope < flat: flat = slope; spot = q
+				at = spot
+				var wreck := _put(group, KIT % "SM_Borgo_Truck_Wreck", at, yaw)
+				if wreck:
+					# Sulle ruote: quota e pendenza dal terreno sotto le quattro ruote. Se anche lì la duna è troppo
+					# ripida o storta non si regge: resta poco inclinato e insabbiato di un metro.
+					var h: Array[float] = []
+					for c in [Vector3(-1.0, 0, 2.7), Vector3(1.0, 0, 2.7), Vector3(-1.0, 0, -2.4), Vector3(1.0, 0, -2.4)]:
+						var p: Vector3 = at + c.rotated(Vector3.UP, yaw)
+						h.append(Terrain.ground_height(p.x, p.z))
+					var pitch := atan2(h[2] + h[3] - h[0] - h[1], 10.2)
+					var roll := atan2(h[1] + h[3] - h[0] - h[2], 4.0)
+					var sanded := absf(h[0] + h[3] - h[1] - h[2]) > 1.2 or absf(pitch) > 0.25 or absf(roll) > 0.25
+					wreck.position.y = (h[0] + h[1] + h[2] + h[3]) * 0.25 - (1.0 if sanded else 0.05)
+					wreck.rotation = Vector3(clampf(pitch, -0.25, 0.25), yaw, clampf(roll, -0.25, 0.25))
+					_box_for(wreck, Vector3(2.4, 2.5, 7.0))

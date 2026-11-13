@@ -24,7 +24,7 @@ const MODULES := preload("res://art/zx_rocca/rocca_modules.glb")
 const Traps := preload("res://world/rocca/rocca_traps.gd")
 const Props := preload("res://world/rocca/rocca_props.gd")
 const PROPS := "res://art/zx_rocca/props/"
-const ORIGIN := Vector3(1500, 300, 1500)
+const ORIGIN := Vector3(1500, 600, 1500)    # sopra ogni montagna del bordo (al massimo ~450 m): a 300 i massi del terreno entravano nella torre
 ## Torre in superficie: al sito del dungeon (RoadNet.SITES), in una radura nel bosco, con il portone verso la pista.
 ## Il portone è sempre aperto e dentro la torre una scala illuminata scende sotto terra fino alla Rocca.
 const SITE_OFFSET := Vector3(-3.0, 0, 0)
@@ -94,6 +94,7 @@ var world: Node3D
 var host := true
 var clock := 0.0
 var lib := {}
+var _posts := {}                              # pali messi da _geometry, per non doppiarli in _tower
 var cells := {}                               # Vector3i(x, z, piano) -> id
 var rooms := {}
 var links := {}
@@ -220,6 +221,11 @@ func _place(key: String, pos: Vector3, rot := 0.0, parent: Node = self) -> Node3
 	return n
 
 
+## Le volte alte si vedono e devono anche fermare corpi e proiettili: sopra c'è il vuoto.
+func _solid_slab(slab: Node3D) -> void:
+	if slab: _box_collider(slab)
+
+
 func _box_collider(n: Node3D) -> void:
 	var aabb := AABB()
 	var first := true
@@ -253,7 +259,7 @@ func _geometry() -> void:
 				_place("M_Straight", cell_pos(c, base), 0.0)
 			"tall":
 				_place("M_FloorTile", cell_pos(c, base))
-				_place("P_RoofSlab", cell_pos(c, base + 10.0))
+				_solid_slab(_place("P_RoofSlab", cell_pos(c, base + 10.0)))
 			_:
 				_place("M_CustomCenter", cell_pos(c, base))
 		for d in [N, S, E, W]:
@@ -289,6 +295,17 @@ func _geometry() -> void:
 				_place(WALLS[_rng.randi() % WALLS.size()], cell_pos(c, base + 5.0), _rot(d))
 	for p in posts.values():
 		_place("M_Pillar", p)
+	_posts = posts
+
+
+## Ante chiuse nel vano di un cancello delle celle (il kit lo lascia aperto): le due ante strette nel varco da 1,7 m, una sola scatola.
+func _jail_doors(gate: Node3D) -> void:
+	for key in ["M_JailDoorL", "M_JailDoorR"]:
+		var leaf := _place(key, Vector3(0, 0, 0.13), 0.0, gate)
+		if leaf == null: return
+		leaf.scale = Vector3(0.68, 1.0, 1.0)
+		for body in leaf.find_children("*", "StaticBody3D", true, false): body.free()
+	_solid(gate, Vector3(0, 1.12, 0.12), Vector3(1.7, 2.12, 0.14))
 
 
 func _balcony_edge(c: Vector2i, d: Vector2i, base: float) -> void:
@@ -323,19 +340,23 @@ func _tower() -> void:
 			_place("M_Wall1", cell_pos(c, 5.0 * t), _rot(d))
 	for p in [Vector3(2, 0, 2), Vector3(2, 0, -2), Vector3(-2, 0, 2), Vector3(-2, 0, -2)]:
 		for t in 2:
-			_place("M_Pillar", cell_pos(c, 5.0 * t) + p)
+			var pp: Vector3 = cell_pos(c, 5.0 * t) + p
+			# Sugli angoli dei muri il palo c'è già: lo stesso pilastro due volte nello stesso punto sfarfalla.
+			if not _posts.has(Vector3i(roundi(pp.x * 10), roundi(pp.y * 10), roundi(pp.z * 10))):
+				_place("M_Pillar", pp)
 	# rampa elicoidale invisibile sopra i gradini della chiocciola (il giocatore non sale i gradini veri):
 	# parte a nord (270°, 0 m) e gira in senso orario visto dall'alto fino al pianerottolo a 5 m (810°, quasi due giri)
 	var cen := cell_pos(c)
 	var a0 := 240.0
 	var steps := 57
 	for i in steps:
-		var aa := deg_to_rad(a0 + i * 10.0)
-		var ab := deg_to_rad(a0 + (i + 1) * 10.0)
-		var ha := clampf(0.2 + (a0 + i * 10.0 - 270.0) * 0.0089, 0.0, 5.0) + 0.04
-		var hb := clampf(0.2 + (a0 + (i + 1) * 10.0 - 270.0) * 0.0089, 0.0, 5.0) + 0.04
-		var r := 1.25
-		_ramp(cen + Vector3(cos(aa) * r, ha, sin(aa) * r), cen + Vector3(cos(ab) * r, hb, sin(ab) * r), 1.3)
+		# Ogni tratto sborda di 2° nei vicini: fra scatole dritte su un'elica restavano spigoli che fermavano i piedi.
+		var da := a0 + i * 10.0 - 2.0
+		var db := a0 + (i + 1) * 10.0 + 2.0
+		var ha := clampf(0.2 + (da - 270.0) * 0.0089, 0.0, 5.0) + 0.04
+		var hb := clampf(0.2 + (db - 270.0) * 0.0089, 0.0, 5.0) + 0.04
+		var r := 1.3
+		_ramp(cen + Vector3(cos(deg_to_rad(da)) * r, ha, sin(deg_to_rad(da)) * r), cen + Vector3(cos(deg_to_rad(db)) * r, hb, sin(deg_to_rad(db)) * r), 1.5)
 
 
 func _octagon() -> void:
@@ -364,7 +385,9 @@ func _octagon() -> void:
 			var p := OCT_C + Vector3(x * CELL + 2, 0, z * CELL + 2)
 			if Vector2(p.x - OCT_C.x, p.z - OCT_C.z).length() < OCT_R + 2.0:
 				_place("M_FloorTile", p)
-				_place("P_RoofSlab", p + Vector3(0, 10.0, 0))
+				_solid_slab(_place("P_RoofSlab", p + Vector3(0, 10.0, 0)))
+	# Ingombro dell'altare (posato dopo il bake in _interactive): così la navmesh gli gira attorno.
+	_solid(self, OCT_C + Vector3(0, 0.75, 0), Vector3(1.8, 1.5, 1.2))
 	_gate("arena_sud", OCT_C + Vector3(0, 0, OCT_A + 0.32), 0.0)
 	_gate("arena_nord", OCT_C + Vector3(0, 0, -OCT_A - 0.32), 0.0)
 
@@ -386,10 +409,25 @@ func set_gate(gname: String, open: bool) -> void:
 	if g.open == open:
 		return
 	g.open = open
+	if not open and host:
+		_clear_gate(g)
 	var tw := create_tween()
 	tw.tween_property(g.node, "position:y", g.open_y if open else g.closed_y, 1.6 if open else 0.55).set_trans(Tween.TRANS_QUAD if open else Tween.TRANS_BOUNCE)
 	for s in g.node.find_children("*", "CollisionShape3D", true, false):
 		(s as CollisionShape3D).set_deferred("disabled", open)
+
+
+## Chi sta nel varco quando la saracinesca cala va dentro l'arena: prima restava incastrato sotto le sbarre.
+func _clear_gate(g: Dictionary) -> void:
+	var at: Vector3 = g.node.position
+	var inward := signf(OCT_C.z - at.z)
+	for a in world.actors.values():
+		if not is_instance_valid(a) or a.get("seated"):
+			continue
+		var l := to_local(a.global_position)
+		if absf(l.x - at.x) < 2.2 and absf(l.z - at.z) < 0.9 and l.y > g.closed_y - 1.0 and l.y < g.closed_y + 3.0:
+			a.global_position = to_global(Vector3(l.x, l.y + 0.05, at.z + inward * 1.3))
+			a.velocity = Vector3.ZERO
 
 
 # =================================================================== ARREDO
@@ -455,7 +493,9 @@ func _dress() -> void:
 		_place("M_BalconyRailing", cell_pos(Vector2i(-2, z), 3.5) + Vector3(1.9, 0, 0), PI / 2)
 	# scala di legno nella cella libera (-2,-2): sale verso nord fino alla balconata (-2,-3) a 3.5 m
 	_place("P_WoodStairs", Vector3(-8.0, 0, -6.2), PI)
-	_ramp(Vector3(-8.0, 0.0, -6.0), Vector3(-8.0, 3.54, -10.0), 1.2)
+	_ramp(Vector3(-8.0, 0.0, -6.0), Vector3(-8.0, 3.54, -10.0), 1.34)
+	# Sotto la metà alta la scala è piena: chi entra dalla porta delle Prigioni trova i montanti, non una lastra invisibile all'altezza della testa.
+	_solid(self, Vector3(-8.0, 0.85, -9.0), Vector3(1.34, 1.7, 2.0))
 	for c in [Vector2i(0, -2), Vector2i(2, -3), Vector2i(1, 0), Vector2i(3, -1)]:
 		_place("P_HangingCage", cell_pos(c, 5.6))
 	for c in [Vector2i(1, -1), Vector2i(2, 1), Vector2i(0, -3), Vector2i(3, 0)]:
@@ -475,7 +515,8 @@ func _dress() -> void:
 			var key := "M_JailGate" if (z % 2 == 0) else "M_JailWall"
 			if (z == -4 and d == E) or (z == 0 and d == W):
 				key = "M_JailBroken"
-			_place(key, mid, PI / 2 * (1 if d == E else -1))
+			var cell_gate := _place(key, mid, PI / 2 * (1 if d == E else -1))
+			if key == "M_JailGate" and cell_gate: _jail_doors(cell_gate)
 		_place("M_JailWall", cell_pos(c) + Vector3(0, 0, -2), 0.0)
 		_place("P_Skull", cell_pos(c) + Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)), _rng.randf() * TAU)
 		_place("P_Bucket", cell_pos(c) + Vector3(1.2, 0, 1.2))
@@ -549,18 +590,26 @@ func _lights() -> void:
 			var o: Vector2i = c + d
 			if cells.get(Vector3i(o.x, o.y, lv), "") == id or links.has(_edge(c, o, lv)):
 				continue
+			# Sulla parete sud della sala grande ci sono gli stendardi: niente torcia sopra il tessuto.
+			if lv == 1 and c.y == 5 and d == S and c.x in [-2, 2, 3]:
+				continue
 			count += 1
 			if count % 3 != 0:
 				continue
 			var mount := cell_pos(c, base) + Vector3(d.x, 0, d.y) * 1.8 + Vector3(0, 2.3, 0)
 			_place("P_TorchWall", mount, _rot(d))
-			_torch(mount - Vector3(d.x, 0, d.y) * 0.45 + Vector3(0, 0.35, 0), 7.0)
+			# Raggio da stanza (celle da 4 m): senza ombre una luce lunga passa muri e solai.
+			_torch(mount - Vector3(d.x, 0, d.y) * 0.45 + Vector3(0, 0.35, 0), 5.5)
 			break
 	# sala grande: lampadari + camino
 	for x in [-1, 1]:
 		_place("P_Chandelier", cell_pos(Vector2i(x, 3), UP + 4.3) + Vector3(2, 0, 2))
-		_torch(cell_pos(Vector2i(x, 3), UP + 2.9) + Vector3(2, 0, 2), 11.0, 1.8, Color("ffc070"))
-	_torch(cell_pos(Vector2i(0, 5), UP + 0.9) + Vector3(2, 0, 1.2), 7.0, 2.2, Color("ff8a30"))
+		_torch(cell_pos(Vector2i(x, 3), UP + 2.9) + Vector3(2, 0, 2), 7.5, 2.2, Color("ffc070"))
+	_torch(cell_pos(Vector2i(0, 5), UP + 0.9) + Vector3(2, 0, 1.2), 6.0, 2.2, Color("ff8a30"))
+	_hearth(cell_pos(Vector2i(0, 5), UP) + Vector3(2, 0.32, 1.62))
+	# Prigioni: un braciere per corsia, prima erano quasi al buio.
+	for c in [Vector2i(-6, -2), Vector2i(-4, -2)]:
+		_torch(cell_pos(c, 2.4), 6.0, 1.3, Color("ffa24a"))
 	for c in [Vector2i(-1, 3), Vector2i(1, 4)]:
 		_torch(cell_pos(c, UP + 1.3) + Vector3(2, 0, 0), 4.0, 0.8, Color("ffd38a"))
 	# fossa: bracieri rossi in basso, luce fioca dall'alto
@@ -574,10 +623,29 @@ func _lights() -> void:
 		var phi := deg_to_rad(90.0 * k + 45.0)
 		var at := OCT_C + Vector3(cos(phi), 0, sin(phi)) * 6.5
 		_place("P_Chandelier", at + Vector3(0, 9.9, 0))
-		arena_lights.append(_torch(at + Vector3(0, 8.4, 0), 14.0, 1.6, Color("ffb46a")))
+		arena_lights.append(_torch(at + Vector3(0, 8.4, 0), 12.0, 1.7, Color("ffb46a")))
 	for k in 8:
 		var phi := deg_to_rad(45.0 * k + 22.5)
 		arena_lights.append(_torch(OCT_C + Vector3(cos(phi), 0, sin(phi)) * 11.5 + Vector3(0, 1.3, 0), 6.0, 0.9))
+
+
+## Fuoco nel camino: la luce arancione aveva la bocca nera.
+func _hearth(at: Vector3) -> void:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color("ff9a3a")
+	mat.emission_enabled = true
+	mat.emission = Color("ff7a1f")
+	mat.emission_energy_multiplier = 3.0
+	for i in 3:
+		var f := MeshInstance3D.new()
+		var m := BoxMesh.new()
+		m.size = Vector3(0.34, 0.36, 0.3) * (1.0 - i * 0.25)
+		m.material = mat
+		f.mesh = m
+		f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(f)
+		f.position = at + Vector3((i - 1) * 0.22, i * 0.12, 0)
+		f.rotation.y = i * 0.7
 
 
 func _environment() -> void:
@@ -635,12 +703,20 @@ func _interactive() -> void:
 	cs.shape = bx
 	cs.position = Vector3(0, 0.75, 0)
 	sb.add_child(cs)
+	# La pedana a gradini attorno all'altare: i piedi non ci entrano dentro.
+	var step := CollisionShape3D.new()
+	var step_box := BoxShape3D.new()
+	step_box.size = Vector3(2.6, 0.22, 2.6)
+	step.shape = step_box
+	step.position = Vector3(0, 0.11, 0)
+	sb.add_child(step)
 	alt.add_child(sb)
 	cage = _anim_prop("SM_Rocca_GabbiaBoss", OCT_C + Vector3(0, 0, -7.0))
 	cage_ap = Traps.player_of(cage)
 	cage_ap.get_animation("Cage_Sway").loop_mode = Animation.LOOP_LINEAR
 	for x in [-9.0, 9.0]:
 		var b := _anim_prop("SM_Rocca_Campana", OCT_C + Vector3(x, 0, -2.0), PI / 2)
+		_world_box(b)
 		var ba := Traps.player_of(b)
 		ba.get_animation("Bell_Ring").loop_mode = Animation.LOOP_LINEAR
 		bells.append(ba)
@@ -726,6 +802,18 @@ func _pickup(kind: String, pos: Vector3) -> Node3D:
 	p.setup(self, pickups.size(), kind)
 	pickups.append(p)
 	return p
+
+
+## Scatola di collisione grande quanto la forma vera (misurata nel mondo), per i pezzi animati che non ne hanno una.
+func _world_box(n: Node3D) -> void:
+	var box := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var b: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first: return
+	_solid(self, to_local(box.get_center()), box.size)
 
 
 func _label3d(text: String, pos: Vector3, color: Color) -> Label3D:
@@ -887,7 +975,7 @@ func _stairwell(tower: Node3D) -> void:
 		# Cornice dove la parete della torre incontra quella della scala: nessuno spazio tra le due.
 		_block(tower, Vector3(s * 1.27, -0.1, -0.2), Vector3(0.22, 0.2, 4.2), C_NOSE, false)
 		# Pareti interne della torre: la muratura continua da dentro, senza stacchi con la scala.
-		_block(tower, Vector3(s * 1.24, 2.7, -0.1), Vector3(0.1, 5.8, 4.4), C_STONE, false)
+		_block(tower, Vector3(s * 1.24, 2.7, -0.1), Vector3(0.1, 5.8, 4.4), C_STONE)
 		_solid(tower, Vector3(s * 2.5, 3.0, 0), Vector3(0.3, 6.0, 5.0))
 		_solid(tower, Vector3(s * 1.9, 1.5, 2.35), Vector3(1.3, 3.0, 0.3))
 		# Pareti della scala fino al fondo del corridoio.
@@ -1232,8 +1320,9 @@ func _bake_navigation() -> void:
 	nav = NavigationRegion3D.new()
 	var nm := NavigationMesh.new()
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
-	nm.agent_radius = 0.5
-	nm.agent_height = 1.75
+	# Archi larghi 1,84 m (1,46 m a 1,7 m d'altezza): con raggio 0,5 e altezza 1,75 la navmesh si spezzava in ogni varco.
+	nm.agent_radius = 0.25
+	nm.agent_height = 1.5
 	nm.agent_max_climb = 0.5
 	nm.cell_size = 0.25
 	nm.cell_height = 0.25
@@ -1275,7 +1364,7 @@ func reset() -> void:
 	for c in crates: c.reset()
 	for c in chests: c.reset()
 	if chests.size() > 5:
-		chests[5].visible = false
+		_boss_chest(false)
 	for p in pickups:
 		if p.kind in ["bende", "pozione", "monete"]:
 			p.queue_free()
@@ -1759,13 +1848,22 @@ func _boss_logic(occupied: Dictionary) -> void:
 		arena_empty = 0.0
 
 
+## Il forziere del boss c'è solo a boss morto: da nascosto non deve essere un muro invisibile davanti all'altare.
+func _boss_chest(on: bool) -> void:
+	var ch: Node3D = chests[5]
+	ch.visible = on
+	for body in ch.find_children("*", "CollisionObject3D", true, false):
+		if not body.has_meta("layer"): body.set_meta("layer", body.collision_layer)
+		body.collision_layer = int(body.get_meta("layer")) if on else 0
+
+
 func _boss_down() -> void:
 	for g in gates:
 		set_gate(g, true)
 	for b in bells: _rest(b, "Bell_Ring")
 	_set_rite(false)
 	if chests.size() > 5:
-		chests[5].visible = true
+		_boss_chest(true)
 	world.announce("IL CARCERIERE È CADUTO · Forziere accanto all'altare. La porta nord riporta in superficie.", 7)
 	_push_state()
 
@@ -1782,17 +1880,24 @@ func _local_view() -> void:
 		return
 	var was := _inside
 	_inside = zone
-	p.rig.camera.environment = {"upper": env_upper, "lower": env_lower, "arena": env_arena}.get(zone, null)
-	if zone != "" and was == "":
-		_suns = world.find_children("*", "DirectionalLight3D", true, false)
-		for s in _suns:
-			s.set_meta("was_visible", s.visible)
-			s.visible = false
-	elif zone == "":
-		for s in _suns:
-			if is_instance_valid(s):
-				s.visible = s.get_meta("was_visible", true)
-		_suns.clear()
+	if was != zone: apply_view()
+
+
+## Ambiente della camera e sole decisi solo da dove sta il giocatore (Cripta, Rocca o superficie).
+## Prima Rocca e Cripta salvavano ognuna lo stato del sole e, passando dall'una all'altra, lo lasciavano spento per sempre.
+func apply_view() -> void:
+	var p: CharacterBody3D = world.player
+	if not is_instance_valid(p):
+		return
+	var env: Environment = null
+	if cripta and cripta._inside:
+		env = cripta.env
+	elif _inside != "":
+		env = {"upper": env_upper, "lower": env_lower, "arena": env_arena}[_inside]
+	p.rig.camera.environment = env
+	var land: Node = world.get("landscape") if world.get("landscape") else world
+	for s in land.find_children("*", "DirectionalLight3D", true, false):
+		s.visible = env == null and bool(world.get("started"))
 
 
 func _update_ui() -> void:
@@ -1888,13 +1993,16 @@ func _state(s: Dictionary) -> void:
 ## Botola della Cripta davanti alla saracinesca sud dell'arena (chiamata da _interactive, dopo la navmesh).
 func _cripta_hatch() -> void:
 	var at := cell_pos(HATCH_CELL) + Vector3(0, 0.03, -1.1)
-	var leaf := _place("M_DoorIronL", at + Vector3(-0.67, 0.0, 1.05))
+	# L'anta stesa è il pavimento della botola: tutta a sud della saracinesca e senza corpo, non un gradino nel varco.
+	var leaf := _place("M_DoorIronL", at + Vector3(-0.67, 0.0, 1.95))
 	if leaf:
 		leaf.rotation = Vector3(-PI / 2, 0, 0)
+		for body in leaf.find_children("*", "StaticBody3D", true, false): body.free()
 	for x in [-1.5, 1.5]:
 		_place("P_CandleTriple", at + Vector3(x, 0, 0.4))
 	_torch(at + Vector3(0, 0.6, 0), 4.0, 0.9, Color("9fc6ff"))
-	_hatch_label = _label3d("BOTOLA DELLA CRIPTA · [E] scendi", at + Vector3(0, 1.6, 0), Color("9fc6ff"))
+	_hatch_label = _label3d("BOTOLA DELLA CRIPTA · [E] scendi", at + Vector3(0, 1.6, 0.6), Color("9fc6ff"))
+	_hatch_label.no_depth_test = true
 	_hatch_label.set_meta("hatch", true)
 
 

@@ -25,6 +25,21 @@ const STREET := 4.5           # mezza larghezza delle vie (= mezza bocca della b
 const STREET_LEN := 100.0
 const BOSS_NAME := "IL MACELLAIO DEL BORGO"
 const SHOPS := ["ALIMENTARI", "FARMACIA", "BAR CENERE", "FERRAMENTA", "POSTE", "BARBIERE", "MACELLERIA", "TABACCHI"]
+## a ovest della chiesa: a est passava la statale
+const CEMETERY := Vector3(-24, 0, -(PLAZA + STREET_LEN + 8))
+## oltre l'ultima casa della via S (che arriva a ~109): il serbatoio stava davanti alla sua porta
+const FARM := Vector3(-20, 0, PLAZA + STREET_LEN + 2)
+## arredo per insegna: dentro si capisce che negozio era (e dove cercare)
+const SHOP_KIT := {
+	"ALIMENTARI": ["Prop_Shelf_Preset_01", "Prop_Shelf_01", "Prop_CardboardBox_Stack_01"],
+	"FARMACIA": ["Prop_Shelf_Preset_01", "Prop_Cabinets_01", "Prop_Office_Desk_01"],
+	"BAR CENERE": ["Prop_Table_Metal_01", "Prop_Chair_01", "Prop_Sink_01"],
+	"FERRAMENTA": ["Prop_Shelf_Preset_01", "Prop_Office_Shelf_01", "Prop_Table_Metal_01", "Prop_CardboardBox_Stack_01"],
+	"POSTE": ["Prop_Office_Desk_01", "Prop_Cabinets_01", "Prop_Office_Shelf_01"],
+	"BARBIERE": ["Prop_Chair_01", "Prop_Sink_01", "Prop_Cabinets_01"],
+	"MACELLERIA": ["Prop_Table_Metal_01", "Prop_Sink_01", "Prop_Cabinets_01"],
+	"TABACCHI": ["Prop_Office_Desk_01", "Prop_Shelf_01", "Prop_Cabinets_01"],
+}
 const DIRS := {"N": Vector2(0, -1), "S": Vector2(0, 1), "O": Vector2(-1, 0), "E": Vector2(1, 0)}
 
 var world: Node3D
@@ -91,6 +106,13 @@ func _ground() -> void:
 	cs.shape = shape
 	cs.position.y = -0.5
 	body.add_child(cs)
+	for site in L.SITES:
+		var pad := CollisionShape3D.new()
+		var pad_shape := BoxShape3D.new()
+		pad_shape.size = Vector3(site.z * 2, 1.0, site.z * 2)
+		pad.shape = pad_shape
+		pad.position = Vector3(site.x, -0.5, site.y)
+		body.add_child(pad)
 	geo.add_child(body)
 	# vie di terra battuta (come i sentieri del rifugio) con un bordo d'erba più scuro
 	for key in DIRS:
@@ -108,7 +130,7 @@ func _ground() -> void:
 	# viottolo dalla fine della via S alla strada asfaltata
 	var a := Vector3(0, 0, PLAZA + STREET_LEN)
 	var b := Vector3(44, 0, 122)
-	var lane := box(geo, (a + b) * 0.5, Vector3(6, 0.05, a.distance_to(b) + 4), Color("5b5a4b"), false)
+	var lane := box(geo, (a + b) * 0.5 + (b - a).normalized() + Vector3(0, 0.004, 0), Vector3(6, 0.05, a.distance_to(b) + 2), Color("5b5a4b"), false)
 	lane.rotation.y = atan2((b - a).x, (b - a).z)
 
 
@@ -172,7 +194,8 @@ func _plaza() -> void:
 	glow.light_energy = 0.8
 	glow.omni_range = 4.0
 	for i in 5:
-		_blood(well, Vector3(rng.randf_range(-4, 4), 0.04, rng.randf_range(-4, 4)), rng.randf_range(0.7, 1.4))
+		var spot := Vector2(rng.randf_range(2.6, 4.5), 0).rotated(rng.randf_range(0, TAU))
+		_blood(well, Vector3(spot.x, 0.04, spot.y), rng.randf_range(0.7, 1.4))
 	var smoke := Props.smoke(well, Vector3(0, 0.3, 0), 1.8, 0.18, 10)
 	smoke.lifetime = 5.0
 	smoke.initial_velocity_min = 0.2
@@ -262,7 +285,7 @@ func _plaza() -> void:
 		elif rng.randf() < 0.5:
 			_scatter(NATURE + "Grass_Wispy_Short.gltf", at, rng.randf_range(0.4, 0.7))   # erba tra le pietre
 	for i in 4:
-		_puddle(p, Vector3(rng.randf_range(-15, 15), 0.02, rng.randf_range(-15, 15)))
+		_puddle(p, Vector3(rng.randf_range(-15, 15), 0.035, rng.randf_range(-15, 15)))
 
 
 func _orient_wall(w: Node3D, at: Vector3, along: Vector3, length: float) -> void:
@@ -277,7 +300,7 @@ func _stall(parent: Node3D, at: Vector3, yaw: float) -> void:
 	var g := _node(parent, at, yaw)
 	for x in [-1.3, 1.3]:
 		for z in [-0.6, 0.6]:
-			box(g, Vector3(x, 1.1, z), Vector3(0.08, 2.2, 0.08), Color("4b4134"), false)
+			box(g, Vector3(x, 1.1, z), Vector3(0.08, 2.2, 0.08), Color("4b4134"), true)
 	asset(g, "Bld_Exterior_Shade_01", Vector3(0, 2.25, -0.75), 0, false, Vector3(1.1, 0.6, 1.0))
 	asset(g, "Prop_Table_Metal_01", Vector3(0, 0, 0), 0, true)
 	if rng.randf() < 0.5:
@@ -325,6 +348,7 @@ func _barricade(at: Vector3, yaw: float) -> void:
 	b.visible = false
 	b.set_meta("shape", cs)
 	b.set_meta("light", light)
+	b.set_meta("half", w * 0.5)
 	barricades.append(b)
 
 
@@ -336,8 +360,12 @@ func set_barricades(up: bool) -> void:
 		var cs: CollisionShape3D = b.get_meta("shape")
 		var light: OmniLight3D = b.get_meta("light")
 		var y0 := L.CENTER.y - 3.2
+		# Su e giù in fretta: il tween di prima (e il suo "spegni la collisione") non deve finire dopo questo.
+		if b.has_meta("tween"): (b.get_meta("tween") as Tween).kill()
 		var tw := create_tween()
+		b.set_meta("tween", tw)
 		if up:
+			_clear_line(b)
 			b.visible = true
 			cs.disabled = false
 			tw.tween_property(b, "position:y", L.CENTER.y, 1.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -350,6 +378,17 @@ func set_barricades(up: bool) -> void:
 				b.visible = false)
 	if _is_host():
 		_push_state()
+
+
+## Chi sta sulla linea della barricata che sale finisce dalla parte della piazza (ognuno sposta il suo giocatore).
+func _clear_line(b: Node3D) -> void:
+	var inward := -b.global_basis.z.normalized()
+	if inward.dot(L.CENTER - b.global_position) < 0.0: inward = -inward
+	for a in world.actors.values():
+		if not is_instance_valid(a) or not a.is_multiplayer_authority(): continue
+		var rel: Vector3 = a.global_position - Vector3(b.global_position.x, a.global_position.y, b.global_position.z)
+		if absf(rel.dot(b.global_basis.x.normalized())) < float(b.get_meta("half")) + 0.5 and absf(rel.dot(inward)) < 0.9:
+			a.global_position += inward * (1.4 - rel.dot(inward))
 
 
 func _chest(at: Vector3, amount: int, heal: bool, free := false) -> void:
@@ -383,16 +422,17 @@ func _shop(at: Vector3, yaw: float, title: String, index: int) -> void:
 			piece = "Bld_Wall_Brick_Door_01" if not metal else ""
 		if piece == "":
 			box(h, Vector3(-6 + i * 3 + 1.5, 2.3 + (3 * hs - 2.3) * 0.5, 4.5), Vector3(3, 3 * hs - 2.3, 0.22), Color("4c5d5b"), true)
-			asset(h, "Bld_Metal_Door_01", Vector3(-6 + i * 3 + 2.0, 0, 4.5), -1.2, true)
+			asset(h, "Bld_Metal_Door_01", Vector3(-6 + i * 3 + 2.88, 0, 4.5), -PI / 2, true)   # anta aperta contro lo stipite
 		else:
 			asset(h, piece, Vector3(-6 + i * 3, 0, 4.5), 0, true, Vector3(1, hs, 1))
 	_flat_roof(h, 4, 3 * hs, true)
 	asset(h, "Bld_Exterior_Shade_01", Vector3(-1.5, 2.75, 4.75), 0, false, Vector3(1.3, 0.7, 1))
 	asset(h, "Bld_Exterior_Shade_01", Vector3(3.0, 2.75, 4.75), 0, false, Vector3(1.3, 0.7, 1))
 	signboard(h, Vector3(0, 3 * hs + 0.75, 4.8), title, 6.5)
-	_entry_ramp(h, 2.4)
-	_boarded(h, 4)
-	_interior(h, 4, true)
+	_entry_ramp(h, 2.4, -1.5)
+	h.set_meta("door_x", -1.5)
+	_boarded(h, 4, 1)
+	_interior(h, 4, true, SHOP_KIT[title])
 	supplies.append(h.position + Vector3(0, 0.3, 0).rotated(Vector3.UP, yaw) + Vector3(2.5, 0, 0).rotated(Vector3.UP, yaw))
 	for i in 2:
 		_junk(h, Vector3(rng.randf_range(-5, 5), 0.07, rng.randf_range(5.3, 7.0)))
@@ -432,7 +472,7 @@ func _street(key: String) -> void:
 	var dir := Vector3(d.x, 0, d.y)
 	var side_v := Vector3(-d.y, 0, d.x)
 	var length := STREET_LEN if key != "E" else 72.0
-	var t := PLAZA + 11.0
+	var t := PLAZA + 17.0          # i negozi arrivano a PLAZA + 9, una casa con cortile è larga fino a 15 m
 	var poles := []
 	while t < PLAZA + length - 6.0:
 		for s in [-1, 1]:
@@ -538,7 +578,7 @@ func _church() -> void:
 	for i in 6:
 		_blood(c, Vector3(rng.randf_range(-4, 4), 0.06, rng.randf_range(-3, 3)), 0.8)
 	# cimitero a est della chiesa
-	var cem := _node(geo, Vector3(24, 0, -(PLAZA + STREET_LEN + 8)), 0, "Cimitero")
+	var cem := _node(geo, CEMETERY, 0, "Cimitero")
 	_fence_line(cem, Vector3(-10, 0, -10), Vector3(10, 0, -10), 0.2)
 	_fence_line(cem, Vector3(10, 0, -10), Vector3(10, 0, 10), 0.2)
 	_fence_line(cem, Vector3(-10, 0, 10), Vector3(-10, 0, -10), 0.2)
@@ -622,7 +662,7 @@ func _refugee_camp() -> void:
 
 func _farm() -> void:
 	# fine via S: fienile, serbatoio dell'acqua, campi e balle di fieno
-	var f := _node(geo, Vector3(-20, 0, PLAZA + STREET_LEN - 6), 0, "Fattoria")
+	var f := _node(geo, FARM, 0, "Fattoria")
 	var barn := _node(f, Vector3(0, 0, 0), PI / 2, "Fienile")
 	_floor(barn, 4, 3)
 	_walls(barn, 4, 3, true, 1.45)
@@ -669,7 +709,7 @@ func _farm() -> void:
 	_glb(f, BK + "SM_Borgo_Truck_Wreck.glb", Vector3(10, 0, 8), 2.2)
 	# spaventapasseri
 	var sc := _node(f, Vector3(-22, 0, -2), 0.4, "Spaventapasseri")
-	box(sc, Vector3(0, 1.1, 0), Vector3(0.1, 2.2, 0.1), Color("4b4134"), false)
+	box(sc, Vector3(0, 1.1, 0), Vector3(0.1, 2.2, 0.1), Color("4b4134"), true)
 	box(sc, Vector3(0, 1.7, 0), Vector3(1.4, 0.08, 0.08), Color("4b4134"), false)
 	box(sc, Vector3(0, 1.55, 0), Vector3(0.55, 0.7, 0.3), Color("6b5a3a"), false)
 	box(sc, Vector3(0, 2.15, 0), Vector3(0.32, 0.32, 0.32), Color("c7b27a"), false)
@@ -767,9 +807,9 @@ func _busy(at: Vector3) -> bool:
 	var axis_e := absf(at.z) < 28.0 and at.x > -(PLAZA + STREET_LEN + 30) and at.x < PLAZA + 80
 	if axis_n or axis_e:
 		return true
-	if at.distance_to(Vector3(24, 0, -(PLAZA + STREET_LEN + 8))) < 14:
+	if at.distance_to(CEMETERY) < 14:
 		return true
-	if at.distance_to(Vector3(-20, 0, PLAZA + STREET_LEN - 6)) < 40:
+	if at.distance_to(FARM) < 40:
 		return true
 	# la strada asfaltata che taglia l'angolo sud-est
 	var world_p := Vector2(at.x + L.CENTER.x, at.z + L.CENTER.z)
@@ -789,16 +829,20 @@ func _road_signs() -> void:
 
 
 # ================================================================== navigazione
+## Mezzo lato dell'area navigabile: arriva oltre il campo profughi (fino a -152) e la chiesa (-142).
+const NAV_HALF := 155.0
+
+
 func _bake() -> void:
 	var nm := NavigationMesh.new()
 	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
 	nm.geometry_collision_mask = 1
-	nm.agent_radius = 0.5
+	nm.agent_radius = 0.25         # = cell_size: un'erosione di una cella, le porte da 1 m restano aperte
 	nm.agent_height = 2.0
 	nm.agent_max_climb = 0.5
 	nm.cell_size = 0.25
 	nm.cell_height = 0.25
-	nm.filter_baking_aabb = AABB(L.CENTER + Vector3(-L.FLAT - 10, -1.5, -L.FLAT - 10), Vector3(L.FLAT * 2 + 20, 16, L.FLAT * 2 + 20))
+	nm.filter_baking_aabb = AABB(L.CENTER + Vector3(-NAV_HALF, -1.5, -NAV_HALF), Vector3(NAV_HALF * 2, 16, NAV_HALF * 2))
 	nav.navigation_mesh = nm
 	nav.bake_navigation_mesh(true)
 

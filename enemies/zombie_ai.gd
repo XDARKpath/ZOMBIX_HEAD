@@ -263,7 +263,11 @@ func _physics_process(delta: float) -> void:
 				if gap > 1.8 and gap < 12.0:
 					# Più sono lontani più si allargano: arrivano da lati diversi, non in fila indiana.
 					var side := (float(network_id % 5) - 2.0) * (0.45 + clampf((gap - 3.0) / 9.0, 0.0, 1.0) * 0.35)
-					agent.target_position = last_seen + from_target.normalized().rotated(Vector3.UP, side) * clampf(gap * 0.45, 1.1, 3.5)
+					var flank: Vector3 = last_seen + from_target.normalized().rotated(Vector3.UP, side) * clampf(gap * 0.45, 1.1, 3.5)
+					# Il punto di lato deve stare dalla parte del giocatore: se c'è un muro in mezzo (giocatore in casa) si va dritti,
+					# altrimenti l'infetto resta fermo fuori dalla parete per sempre.
+					var wall := PhysicsRayQueryParameters3D.create(last_seen + Vector3.UP, flank + Vector3.UP, 1)
+					if get_world_3d().direct_space_state.intersect_ray(wall).is_empty(): agent.target_position = flank
 	if push_left > 0:
 		# Spinta della reazione (due passi di lato, 1,5 m all'indietro dopo il calcio...).
 		push_left -= delta

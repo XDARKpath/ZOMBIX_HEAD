@@ -13,6 +13,7 @@ const DOOR_OPEN := 70.0
 const HOOD_OPEN := 58.0
 const TAILGATE_OPEN := 85.0
 const WHEEL_RADIUS := 0.42
+const SUSPENSION := 0.25                                             # corsa grafica delle ruote verso il basso (m)
 const FIX_NODES := ["Fix_Battery", "Fix_Belt", "Fix_FuelCap"]       # campaign.PART_NAMES order
 
 var model: Node3D
@@ -27,6 +28,8 @@ var _target := {}
 var _close_at := {}
 var _lights_on := false
 var _spin := 0.0
+var _hubs: Array[Vector3] = []
+var _rest: Array[float] = []
 
 
 func _init() -> void:
@@ -141,6 +144,34 @@ func roll(distance: float) -> void:
 	_spin -= distance / WHEEL_RADIUS
 	for w in wheels:
 		w.rotation.x = _spin
+
+
+## Assetto solo grafico sul terreno: la scatola di guida del 4×4 resta piatta, la carrozzeria si inclina
+## sul piano delle quattro ruote (raggi verso il basso, maschera 1) e ogni ruota scende fino a terra entro la sospensione.
+func settle(delta: float) -> void:
+	var body := get_parent() as Node3D
+	if _hubs.is_empty():
+		for w in wheels:
+			_hubs.append(body.to_local(w.global_position))
+			_rest.append(w.position.y)
+	var space := get_world_3d().direct_space_state
+	var h: Array[float] = []
+	for hub in _hubs:
+		var at := body.to_global(Vector3(hub.x, 0.0, hub.z))
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(at + Vector3.UP * 1.5, at + Vector3.DOWN * 2.5, 1))
+		h.append(clampf(hit.position.y - at.y, -2.0, 0.6) if hit else 0.0)
+	var track: float = _hubs[1].x - _hubs[0].x
+	var base: float = _hubs[2].z - _hubs[0].z
+	var pitch := clampf(atan2((h[0] + h[1]) - (h[2] + h[3]), 2.0 * base), -0.6, 0.6)
+	var tilt := clampf(atan2((h[1] + h[3]) - (h[0] + h[2]), 2.0 * track), -0.6, 0.6)
+	var lift := clampf((h[0] + h[1] + h[2] + h[3]) * 0.25, -1.0, 0.05)
+	var k := 1.0 - exp(-delta * 10.0)
+	rotation.x = lerpf(rotation.x, pitch, k)
+	rotation.z = lerpf(rotation.z, tilt, k)
+	position.y = lerpf(position.y, lift, k)
+	for i in wheels.size():
+		var plane: float = position.y - _hubs[i].z * sin(rotation.x) + _hubs[i].x * sin(rotation.z)
+		wheels[i].position.y = _rest[i] + clampf(h[i] - plane, -SUSPENSION, 0.05)
 
 
 func marker(name_: String) -> Node3D:

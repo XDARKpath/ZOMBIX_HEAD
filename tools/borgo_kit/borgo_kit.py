@@ -5,10 +5,11 @@ dei pezzi modulari che villaggio.gd usava prima, così il codice del villaggio r
   tetto a falde 3 x 10 m (x -3..0, z -9.5..0.5, colmo a z = -4.5), tetto piano 3 x 3, tettoie, porte, arredo, auto, tende...
 Si scrive in coordinate Godot (Y su, Z verso l'esterno): push(rot=(90,0,0)) converte nello spazio di Blender (Z su).
 Uscita: art/zx_borgo/SM_<nome>.glb"""
-import sys, math, random
-sys.path.insert(0, '/home/claude/zx')
-sys.path.insert(0, '/home/claude/src/Survivor_Operative/source/blender_scripts')
+import sys, math, random, os, tempfile
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 import bpy
+from mathutils import Vector
 import lib
 import kit
 
@@ -22,6 +23,8 @@ EXTRA = {
     'car_blue': (82, 104, 128), 'car_blue_dark': (60, 76, 94), 'car_red': (150, 62, 48), 'police_white': (210, 210, 204),
     'tyre': (30, 30, 32), 'tarp_green': (88, 104, 72), 'tarp_green_dark': (68, 82, 56), 'tent_orange': (190, 110, 52),
     'water_blue': (60, 110, 160), 'water_blue_dark': (44, 84, 124), 'puddle': (50, 62, 66),
+    'char': (38, 34, 32), 'char_light': (74, 66, 60), 'seat_cloth': (96, 92, 86), 'seat_cloth_dark': (66, 63, 60),
+    'foam': (206, 190, 140),
 }
 for _k, _v in EXTRA.items():
     if _k not in lib.PALETTE:
@@ -29,13 +32,38 @@ for _k, _v in EXTRA.items():
         lib.NAMES.append(_k)
 assert len(lib.NAMES) <= 256, len(lib.NAMES)
 
-OUT = '/home/claude/game/art/zx_borgo'
-import os
+# blender -b --factory-startup --python borgo_kit.py -- [SM_nome ...]   (senza nomi esporta tutti i pezzi)
+OUT = os.path.normpath(os.path.join(HERE, '..', '..', 'art', 'zx_borgo'))
+ONLY = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 os.makedirs(OUT, exist_ok=True)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 kit._MATS.clear()
-kit.write_palettes(f'{OUT}/T_Borgo_Palette.png', f'{OUT}/T_Borgo_Emission.png')
-mats = kit.materials(f'{OUT}/T_Borgo_Palette.png', f'{OUT}/T_Borgo_Emission.png')
+PAL = tempfile.mkdtemp()          # le palette finiscono dentro ogni glb: niente png sciolti nel progetto
+
+
+def write_palettes(albedo, emission):
+    """come kit.write_palettes, ma con le immagini di Blender (il Python di Blender non ha PIL)"""
+    for path, only_emit in ((albedo, False), (emission, True)):
+        im = bpy.data.images.new(os.path.basename(path), 256, 256)
+        px = [1.0, 0.0, 1.0, 1.0] * (256 * 256) if not only_emit else [0.0, 0.0, 0.0, 1.0] * (256 * 256)
+        for i, n in enumerate(lib.NAMES):
+            if only_emit and n not in kit.EMISSIVE:
+                continue
+            c = [v / 255 for v in lib.PALETTE[n]]
+            cx, cy = (i % 16) * 16, 255 - (i // 16) * 16        # le righe di Blender partono dal basso
+            for y in range(16):
+                for x in range(16):
+                    j = ((cy - y) * 256 + cx + x) * 4
+                    px[j:j + 3] = c
+        im.pixels.foreach_set(px)
+        im.filepath_raw = path
+        im.file_format = 'PNG'
+        im.save()
+        bpy.data.images.remove(im)
+
+
+write_palettes(f'{PAL}/T_Borgo_Palette.png', f'{PAL}/T_Borgo_Emission.png')
+mats = kit.materials(f'{PAL}/T_Borgo_Palette.png', f'{PAL}/T_Borgo_Emission.png')
 pieces = {}
 
 
@@ -456,62 +484,322 @@ while z < -0.1:
     z += 0.2
 
 
-def car(name, body, dark, police=False, seed=36):
-    """auto distrutta: lunghezza lungo Z (5 m), larghezza 1.9, ruote sgonfie, vetri rotti"""
+def arc(cz, cy, R, n=6, a0=0.0, a1=math.pi):
+    """punti (y, z) di un arco di ruota: da z = cz + R*cos(a0) verso z decrescente"""
+    return [(cy + R * math.sin(a0 + (a1 - a0) * i / n), cz + R * math.cos(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+
+
+def pane(k, pts, broken=False, col='glass'):
+    """lastra di vetro (materiale trasparente, doppia faccia); rotta = resta una scheggia nell'angolo basso"""
+    if broken:
+        a, b, d = Vector(pts[0]), Vector(pts[1]), Vector(pts[-1])
+        pts = [tuple(a), tuple(a.lerp(b, 0.35)), tuple(a.lerp(d, 0.3))]
+    k.face([k.vert(p) for p in pts], col)
+
+
+def shards(k, r, s, z0, z1, n=3):
+    """schegge di vetro a terra sotto un finestrino rotto: piccole e vicine alla fiancata (x e z da un solo campione)"""
+    for i in range(n):
+        x = s * r.uniform(0.94, 0.99)
+        z = r.uniform(z0, z1)
+        w, d = r.uniform(0.04, 0.09), r.uniform(0.04, 0.08)
+        B(k, x - w / 2, 0.004, z - d / 2, x + w / 2, 0.009, z + d / 2, 'glass_dark')
+
+
+def lip(k, s, x, cz, cy, R, col):
+    """bordo del parafango lungo l'arco della ruota"""
+    pts = arc(cz, cy, R + 0.02)
+    for (y0, z0), (y1, z1) in zip(pts, pts[1:]):
+        k.beam((x, y0, z0), (x, y1, z1), 0.05, 0.03, col, up=(s, 0, 0))
+
+
+ZF, ZR, AR, AY, W = 1.42, -1.42, 0.40, 0.31, 0.92     # assi, raggio passaruota, mozzo, mezza larghezza
+
+
+def car(name, body, cond, seed, police=False):
+    """Relitto di berlina: muso verso +Z, lunga 4,8 m, larga 1,84 (2,0 con gli specchietti), origine a terra al centro.
+    cond: 'looted' saccheggiata (porta del guidatore e una ruota tolte, baule e cofano aperti, sedili sventrati),
+          'crashed' incidentata (muso accartocciato, cofano a tenda, parabrezza a ragnatela, ruota girata),
+          'abandoned' lasciata a un posto di blocco, 'burnt' bruciata (niente gomme né vetri, poggia sui cerchi)."""
     k = mk(name, seed)
     r = k.rnd
-    k.cbox((0, 0.55, 0), (1.85, 0.5, 4.7), body, ch=0.06)                     # scocca
-    k.cbox((0, 0.86, 2.0), (1.8, 0.14, 0.9), body, ch=0.04)                   # cofano
-    k.cbox((0, 0.86, -1.9), (1.8, 0.14, 0.9), body, ch=0.04)                  # baule
-    k.cbox((0, 1.12, -0.1), (1.7, 0.55, 2.4), body, ch=0.06)                  # abitacolo
-    B(k, -0.86, 0.95, -1.2, 0.86, 1.33, 1.0, 'iron_dark')                     # interno scuro (finestrini vuoti)
-    B(k, -0.7, 0.95, 1.05, 0.7, 1.32, 1.1, 'glass_dark')                      # parabrezza
-    B(k, -0.93, 0.28, -2.36, 0.93, 0.42, -2.34, 'iron')                       # paraurti
-    B(k, -0.93, 0.28, 2.34, 0.93, 0.42, 2.36, 'iron')
-    for sx in (-0.7, 0.7):
-        B(k, sx - 0.18, 0.5, 2.34, sx + 0.18, 0.62, 2.37, 'paint_cream')       # fari
-    for i in range(5):
-        x = r.choice([-0.93, 0.93])
-        B(k, x - 0.01, r.uniform(0.35, 0.8), r.uniform(-2.0, 1.5), x + 0.01, r.uniform(0.8, 1.0), r.uniform(-1.5, 2.0), 'rust')
-    for (sx, sz) in ((-0.82, 1.5), (0.82, 1.5), (-0.82, -1.5), (0.82, -1.5)):
-        if r.random() < 0.2:
-            continue                                                           # ruota mancante
-        k.cyl((sx - 0.12 * (1 if sx > 0 else -1), 0.3, sz), (sx + 0.12 * (1 if sx > 0 else -1), 0.3, sz), 0.33, 'tyre', n=10)
-        k.cyl((sx + 0.13 * (1 if sx > 0 else -1), 0.3, sz), (sx + 0.14 * (1 if sx > 0 else -1), 0.3, sz), 0.16, 'iron', n=8)
+    burnt = cond == 'burnt'
+    paint = 'char' if burnt else body
+    trim = 'char' if burnt else 'iron_dark'
+    seat = 'char_light' if burnt else 'seat_cloth'
+    nose = 1.98 if cond == 'crashed' else 2.36
+    k.push((0, -0.1 if burnt else 0.0, 0))           # senza gomme la bruciata sta 10 cm più in basso
+    # --- scocca: fiancata con i passaruota, cofano, baule e vano dell'abitacolo aperto in alto
+    prof = [(0.32, nose - 0.04), (0.24, max(ZF + AR + 0.02, nose - 0.3)), (0.24, ZF + AR)]
+    prof += arc(ZF, AY, AR) + [(0.24, ZF - AR), (0.24, ZR + AR)]
+    prof += arc(ZR, AY, AR) + [(0.24, ZR - AR), (0.24, -2.05), (0.32, -2.33), (0.62, -2.37), (0.84, -2.31), (0.90, -2.05), (0.91, -1.45)]
+    prof += [(0.78, -1.45), (0.78, -0.95), (0.50, -0.95), (0.50, 0.92), (0.90, 0.92)]
+    if cond == 'crashed':
+        prof += [(1.04, 1.45), (0.80, nose - 0.02), (0.56, nose)]
+    else:
+        prof += [(0.88, 1.40), (0.84, 2.22), (0.74, 2.35), (0.58, nose + 0.01)]
+    k.prism_x(prof, -W, W, paint)
+    # --- porte: pannelli di fiancata (via la porta del guidatore nella saccheggiata)
+    door = 'paint_black' if police else paint
+    for s in (-1, 1):
+        if not (cond == 'looted' and s == 1):
+            k.prism_x([(0.24, 0.95), (0.90, 0.95), (0.90, -0.25), (0.24, -0.25)], s * 0.84, s * (W + 0.004), door)
+        k.prism_x([(0.24, -0.25), (0.90, -0.25), (0.90, -0.95), (0.24, -0.95)], s * 0.84, s * (W + 0.004), door)
+        k.prism_x([(0.74, -0.95), (0.90, -0.95), (0.90, -1.45), (0.74, -1.45)], s * 0.84, s * (W + 0.004), paint)
+        for z in (0.95, -0.25, -0.95):                                              # fessure delle porte
+            B(k, s * W, 0.27, z - 0.008, s * (W + 0.008), 0.89, z + 0.008, trim)
+        B(k, s * 0.84, 0.895, -1.45, s * (W + 0.005), 0.915, 0.95, trim)           # bordo del finestrino
+        for z in (-0.15, -0.88):                                                     # maniglie
+            if not (cond == 'looted' and s == 1 and z > -0.25):
+                B(k, s * W, 0.76, z, s * (W + 0.022), 0.795, z + 0.12, 'steel' if not burnt else trim)
+        lip(k, s, s * (W + 0.012), ZF, AY, AR, trim)
+        lip(k, s, s * (W + 0.012), ZR, AY, AR, trim)
+    # --- montanti, tetto, vetri
+    for s in (-1, 1):
+        k.beam((s * 0.86, 0.91, 0.92), (s * 0.75, 1.40, 0.27), 0.07, 0.06, paint, up=(s, 0, 0))     # A
+        k.beam((s * 0.87, 0.91, -0.25), (s * 0.76, 1.40, -0.28), 0.10, 0.07, paint, up=(s, 0, 0))   # B
+        k.beam((s * 0.86, 0.91, -1.40), (s * 0.75, 1.40, -0.97), 0.16, 0.07, paint, up=(s, 0, 0))   # C
+    k.cbox((0, 1.42, -0.35), (1.56, 0.06, 1.34), paint, ch=0.02)
+    if not burnt:
+        B(k, -0.74, 1.383, -0.97, 0.74, 1.39, 0.27, 'seat_cloth_dark')                             # cielo interno
+
+    def gx(y):
+        return 0.885 - (y - 0.90) / 0.5 * 0.13
+
+    broken = {'looted': {'FR', 'RL', 'rear'}, 'crashed': {'FL'}, 'abandoned': {'RR'}}.get(cond, set())
+    if not burnt:
+        pane(k, [(-0.80, 0.93, 0.90), (0.80, 0.93, 0.90), (0.70, 1.38, 0.29), (-0.70, 1.38, 0.29)])
+        pane(k, [(0.80, 0.93, -1.40), (-0.80, 0.93, -1.40), (-0.70, 1.38, -0.99), (0.70, 1.38, -0.99)], 'rear' in broken)
+        for s, tag in ((-1, 'R'), (1, 'L')):                     # guida a sinistra: il lato +X è quello del guidatore
+            if not (cond == 'looted' and s == 1):
+                f = [(0.93, 0.86), (1.37, 0.30), (1.37, -0.21), (0.93, -0.21)]
+                pane(k, [(s * gx(y), y, z) for y, z in f], 'F' + tag in broken)
+                if 'F' + tag in broken:
+                    shards(k, r, s, -0.2, 0.8)
+            f = [(0.93, -0.30), (1.37, -0.30), (1.37, -0.92), (0.93, -1.30)]
+            pane(k, [(s * gx(y), y, z) for y, z in f], 'R' + tag in broken)
+            if 'R' + tag in broken:
+                shards(k, r, s, -1.2, -0.3)
+    if cond == 'crashed':                                        # parabrezza a ragnatela
+        c = Vector((0.32, 1.12, 0.64))
+        n = Vector((0, 0.80, 0.59)) * 0.012
+        for ang in range(0, 360, 60):
+            d = Vector((math.cos(math.radians(ang)) * 0.75, math.sin(math.radians(ang)) * 0.59 * 0.6, -math.sin(math.radians(ang)) * 0.80 * 0.6))
+            e = c + d * r.uniform(0.25, 0.4)
+            e.x = max(-0.75, min(0.75, e.x))
+            k.beam(tuple(c + n), tuple(e + n), 0.012, 0.004, 'concrete_light', up=(0, 0.80, 0.59))
+    # --- interni: pianale, cruscotto, volante, sedili
+    B(k, -0.84, 0.50, -0.95, 0.84, 0.506, 0.92, trim)
+    B(k, -0.84, 0.62, 0.62, 0.84, 0.97, 0.93, trim)
+    k.beam((0.40, 0.80, 0.70), (0.40, 0.98, 0.52), 0.05, 0.05, 'iron_dark' if not burnt else trim)
+    k.cyl((0.40, 0.99, 0.51), (0.40, 1.01, 0.49), 0.17, 'iron_dark' if not burnt else trim, n=10)
+    if cond == 'crashed':
+        k.blob((0.40, 1.04, 0.42), (0.20, 0.10, 0.16), 'paint_white', r, n=6, rings=2)          # airbag sgonfio
+    for sx in (-0.40, 0.40):
+        if burnt:                                                                               # restano i telai
+            k.beam((sx - 0.22, 0.55, -0.22), (sx - 0.22, 1.12, -0.34), 0.03, 0.03, seat)
+            k.beam((sx + 0.22, 0.55, -0.22), (sx + 0.22, 1.12, -0.34), 0.03, 0.03, seat)
+            k.beam((sx - 0.22, 1.12, -0.34), (sx + 0.22, 1.12, -0.34), 0.03, 0.03, seat)
+            B(k, sx - 0.24, 0.50, -0.20, sx + 0.24, 0.56, 0.28, seat)
+            continue
+        B(k, sx - 0.25, 0.50, -0.20, sx + 0.25, 0.64, 0.30, seat)
+        k.push((sx, 0.62, -0.25), (-12, 0, 0))
+        k.box((0, 0.30, 0), (0.48, 0.60, 0.12), seat)
+        k.box((0, 0.68, 0), (0.26, 0.16, 0.10), seat)
+        if cond == 'looted':
+            k.blob((0.05, 0.35, 0.07), (0.14, 0.12, 0.04), 'foam', r, n=5, rings=2)            # imbottitura strappata
+        k.pop()
+    B(k, -0.78, 0.50, -0.95, 0.78, 0.66 if not burnt else 0.56, -0.55, seat)
+    if not burnt:
+        k.push((0, 0.66, -0.98), (-15, 0, 0))
+        k.box((0, 0.25, 0), (1.56, 0.50, 0.12), seat)
+        k.pop()
+    # --- muso: fari, frecce, griglia, paraurti, targa
+    bump = 'iron' if not burnt else trim
+    if cond == 'crashed':
+        B(k, -0.80, 0.34, nose - 0.10, 0.80, 0.80, nose - 0.02, 'iron_dark')                     # radiatore schiacciato
+        B(k, -0.84, 0.60, nose - 0.04, -0.58, 0.72, nose + 0.01, 'paint_cream')                # un faro rimasto
+        k.beam((-0.90, 0.42, nose + 0.05), (0.86, 0.12, nose + 0.16), 0.16, 0.10, bump, up=(0, 1, 0))  # paraurti appeso
+    else:
+        for s in (-1, 1):
+            B(k, s * 0.56, 0.60, nose - 0.02, s * 0.84, 0.72, nose + 0.012, 'paint_cream' if not burnt else trim)
+            B(k, s * 0.84, 0.60, nose - 0.06, s * 0.90, 0.70, nose - 0.01, 'traffic_orange' if not burnt else trim)
+        B(k, -0.46, 0.50, nose - 0.02, 0.46, 0.70, nose + 0.006, 'iron_dark')
+        for y in (0.54, 0.60, 0.66):
+            B(k, -0.44, y, nose + 0.006, 0.44, y + 0.02, nose + 0.016, bump)
+        k.cbox((0, 0.40, nose + 0.02), (1.84, 0.17, 0.12), bump, ch=0.03)
+        if not burnt:
+            B(k, -0.24, 0.35, nose + 0.08, 0.24, 0.46, nose + 0.09, 'paint_white')
+    # --- coda: fanali, paraurti, targa
+    for s in (-1, 1):
+        B(k, s * 0.55, 0.68, -2.385, s * 0.86, 0.80, -2.34, 'paint_red_dark' if not burnt else trim)
+    k.cbox((0, 0.40, -2.38), (1.84, 0.17, 0.12), bump, ch=0.03)
+    if not burnt:
+        B(k, -0.24, 0.50, -2.39, 0.24, 0.61, -2.37, 'paint_white')
+    # --- specchietti (uno rotto o mancante)
+    for s in (-1, 1):
+        if (cond == 'looted' and s == 1) or (cond == 'crashed' and s == -1):
+            continue
+        k.beam((s * 0.88, 0.93, 0.86), (s * 0.95, 0.97, 0.84), 0.04, 0.03, trim)
+        B(k, s * 0.92, 0.92, 0.78, s * 1.0, 1.04, 0.86, paint)
+    # --- condizioni
+    if cond == 'looted':
+        B(k, -0.78, 0.906, -2.22, 0.78, 0.914, -1.52, 'iron_dark')                              # baule vuoto aperto
+        k.push((0, 0.92, -1.50), (68, 0, 0))
+        k.box((0, 0.02, -0.40), (1.70, 0.04, 0.80), paint)
+        k.pop()
+        k.push((0, 0.90, 0.95), (-9, 0, 0))                                                     # cofano sollevato (batteria presa)
+        k.box((0, 0.03, 0.66), (1.74, 0.04, 1.30), paint)
+        k.pop()
     if police:
-        B(k, -0.93, 0.5, -0.8, 0.93, 0.8, 0.8, 'paint_black')                  # porte nere
-        B(k, -0.5, 1.4, -0.2, 0.5, 1.5, 0.1, 'iron_dark')
-        B(k, -0.48, 1.5, -0.18, -0.02, 1.58, 0.08, 'emit_red')
-        B(k, 0.02, 1.5, -0.18, 0.48, 1.58, 0.08, 'emit_blue')
-    # vetri a terra
-    for i in range(4):
-        B(k, r.uniform(-1.4, 1.4), 0.005, r.uniform(-2, 2), r.uniform(-1.4, 1.4) + 0.12, 0.01, r.uniform(-2, 2) + 0.1, 'glass_dark')
-
-
-car('Borgo_Car_Wreck', 'car_blue', 'car_blue_dark', seed=36)
-car('Borgo_Car_Wreck_Red', 'car_red', 'rust', seed=37)
-car('Borgo_Police_Wreck', 'police_white', 'paint_black', police=True, seed=38)
-
-k = mk('Borgo_Truck_Wreck', 39)
-k.cbox((0, 0.7, 0), (2.4, 0.4, 7.0), 'iron_dark', ch=0.05)                    # telaio
-k.cbox((0, 1.5, 2.7), (2.4, 1.4, 1.6), 'military', ch=0.08)                    # cabina
-B(k, -1.0, 1.75, 3.5, 1.0, 2.1, 3.52, 'glass_dark')
-k.cbox((0, 1.1, -1.0), (2.5, 0.25, 4.8), 'military_dark', ch=0.04)             # cassone
-for sx in (-1.22, 1.22):
-    B(k, sx - 0.04, 1.2, -3.4, sx + 0.04, 1.75, 1.4, 'military')
-# telone: tetto e fianchi in tela, bordi smussati
-B(k, -1.0, 2.5, -3.35, 1.0, 2.56, 1.35, 'tarp_green')
-for sx in (-1, 1):
-    B(k, sx * 1.22 - 0.03, 1.25, -3.35, sx * 1.22 + 0.03, 2.25, 1.35, 'tarp_green_dark')
-    k.push((sx * 1.12, 2.4, -1.0), (0, 0, -45 * sx))
-    k.box((0, 0, 0), (0.36, 0.05, 4.7), 'tarp_green')
+        B(k, -0.55, 1.45, -0.45, 0.55, 1.50, -0.25, 'iron_dark')                               # lampeggiante
+        B(k, -0.52, 1.50, -0.43, -0.02, 1.58, -0.27, 'emit_red')
+        B(k, 0.02, 1.50, -0.43, 0.52, 1.58, -0.27, 'emit_blue')
+        for sx in (-0.38, 0.38):                                                                 # rostro
+            k.beam((sx, 0.30, nose + 0.12), (sx, 0.74, nose + 0.08), 0.06, 0.06, 'iron_dark')
+        for y in (0.42, 0.68):
+            B(k, -0.42, y - 0.03, nose + 0.07, 0.42, y + 0.03, nose + 0.13, 'iron_dark')
+        k.cyl((0.90, 1.02, 0.82), (0.90, 1.02, 0.95), 0.06, 'steel', n=6)                      # faro brandeggiabile
+    # ruggine: solo in basso (sottoporta e coda) o a chiazze sulla bruciata; z da un solo campione
+    spots = {'looted': 6, 'crashed': 1, 'abandoned': 2, 'burnt': 7}[cond]
+    for i in range(spots):
+        s = r.choice((-1, 1))
+        z0, z1 = r.choice([(-0.92, 0.92), (-2.25, -1.86)] + ([(1.86, 2.2)] if cond != 'crashed' else []))
+        zl = r.uniform(0.15, min(0.45, z1 - z0))
+        z = r.uniform(z0, z1 - zl)
+        y0 = r.uniform(0.27, 0.38)
+        y1 = min(y0 + r.uniform(0.08, 0.2), 0.48 if not burnt else 0.85)
+        B(k, s * (W + 0.002), y0, z, s * (W + 0.008), y1, z + zl, r.choice(['rust', 'rust_dark']) if not burnt else r.choice(['rust_dark', 'char_light', 'rust']))
     k.pop()
-for z in (-3.0, -1.0, 1.0):
-    B(k, -1.2, 2.45, z - 0.04, 1.2, 2.5, z + 0.04, 'iron_dark')     # archi
-for sz in (2.7, -0.6, -2.4):
-    for sx in (-1.15, 1.15):
-        k.cyl((sx - 0.15, 0.5, sz), (sx + 0.15, 0.5, sz), 0.5, 'tyre', n=10)
-B(k, -1.2, 0.3, 3.5, 1.2, 0.6, 3.6, 'iron')
+    # --- ruote (fuori dal push: la bruciata poggia sui cerchi)
+    for s, z, tag in ((-1, ZF, 'FR'), (1, ZF, 'FL'), (-1, ZR, 'RR'), (1, ZR, 'RL')):
+        if burnt:
+            k.cyl((s * 0.72, 0.21, z), (s * 0.86, 0.21, z), 0.21, 'iron_dark', n=10)
+            continue
+        if cond == 'looted' and tag == 'RR':                                                    # ruota tolta: mozzo su due mattoni
+            B(k, s * 0.62, 0.0, z - 0.14, s * 0.86, 0.14, z + 0.14, 'brick_borgo')
+            B(k, s * 0.64, 0.14, z - 0.12, s * 0.84, 0.25, z + 0.12, 'concrete')
+            k.cyl((s * 0.66, AY, z), (s * 0.80, AY, z), 0.14, 'rust_dark', n=8)
+            continue
+        flat = (cond == 'abandoned' and tag == 'RL') or (cond == 'looted' and tag == 'FL')
+        y, rad = (0.26, 0.30) if flat else (AY, 0.32)
+        yaw = 24 if (cond == 'crashed' and tag == 'FL') else 0
+        k.push((s * 0.81, y, z), (0, yaw, 0))
+        k.cyl((-s * 0.105, 0, 0), (s * 0.105, 0, 0), rad, 'tyre', n=12)
+        k.cyl((s * 0.105, 0, 0), (s * 0.11, 0, 0), 0.19, 'steel' if cond != 'looted' else 'iron', n=10)
+        k.cyl((s * 0.11, 0, 0), (s * 0.125, 0, 0), 0.06, 'iron_dark', n=6)
+        k.pop()
+
+
+car('Borgo_Car_Wreck', 'car_blue', 'looted', 36)
+car('Borgo_Car_Wreck_Red', 'car_red', 'crashed', 37)
+car('Borgo_Police_Wreck', 'police_white', 'abandoned', 38, police=True)
+car('Borgo_Car_Wreck_Burnt', 'car_blue', 'burnt', 47)
+
+
+def truck(name, seed):
+    """Camion militare abbandonato: muso verso +Z, 7,1 x 2,6 x 2,6 m. Cabina con porte, finestrini e interni,
+    parafanghi su tutte le ruote, telone strappato su un fianco con il carico in vista."""
+    k = mk(name, seed)
+    r = k.rnd
+    MIL, DARK = 'military', 'military_dark'
+    for s in (-1, 1):
+        B(k, s * 0.40, 0.55, -3.45, s * 0.55, 0.80, 3.30, 'iron_dark')                         # longheroni
+    # cabina, parte bassa con il passaruota anteriore
+    FZ, FY, FR = 2.70, 0.50, 0.60
+    a0 = math.asin((0.85 - FY) / FR)
+    k.prism_x([(0.85, 3.42)] + arc(FZ, FY, FR, 6, a0, math.pi - a0) + [(0.85, 1.95), (1.55, 1.95), (1.55, 3.42)], -1.15, 1.15, MIL)
+    B(k, -1.15, 1.55, 1.95, 1.15, 2.30, 2.04, MIL)                                               # parete posteriore
+    k.cbox((0, 2.35, 2.69), (2.34, 0.10, 1.52), MIL, ch=0.03)                                    # tetto
+    B(k, -1.15, 1.55, 3.34, 1.15, 1.62, 3.44, MIL)                                               # cornice parabrezza
+    B(k, -1.15, 2.22, 3.34, 1.15, 2.30, 3.44, MIL)
+    B(k, -0.04, 1.62, 3.37, 0.04, 2.22, 3.43, MIL)
+    for s in (-1, 1):
+        B(k, s * 1.06, 1.55, 3.28, s * 1.15, 2.30, 3.44, MIL)                                  # montante anteriore
+        B(k, s * 1.06, 1.55, 1.95, s * 1.15, 2.30, 2.10, MIL)                                  # montante posteriore
+        B(k, s * 1.07, 2.20, 2.05, s * 1.15, 2.30, 3.36, MIL)                                  # bordo alto della porta
+        pane(k, [(s * 0.04, 1.62, 3.40), (s * 1.06, 1.62, 3.40), (s * 1.06, 2.22, 3.40), (s * 0.04, 2.22, 3.40)], s == -1)
+        pane(k, [(s * 1.11, 1.56, 2.10), (s * 1.11, 2.20, 2.10), (s * 1.11, 2.20, 3.28), (s * 1.11, 1.56, 3.28)], s == 1)
+        # porta: fessure, maniglia, gradino
+        for z in (2.08, 3.30):
+            B(k, s * 1.15, 1.12, z - 0.008, s * 1.156, 2.28, z + 0.008, 'iron_dark')
+        B(k, s * 1.15, 1.10, 2.08, s * 1.156, 1.12, 3.30, 'iron_dark')
+        B(k, s * 1.15, 1.48, 2.18, s * 1.175, 1.52, 2.34, 'iron')
+        B(k, s * 0.95, 0.62, 1.95, s * 1.22, 0.68, 2.20, 'iron')
+        # bordo del parafango anteriore e specchietto sul braccio
+        pts = arc(FZ, FY, FR + 0.02, 6, a0, math.pi - a0)
+        for (y0, z0), (y1, z1) in zip(pts, pts[1:]):
+            k.beam((s * 1.165, y0, z0), (s * 1.165, y1, z1), 0.06, 0.03, 'iron_dark', up=(s, 0, 0))
+        k.beam((s * 1.15, 2.00, 3.22), (s * 1.27, 2.04, 3.30), 0.03, 0.03, 'iron_dark')
+        B(k, s * 1.25, 1.80, 3.27, s * 1.29, 2.12, 3.35, 'iron_dark')
+        # sedili visti dai finestrini
+        B(k, s * 0.25, 1.30, 2.06, s * 0.95, 2.02, 2.20, 'seat_cloth')
+    B(k, -1.05, 1.40, 3.10, 1.05, 1.62, 3.38, 'iron_dark')                                       # cruscotto
+    k.cyl((0.55, 1.75, 3.02), (0.55, 1.73, 3.05), 0.20, 'iron_dark', n=10)
+    k.beam((0.55, 1.55, 3.25), (0.55, 1.74, 3.04), 0.05, 0.05, 'iron_dark')
+    # muso: griglia, fari con protezione, frecce, paraurti, ganci
+    B(k, -0.62, 0.95, 3.42, 0.62, 1.45, 3.46, 'iron_dark')
+    for i in range(7):
+        x = -0.54 + i * 0.18
+        B(k, x - 0.025, 0.97, 3.46, x + 0.025, 1.43, 3.48, MIL)
+    for s in (-1, 1):
+        k.cyl((s * 0.86, 1.15, 3.42), (s * 0.86, 1.15, 3.50), 0.12, 'paint_cream' if s == 1 else 'iron_dark', n=8)
+        k.cyl((s * 0.86, 1.15, 3.46), (s * 0.86, 1.15, 3.52), 0.145, 'iron_dark', n=8, cap=False)
+        B(k, s * 0.80, 1.36, 3.42, s * 0.94, 1.44, 3.47, 'traffic_orange')
+        B(k, s * 0.70, 0.40, 3.62, s * 0.80, 0.52, 3.68, 'iron')
+    B(k, -1.22, 0.48, 3.42, 1.22, 0.72, 3.62, 'iron_dark')
+    # serbatoio e scarico
+    k.cyl((0.85, 0.74, 1.05), (0.85, 0.74, 1.80), 0.24, 'iron', n=10)
+    k.cyl((-1.02, 1.55, 1.88), (-1.02, 2.55, 1.88), 0.06, 'iron_dark', n=6)
+    # cassone
+    B(k, -1.25, 1.0, -3.45, 1.25, 1.2, 1.80, DARK)
+    B(k, -1.25, 1.2, 1.70, 1.25, 1.80, 1.80, MIL)
+    B(k, -1.25, 1.2, -3.45, 1.25, 1.75, -3.39, MIL)
+    for s in (-1, 1):
+        B(k, s * 1.19, 1.2, -3.45, s * 1.25, 1.75, 1.70, MIL)
+        for z in (-2.6, -1.4, -0.2, 1.0):
+            B(k, s * 1.25, 1.2, z - 0.04, s * 1.27, 1.75, z + 0.04, DARK)                       # montanti delle sponde
+    for s in (-1, 1):                                                                            # fanali dietro
+        B(k, s * 0.85, 0.85, -3.47, s * 1.05, 0.95, -3.45, 'paint_red_dark')
+    # archi e telone (strappato sul fianco +X)
+    for z in (-3.30, -1.60, 0.05, 1.60):
+        for s in (-1, 1):
+            k.beam((s * 1.22, 1.75, z), (s * 1.22, 2.30, z), 0.05, 0.05, 'iron_dark')
+            k.beam((s * 1.22, 2.30, z), (s * 0.92, 2.50, z), 0.05, 0.05, 'iron_dark')
+        k.beam((-0.92, 2.50, z), (0.92, 2.50, z), 0.05, 0.05, 'iron_dark')
+    B(k, -0.95, 2.50, -3.40, 0.95, 2.56, 1.65, 'tarp_green')
+    for s in (-1, 1):
+        k.push((s * 1.08, 2.41, -0.88), (0, 0, -34 * s))
+        k.box((0, 0, 0), (0.38, 0.05, 5.05), 'tarp_green')
+        k.pop()
+    B(k, -1.25, 1.75, -3.40, -1.19, 2.32, 1.65, 'tarp_green_dark')
+    B(k, 1.19, 1.75, -0.30, 1.25, 2.32, 1.65, 'tarp_green_dark')
+    for i in range(5):                                                                           # brandelli che pendono
+        z = -3.2 + i * 0.6 + r.uniform(-0.1, 0.1)
+        k.beam((1.23, 2.32, z), (1.24, r.uniform(1.85, 2.1), z + r.uniform(-0.12, 0.12)), 0.16, 0.02, 'tarp_green_dark', up=(1, 0, 0))
+    for (z, h) in ((-2.8, 0.55), (-2.1, 0.55), (-1.3, 0.45)):                                    # carico visibile
+        B(k, 0.25, 1.2, z - 0.3, 0.95, 1.2 + h, z + 0.3, DARK)
+    B(k, 0.5, 1.2, -0.75, 0.85, 1.65, -0.60, MIL)
+    # ruggine sulle sponde e sulla cabina (pezzi corti, z da un solo campione)
+    for i in range(5):
+        s = r.choice((-1, 1))
+        z = r.uniform(-3.2, 1.2)
+        B(k, s * 1.27, 1.25, z, s * 1.276, r.uniform(1.35, 1.6), z + r.uniform(0.15, 0.4), r.choice(['rust', 'rust_dark']))
+    # ruote: anteriore nel passaruota, doppie dietro con i parafanghi
+    for s in (-1, 1):
+        for z, front in ((FZ, True), (-0.6, False), (-2.4, False)):
+            flat = (s == 1 and z == -2.4) or (s == -1 and front)
+            y, rad = (0.44, 0.47) if flat else (0.5, 0.5)
+            x0 = 0.86 if front else 0.66
+            k.cyl((s * x0, y, z), (s * 1.12, y, z), rad, 'tyre', n=12)
+            k.cyl((s * 1.12, y, z), (s * 1.13, y, z), 0.28, DARK, n=10)
+            k.cyl((s * 1.13, y, z), (s * 1.15, y, z), 0.09, 'iron_dark', n=6)
+            if not front:
+                B(k, s * 0.66, 1.0, z - 0.62, s * 1.22, 1.04, z + 0.62, 'iron_dark')             # parafango
+        B(k, s * 0.70, 0.30, -3.08, s * 1.16, 1.0, -3.06, 'tyre')                                # paraspruzzi
+
+
+truck('Borgo_Truck_Wreck', 39)
 
 def tent(name, col, seed):
     k = mk(name, seed)
@@ -558,6 +846,8 @@ B(k, -0.15, 1.1, -0.01, 0.15, 1.35, 0.01, 'hazard_yellow')
 
 # ============================================================== export
 for name, k in pieces.items():
+    if ONLY and f'SM_{name}' not in ONLY:
+        continue
     for o in list(bpy.data.objects):
         bpy.data.objects.remove(o)
     ob = kit.build(k, f'SM_{name}', mats)

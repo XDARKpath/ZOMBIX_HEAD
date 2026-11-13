@@ -81,6 +81,7 @@ func lamp(parent:Node3D,at:Vector3,color:Color=Color("ffd09a"),power:float=2.0,r
 	var light:=OmniLight3D.new();parent.add_child(light);light.position=at
 	light.light_color=color;light.light_energy=power;light.omni_range=radius
 	light.shadow_enabled=true;light.omni_attenuation=1.35
+	_short_fade(light)
 	# Lampada appesa: asta e coperchio, così il bulbo non sembra sospeso.
 	Props.cylinder(parent,at+Vector3(0,0.30,0),0.014,0.52,Color("3a3a31"))
 	Props.box(parent,at+Vector3(0,0.07,0),Vector3(0.34,0.06,0.2),Color("2c2f2a"))
@@ -718,6 +719,12 @@ func _spot_at(parent:Node3D,from:Vector3,target:Vector3,color:Color,energy:float
 	spot.look_at(parent.to_global(target),Vector3.UP)
 	spot.light_color=color;spot.light_energy=energy;spot.spot_range=reach;spot.spot_angle=angle
 	spot.spot_angle_attenuation=1.15;spot.shadow_enabled=true
+	_short_fade(spot)
+
+## Luci d'interno con ombra: l'ombra si spegne a 25 m e la luce a 40 m (fit_ranges non le allunga più).
+func _short_fade(light:Light3D) -> void:
+	light.distance_fade_enabled=true;light.distance_fade_begin=40.0;light.distance_fade_length=10.0
+	light.distance_fade_shadow=25.0
 
 func _glow_box(parent:Node3D,at:Vector3,size:Vector3,color:Color,energy:float=2.0) -> MeshInstance3D:
 	var view:=box(parent,at,size,color,false)

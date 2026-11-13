@@ -271,13 +271,13 @@ func _cabin_furniture() -> void:
 	prop(cabin, WOOD + "Mug.glb", Vector3(4.45, 0.76, 4.55), 0.2, false)
 	prop(cabin, WOOD + "Chair_A.glb", Vector3(3.4, 0.02, 4.2), PI / 2 + 0.2)
 	prop(cabin, WOOD + "Chair_B.glb", Vector3(5.0, 0.02, 4.8), -PI / 2 - 0.3)
-	prop(cabin, WOOD + "BookShelf_A.glb", Vector3(0.45, 0.02, 3.0), PI / 2)
+	prop(cabin, WOOD + "BookShelf_A.glb", Vector3(0.45, 0.02, 3.0), -PI / 2)   # il fronte del modello è -Z: guarda la stanza
 	prop(cabin, WOOD + "Cabinet_A_Static.glb", Vector3(7.5, 0.02, 2.0), -PI / 2)
 	prop(cabin, WOOD + "Shelf_A.glb", Vector3(4.0, 1.45, 7.75), PI, false)
 	prop(cabin, WOOD + "Barrel_A.glb", Vector3(0.6, 0.02, 7.3), 0.0)
 	prop(cabin, WOOD + "Basket_E.glb", Vector3(7.3, 0.02, 7.2), 0.5)
 	prop(cabin, WOOD + "Stool_A.glb", Vector3(6.4, 0.02, 5.8), 0.0)
-	prop(cabin, WOOD + "Chair_Rockign.glb", Vector3(6.1, 0.02, -1.4), PI + 0.3)
+	prop(cabin, WOOD + "Chair_Rockign.glb", Vector3(6.1, 0.02, -1.4), PI + 0.3).scale = Vector3.ONE * 0.8   # era alta 1.45 m
 
 func _farm_furniture() -> void:
 	# Fattoria diroccata: quello che i saccheggiatori non si sono portati via.

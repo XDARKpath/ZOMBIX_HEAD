@@ -67,13 +67,20 @@ func interact(peer:int) -> bool:
 	_place_occupants();publish();return true
 
 func safe_exit(seat:int,actor:CharacterBody3D) -> Vector3:
+	# Si scende solo dove dal sedile si arriva in linea retta (niente palizzate o muri in mezzo),
+	# sul pavimento vero sotto il punto (ponti, piazzali) e con la capsula in piedi libera.
+	var space:=get_world_3d().direct_space_state
+	var from:=to_global(SEATS[seat]+Vector3.UP*0.9)
 	for offset in [Vector3(-2.2 if seat%2==0 else 2.2,0.1,0),Vector3(0,0.1,3),Vector3(2.2 if seat%2==0 else -2.2,0.1,0)]:
-		var at:=to_global(offset)
-		at.y=campaign.world.terrain.height(at.x,at.z)+0.15
+		var at:=to_global(offset);at.y=from.y
+		if not space.intersect_ray(PhysicsRayQueryParameters3D.create(from,at,1)).is_empty(): continue
+		var floor_hit:=space.intersect_ray(PhysicsRayQueryParameters3D.create(at,at+Vector3.DOWN*6.0,1))
+		if floor_hit.is_empty(): continue
+		at.y=floor_hit.position.y+0.15
 		var query:=PhysicsShapeQueryParameters3D.new();query.shape=actor.standing_shape
 		query.transform=Transform3D(Basis.IDENTITY,at+Vector3.UP*0.9)
 		query.collision_mask=1|8;query.exclude=[actor.get_rid()]
-		if get_world_3d().direct_space_state.intersect_shape(query,1).is_empty(): return at
+		if space.intersect_shape(query,1).is_empty(): return at
 	return Vector3.INF
 
 func _release(peer:int) -> void:
@@ -95,7 +102,7 @@ func _place_occupants() -> void:
 		actor.seated=true;actor.controls_enabled=false;actor.collision_layer=0;actor.collision_mask=0
 		# Posto e sterzo per le clip dell'avatar (Car_Sit_Drive / Steer_Left / Steer_Right / Sit_Passenger).
 		actor.set_meta("seat",seat);actor.set_meta("steer",-steer_amount)
-		actor.position=to_global(SEATS[seat]);actor.velocity=velocity
+		actor.position=visual.to_global(SEATS[seat]);actor.velocity=velocity
 		actor.eye_height=1.23;actor.visual.rotation.y=rotation.y
 		actor.visual.visible=not actor.local_control
 		if actor.local_control:
@@ -110,6 +117,7 @@ func all_aboard() -> bool:
 func _physics_process(delta:float) -> void:
 	if not campaign or not campaign.world.started: return
 	visual.roll(speed*delta)
+	visual.settle(delta)
 	visual.steer(steer_amount)
 	visual.update_state(campaign.collected,campaign.stage,repaired,campaign.repairing_peer!=0)
 	for i in range(seats.size()):
