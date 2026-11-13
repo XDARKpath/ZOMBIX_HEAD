@@ -1,6 +1,6 @@
 extends Node3D
 # Il boss che si evoca con l'esca all'altare: il Capomacello nella radura del bosco (bosses/boss_brain.gd, docs/BOSS.md). Il Macellaio esce dal pozzo di Borgo Cenere
-# (world/villaggio), il Carceriere sta nella Rocca. Il Mago e il Signore delle Teste sono pronti per le zone future (bosses/).
+# (world/villaggio), il Carceriere sta nella Rocca. Il Mago e il Signore delle Teste li sveglia la Zona 2 (world/zona2/zone2.gd).
 
 const Props := preload("res://ui/camp/camp_props.gd")
 const Placeholders := preload("res://art/placeholders.gd")

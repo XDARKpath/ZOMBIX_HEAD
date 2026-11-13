@@ -7,6 +7,10 @@ extends RefCounted
 # Usato da tutti gli infetti e dai boss (art/zx_infected, stesso rig a 65 ossa).
 
 const DATA_PATH := "res://art/zombie_motion/zombie_motion.res"
+const Ragdoll := preload("res://art/zombie_ragdoll.gd")
+## Pose delle lesioni (braccio penzolante, zoppia): le scrive il pacchetto lesioni, qui si usano se il file c'è.
+const INJURY_PATH := "res://art/infected_injury_pose.gd"
+static var _injury = null
 const WALK_SPEED := 0.9        # m/s the walk clips were authored for
 const RUN_SPEED := 4.0         # m/s of Z_Run
 const DEATHS := ["Z_Death_Back", "Z_Death_Front", "Z_Death_Spin", "Z_Death_Front"]
@@ -63,6 +67,10 @@ static func apply(v: Node3D, delta: float) -> void:
 		push_error("infected_motion: manca " + DATA_PATH)
 		return
 	var a: Node3D = v.actor
+	# Morto, vicino e nel budget: la posa la fanno i corpi rigidi (art/zombie_ragdoll.gd). Gli altri usano la clip qui sotto.
+	if a.dead and a.get("hit_age") != null and Ragdoll.drive(v, a):
+		_attach(v, a)
+		return
 	var rig := _rig(v, d)
 	var st: Dictionary = v.get_meta("zm") if v.has_meta("zm") else {"clip": "", "t": 0.0, "prev": "", "pt": 0.0, "blend": 1.0,
 		"fade": 0.2, "hit": "", "stag": false, "hits": 0, "state": 0, "serial": 0, "scream": 0.0}
@@ -166,6 +174,11 @@ static func apply(v: Node3D, delta: float) -> void:
 	if a.get("kind") == 2 or (a.get("kind") == 5 and a.get("custom_skin") == ""): _bulk(v)
 	v.skeleton.force_update_all_bone_transforms()
 	if a.dead: _ground_corpse(v, a)
+	_attach(v, a)
+
+
+## Testa staccabile e hitbox seguono lo scheletro.
+static func _attach(v: Node3D, a: Node3D) -> void:
 	v.head_piece.visible = not a.beheaded
 	if v.head_piece.visible:
 		v.head_piece.global_transform = v.skeleton.global_transform * v.skeleton.get_bone_global_pose(v.bone_ids["head"])
@@ -211,7 +224,7 @@ static func _layers(v: Node3D, a: Node3D, st: Dictionary, pose: Dictionary, rig:
 	if a.get("hit_age") == null: return
 	var named: Dictionary = rig.named
 	var heavy: bool = a.kind == 2 or a.kind == 5
-	# Da morto: ogni colpo al cadavere lo fa sobbalzare.
+	# Da morto con la clip (ragdoll fuori budget, lontano o boss): ogni colpo lo fa sobbalzare. È un ripiego animato, non fisica.
 	if a.dead:
 		var kick: float = a.ragdoll_kick
 		if kick > 0.01:
@@ -225,6 +238,8 @@ static func _layers(v: Node3D, a: Node3D, st: Dictionary, pose: Dictionary, rig:
 	_bend(pose, named, "head", Vector3.BACK, (float(id % 5) - 2.0) * 0.07 + sin(t * 0.9 + seed) * 0.03)
 	if heavy:
 		_bend(pose, named, "spine_01", Vector3.RIGHT, 0.10)
+	if _injury == null: _injury = load(INJURY_PATH) if ResourceLoader.exists(INJURY_PATH) else false
+	if _injury: _injury.apply(pose, named, a)
 	var state: int = a.get("state") if a.get("state") != null else 0
 	var world = a.get("world")
 	# Chi è più lontano di 30 m non ha bisogno del resto.
@@ -266,8 +281,11 @@ static func _layers(v: Node3D, a: Node3D, st: Dictionary, pose: Dictionary, rig:
 		_bend(pose, named, "spine_01", Vector3.RIGHT, (-0.1 * back + 0.14 * throw_in) * force)
 		_bend(pose, named, "spine_03", Vector3.RIGHT, (-0.15 * back + 0.24 * throw_in) * force)
 		# Colpo a vuoto: la clip è finita ma l'attacco no. Il peso lo porta avanti, testa giù, poi si riprende.
-		var over: float = a.attack_clock - float(attack_timing(str(a.attack_clip))[0]) * (float(a.anim_scale) if a.get("anim_scale") != null else 1.0)
-		if over > 0.0 and a.kind < 4:
+		# Solo a vuoto davvero (zombie_ai.whiffed): uno schianto lungo che va a segno dopo la clip non deve accasciarsi.
+		var whiffed: bool = a.get("whiffed") == true
+		var length: float = float(a.attack_len) if a.get("attack_len") != null else float(attack_timing(str(a.attack_clip))[0]) * (float(a.anim_scale) if a.get("anim_scale") != null else 1.0)
+		var over: float = a.attack_clock - length
+		if whiffed and over > 0.0 and a.kind < 4:
 			var slump: float = sin(clampf(over / WHIFF_SECONDS, 0.0, 1.0) * PI)
 			_bend(pose, named, "spine_01", Vector3.RIGHT, 0.24 * slump)
 			_bend(pose, named, "spine_03", Vector3.RIGHT, 0.2 * slump)
@@ -288,17 +306,29 @@ static func _layers(v: Node3D, a: Node3D, st: Dictionary, pose: Dictionary, rig:
 		var dir: Vector3 = a.hit_dir
 		if dir.length_squared() < 0.01: dir = Vector3.BACK * -1.0
 		var axis: Vector3 = Vector3.UP.cross(dir).normalized()
-		match str(a.hit_zone):
-			"head", "neck":
+		# Zone fini del pacchetto lesioni (calf_r, forearm_l...) o vecchie (legs, feet). Il lato è quello colpito:
+		# dal nome della zona, sennò da dove spinge il colpo (spinta verso -X = colpo arrivato da sinistra, +X).
+		var zone := str(a.hit_zone)
+		var side := zone.right(1) if zone.ends_with("_l") or zone.ends_with("_r") else ("l" if dir.x <= 0.0 else "r")
+		var group := "torso"
+		if zone in ["head", "neck"]: group = "head"
+		elif zone == "legs" or zone == "feet" or zone.begins_with("thigh") or zone.begins_with("calf") or zone.begins_with("foot"): group = "legs"
+		elif zone.begins_with("upperarm") or zone.begins_with("forearm") or zone.begins_with("hand"): group = "arm"
+		match group:
+			"head":
 				_bend(pose, named, "head", axis, rebound * 0.75)
 				_bend(pose, named, "neck_01", axis, rebound * 0.4)
 				_bend(pose, named, "spine_03", axis, rebound * 0.14)
-			"legs", "feet":
+			"legs":
 				pose.p = (pose.p as Vector3) + Vector3.DOWN * env * 0.07
 				_bend(pose, named, "pelvis", axis, rebound * 0.12)
 				_bend(pose, named, "spine_02", axis, -rebound * 0.2)
-				_bend(pose, named, "thigh_l", Vector3.RIGHT, -env * 0.25)
-				_bend(pose, named, "calf_l", Vector3.RIGHT, env * 0.35)
+				_bend(pose, named, "thigh_" + side, Vector3.RIGHT, -env * 0.25)
+				_bend(pose, named, "calf_" + side, Vector3.RIGHT, env * 0.35)
+			"arm":
+				_bend(pose, named, "spine_03", axis, rebound * 0.12)
+				_bend(pose, named, "upperarm_" + side, axis, env * 0.5)
+				_bend(pose, named, "lowerarm_" + side, axis, env * 0.3)
 			_:
 				_bend(pose, named, "spine_01", axis, rebound * 0.24)
 				_bend(pose, named, "spine_02", axis, rebound * 0.26)

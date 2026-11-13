@@ -2,9 +2,19 @@ extends CharacterBody3D
 signal defeated(target: Node3D)
 const Balance = preload("res://autoload/balance.gd")
 const Arsenal = preload("res://weapons/zx_arsenal.gd")
+const Injury = preload("res://enemies/zombie_injury.gd")
+const Anatomy = preload("res://art/infected_anatomy.gd")
 ## Danno alle gambe che lo fa cadere (per tipo: walker, corridore, bruto, mutato).
 const LEG_LIMIT := [30.0, 26.0, 70.0, 36.0, 28.0, 99999.0]
 var leg_damage: float = 0.0
+## Lesioni per parte (regole in zombie_injury.gd): parte -> stato (1 ferito, 2 menomato, 3 fratturato, 4 staccato)
+## e danno accumulato. Decide l'host; i client ricevono `parts` con injury_apply.
+var parts: Dictionary = {}
+var part_damage: Dictionary = {}
+## Punto del colpo in coordinate globali. Chi colpisce può darlo in pending_hit_point prima di receive_hit,
+## altrimenti è il centro della hitbox colpita.
+var hit_point := Vector3.ZERO
+var pending_hit_point := Vector3.INF
 ## Reazioni direzionali (clip Z_React_* di tools/zombie_reactions/bake_reactions.py). Chi colpisce imposta
 ## pending_reaction e reaction_dir prima di receive_hit; la spinta la fa la fisica, la clip resta sul posto.
 ## [clip, durata s, velocità della spinta m/s, durata della spinta s, velocità della clip]
@@ -43,7 +53,7 @@ var voice_cooldown:float=0.0
 # L'ultimo colpo ricevuto: infected_motion.gd fa cedere il corpo da quella parte. hit_dir è nello spazio del modello.
 var hit_age:float=9.0
 var hit_power:float=0.0
-var hit_zone:String="torso"
+var hit_zone:String="chest"   # parte fine con il lato (zombie_injury.PARTS); coarse() per i gruppi
 var hit_dir:=Vector3.ZERO
 var hit_serial:int=0
 ## Boss con un aspetto suo: il modello e cosa tiene in mano (per ora "cleaver").
@@ -109,6 +119,7 @@ func _dress() -> void:
 	if boss_weapon == "cleaver": _give_cleaver()
 	if boss_weapon == "lamp": _give_lamp()
 	if boss_weapon.begins_with("crown"): _give_crown()
+	if not parts.is_empty(): _carve_body()   # rivestito (cambio di tipo): gli arti persi restano persi
 
 ## La corona del Signore delle Teste: tre teschi che gli girano attorno. set_crown toglie quelli tagliati.
 var crown_node:Node3D
@@ -169,6 +180,7 @@ func set_kind(value:int,tier:int=0) -> void:
 			var sh:=area.get_child(0) as CollisionShape3D
 			sh.shape=sh.shape.duplicate()
 			if sh.shape is SphereShape3D:(sh.shape as SphereShape3D).radius*=1.7
+			if sh.shape is CapsuleShape3D:(sh.shape as CapsuleShape3D).radius*=1.7   # la lunghezza la segue update_hitboxes
 		bar.position.y=3.55
 
 ## Colore della pelle per sputatori e boss (moltiplica i materiali della skin).
@@ -178,7 +190,7 @@ func _tint(color:Color) -> void:
 	var tinted:StandardMaterial3D
 	for node in avatar.find_children("*","MeshInstance3D",true,false):
 		var mi:=node as MeshInstance3D
-		if not (mi.material_override is StandardMaterial3D):continue
+		if not (mi.material_override is StandardMaterial3D) or mi.name=="Moncone":continue
 		if tinted==null:
 			tinted=(mi.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
 			tinted.albedo_color=tinted.albedo_color*color
@@ -190,30 +202,38 @@ func receive_melee(amount:float,force:Vector3,heavy:bool) -> bool:
 func receive_hit(zone:String,amount:float,force:Vector3,weapon:String,heavy:bool=false) -> bool:
 	if amount<=0 or beheaded:
 		pending_reaction=""
+		pending_hit_point=Vector3.INF
 		return false
+	var part:=_part_for(zone,force)
+	var group:=coarse(part)
+	hit_point=pending_hit_point if pending_hit_point.is_finite() else _part_center(part)
+	pending_hit_point=Vector3.INF
 	# La testa si stacca solo dal cadavere: prima lo uccidi, poi lo finisci con una lama. Testa e collo bastano
-	# con un colpo qualsiasi, il resto del corpo vuole un colpo caricato. I boss danno la testa da soli.
+	# con un colpo qualsiasi, busto e bacino vogliono un colpo caricato. I boss danno la testa da soli.
+	# Un colpo di lama a un arto del cadavere stacca l'arto, non la testa.
 	var blade:bool=Arsenal.beheads(weapon)
-	_note_hit(zone,force,amount,heavy)
+	_note_hit(part,force,amount,heavy)
 	if dead:
-		if blade and kind<5 and (zone=="head" or zone=="neck" or heavy):
+		if blade and kind<5 and (group=="head" or group=="neck" or (heavy and Injury.side(part)=="")):
 			decapitate()
 			return true
+		_injure(part,weapon,amount,heavy,force)
 		# Cadavere molle: ogni colpo lo fa sobbalzare di nuovo.
 		ragdoll_kick=minf(1.3,ragdoll_kick+0.85)
 		ragdoll_dir=force.normalized() if force.length_squared()>0.01 else ragdoll_dir
 		if blood_enabled:_blood(global_position+Vector3.UP*0.25)
 		return true
-	var low:bool=zone=="feet" or zone=="legs"
+	_injure(part,weapon,amount,heavy,force)
+	var low:bool=group=="feet" or group=="legs"
 	if low:
 		# Gambe: il danno si accumula. Un colpo pesante o qualche colpo leggero lo
 		# atterrano e da lì continua strisciando (Z_Stagger_Heavy, poi Z_Crawl).
 		leg_damage+=amount*(1.6 if heavy else 1.0)
 		health=maxf(1 if not crawling else 0,health-amount*0.45)
-		if not crawling and leg_damage>=LEG_LIMIT[kind]:
-			crawling=true;heavy=true;reaction=""
-			body_shape.shape.height=0.64;body_shape.position.y=0.32
-	else:health=maxf(0,health-amount*(2.5 if zone=="head" else (1.3 if zone=="neck" else 1.0)))
+		if leg_damage>=LEG_LIMIT[kind] and _crawl():heavy=true
+	else:health=maxf(0,health-amount*(2.5 if part=="head" else (1.3 if part=="neck" else (0.8 if Injury.side(part)!="" else 1.0))))
+	# Gamba staccata o entrambe fratturate: non regge più in piedi.
+	if Injury.must_crawl(parts) and _crawl():heavy=true
 	# Se è già a terra per una caduta non si accorcia: finisce caduta, terra e rialzata come sono.
 	velocity+=force;stagger=maxf(stagger,0.55 if heavy else 0.25)
 	_react()
@@ -226,6 +246,100 @@ func receive_hit(zone:String,amount:float,force:Vector3,weapon:String,heavy:bool
 		voice_cooldown=0.7
 		AudioManager.zombie_voice(kind,"hurt",global_position+Vector3.UP*1.4,-7.0,randf_range(0.92,1.06))
 	return true
+
+func _crawl() -> bool:
+	if crawling:return false
+	crawling=true;reaction=""
+	body_shape.shape.height=0.64;body_shape.position.y=0.32
+	return true
+
+# ------------------------------------------------------------------ Parti del corpo
+## Gruppo di una zona per chi ragiona all'ingrosso: head, neck, torso, legs, feet (accetta anche i vecchi nomi).
+static func coarse(zone:String) -> String:
+	match Injury.base(zone):
+		"head","neck":return Injury.base(zone)
+		"thigh","calf","legs":return "legs"
+		"foot","feet":return "feet"
+	return "torso"
+
+## 0 sano, 1 ferito, 2 menomato, 3 fratturato, 4 staccato (anche se manca la parte a cui era attaccata).
+func part_state(part:String) -> int:
+	if part=="head" and beheaded:return Injury.SEVERED
+	return Injury.state(parts,part)
+
+## Falso se mano, avambraccio o braccio di quel lato ("l" / "r") sono fratturati o staccati.
+func can_strike(side:String) -> bool:
+	return Injury.can_strike(parts,side)
+
+## Zoppia: 1 sano, fino a 0.35 con le gambe ridotte male.
+func move_factor() -> float:
+	return Injury.move_factor(parts)
+
+## La parte fine colpita. I vecchi nomi valgono ancora: "torso" è il petto, "legs" e "feet" polpaccio e piede del lato
+## rivolto verso chi colpisce. Una parte che non c'è più (il sanguinamento di una mano già staccata) passa al moncone.
+func _part_for(zone:String,force:Vector3) -> String:
+	match zone:
+		"torso":zone="chest"
+		"legs":zone=_near_side("calf_",force)
+		"feet":zone=_near_side("foot_",force)
+	var base:=Injury.base(zone)
+	if not Injury.ZONE.has(base) or (Injury.side(zone)=="" and base in ["upperarm","forearm","hand","thigh","calf","foot"]):return "chest"
+	while zone!="" and Injury.missing(parts,zone):zone=Injury.PARENT.get(zone,"")
+	return zone if zone!="" else ("pelvis" if coarse(base) in ["legs","feet"] else "chest")
+
+func _near_side(prefix:String,force:Vector3) -> String:
+	var sides:=["l","r"].filter(func(s): return not Injury.missing(parts,prefix+s))
+	if sides.is_empty():return prefix+"l"
+	if sides.size()==1 or force.length_squared()<0.0001:return prefix+sides[0]
+	var from:=global_position-force.normalized()*3.0
+	return prefix+("l" if _part_center(prefix+"l").distance_squared_to(from)<=_part_center(prefix+"r").distance_squared_to(from) else "r")
+
+func _part_center(part:String) -> Vector3:
+	for area in hitboxes:
+		if area.get_meta("zone")==part:return area.global_position
+	return global_position+Vector3.UP
+
+## Lesione della parte (host): stato, pezzi staccati, e la reazione dal lato colpito se l'arto ha ceduto.
+func _injure(part:String,weapon:String,amount:float,heavy:bool,force:Vector3) -> void:
+	var before:=int(parts.get(part,0))
+	for cut in Injury.hit(parts,part_damage,part,weapon,amount,heavy,kind):_sever(cut,force)
+	var side:=Injury.side(part)
+	if not dead and side!="" and pending_reaction=="" and int(parts.get(part,0))>maxi(before,Injury.WOUNDED):
+		pending_reaction="hit_left" if side=="l" else "hit_right"
+		reaction_dir=force
+
+## L'arto cade a terra (pezzo fisico) e il corpo resta col moncone chiuso.
+func _sever(part:String,push:Vector3) -> void:
+	if avatar and avatar.skeleton:
+		var exclude:=[]
+		for other in parts:
+			if int(parts[other])>=Injury.SEVERED and Injury.hangs_from(other,part):exclude.append(Injury.bone(other))
+		Anatomy.drop_limb(avatar,avatar.model_id,Injury.bone(part),exclude,push,get_parent())
+	_carve_body()
+	if blood_enabled and is_inside_tree():_blood(_part_center(part))
+
+func _carve_body() -> void:
+	if not avatar or not avatar.skeleton:return
+	var roots:=[]
+	for p in parts:
+		if int(parts[p])>=Injury.SEVERED and not Injury.missing(parts,Injury.PARENT.get(p,"")):roots.append(Injury.bone(p))
+	Anatomy.carve(avatar,avatar.model_id,roots)
+	# Il bruto ha le braccia rifatte a tubi (limb_patch.gd): spariscono con il braccio.
+	for side in ["l","r"]:
+		var patch:Node3D=avatar.skeleton.get_node_or_null("BraccioAggiunto_"+side)
+		if patch:patch.visible=not Injury.missing(parts,"upperarm_"+side)
+
+## Stato delle parti per la rete: l'host lo manda, i client lo applicano (monconi e pezzi a terra compresi).
+func injury_pack() -> PackedByteArray:
+	return Injury.pack(parts)
+
+func injury_apply(bytes:PackedByteArray) -> void:
+	var now:=Injury.unpack(bytes)
+	var fresh:=[]
+	for p in now:
+		if int(now[p])>=Injury.SEVERED and int(parts.get(p,0))<Injury.SEVERED:fresh.append(p)
+	parts=now
+	for p in fresh:_sever(p,Vector3.ZERO)
 
 ## Da dove è arrivato il colpo, per far cedere il corpo da quella parte.
 func _note_hit(zone:String,force:Vector3,amount:float,heavy:bool) -> void:
@@ -316,20 +430,46 @@ func _blood(at:Vector3) -> void:
 	var drop:=SphereMesh.new();drop.radius=0.018;drop.height=0.036;particles.mesh=drop;particles.color=Color("742d22");particles.emitting=true
 	get_tree().create_timer(1).timeout.connect(particles.queue_free)
 
+## Una hitbox per parte: [zona, osso, osso della punta, raggio]. Le parti con la punta sono capsule lungo l'osso;
+## testa e collo restano sfere come prima. Le parti di braccia e gambe esistono per lato (_l / _r).
+const HITBOXES := [["head","head","",0.14],["neck","neck_01","",0.09],["chest","spine_02","neck_01",0.16],["pelvis","pelvis","spine_02",0.16],
+	["upperarm","upperarm","lowerarm",0.065],["forearm","lowerarm","hand",0.055],["hand","hand","middle_01",0.06],
+	["thigh","thigh","calf",0.095],["calf","calf","foot",0.07],["foot","foot","ball",0.06]]
+
 func _make_hitboxes() -> void:
-	for row in [["head","head",0.14],["neck","neck_01",0.09],["torso","spine_02",0.26],["feet","foot_l",0.2],["feet","foot_r",0.2],["legs","calf_l",0.14],["legs","calf_r",0.14],["torso","pelvis",0.25]]:
-		var area:=Area3D.new();add_child(area);area.collision_layer=16;area.collision_mask=0;area.monitoring=false
-		area.set_meta("target",self);area.set_meta("zone",row[0]);area.set_meta("bone",row[1])
-		var shape:=CollisionShape3D.new();var sphere:=SphereShape3D.new();sphere.radius=row[2];shape.shape=sphere;area.add_child(shape);hitboxes.append(area)
+	for row in HITBOXES:
+		for side in ([""] if row[0] in ["head","neck","chest","pelvis"] else ["_l","_r"]):
+			var area:=Area3D.new();add_child(area);area.collision_layer=16;area.collision_mask=0;area.monitoring=false
+			area.set_meta("target",self);area.set_meta("zone",row[0]+side);area.set_meta("bone",row[1]+side)
+			area.set_meta("tip",row[2]+side if row[2]!="" and side!="" else row[2])
+			var shape:=CollisionShape3D.new();area.add_child(shape);hitboxes.append(area)
+			if row[2]=="":
+				var sphere:=SphereShape3D.new();sphere.radius=row[3];shape.shape=sphere
+			else:
+				var capsule:=CapsuleShape3D.new();capsule.radius=row[3];capsule.height=row[3]*2.0+0.01;shape.shape=capsule
 
 func update_hitboxes() -> void:
 	if not avatar or not avatar.skeleton:return
+	var sk:Skeleton3D=avatar.skeleton
 	for area in hitboxes:
+		# Senza testa il corpo non si colpisce più; una parte staccata non si colpisce mai.
+		area.collision_layer=0 if beheaded or Injury.missing(parts,area.get_meta("zone")) else 16
 		var bone:String=area.get_meta("bone")
 		if not avatar.bone_ids.has(bone):continue
-		var pose:Transform3D=avatar.skeleton.global_transform*avatar.skeleton.get_bone_global_pose(avatar.bone_ids[bone])
-		area.global_position=pose*(Vector3(0,0,-0.08) if bone=="head" else (Vector3(0.025,0,0) if bone=="neck_01" else Vector3.ZERO))
-		area.collision_layer=0 if beheaded else 16
+		var pose:Transform3D=sk.global_transform*sk.get_bone_global_pose(avatar.bone_ids[bone])
+		var tip:String=area.get_meta("tip")
+		if not avatar.bone_ids.has(tip):
+			area.global_position=pose*(Vector3(0,0,-0.08) if bone=="head" else (Vector3(0.025,0,0) if bone=="neck_01" else Vector3.ZERO))
+			continue
+		var along:Vector3=(sk.global_transform*sk.get_bone_global_pose(avatar.bone_ids[tip])).origin-pose.origin
+		if bone.begins_with("hand"):along*=1.6   # la mano arriva oltre le nocche
+		var length:=along.length()
+		if length<0.001:continue
+		# La capsula è simmetrica: l'asse va preso verso l'alto, mai opposto a UP (rotazione indefinita).
+		var axis:=along/length
+		area.global_transform=Transform3D(Basis(Quaternion(Vector3.UP,axis if axis.y>=0.0 else -axis)),pose.origin+along*0.5)
+		var capsule:=(area.get_child(0) as CollisionShape3D).shape as CapsuleShape3D
+		if absf(capsule.height-length-capsule.radius*2.0)>0.02:capsule.height=length+capsule.radius*2.0
 
 func _process(delta:float) -> void:
 	voice_cooldown=maxf(0.0,voice_cooldown-delta)
