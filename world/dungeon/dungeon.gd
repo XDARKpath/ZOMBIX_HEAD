@@ -914,9 +914,15 @@ func _process(delta: float) -> void:
 		return
 	# flicker
 	var t := Time.get_ticks_msec() * 0.001
+	var cam := get_viewport().get_camera_3d()
 	for i in torches.size():
 		var l := torches[i]
-		l.light_energy = l.get_meta("base") * (0.88 + 0.12 * sin(t * 9.0 + i * 1.7) * sin(t * 13.0 + i))
+		var base: float = l.get_meta("base")
+		# Tremolio solo vicino alla camera (25 m): le torce lontane restano ferme e non si aggiornano ogni frame.
+		if cam and l.global_position.distance_squared_to(cam.global_position) > 625.0:
+			if l.light_energy != base: l.light_energy = base
+			continue
+		l.light_energy = base * (0.88 + 0.12 * sin(t * 9.0 + i * 1.7) * sin(t * 13.0 + i))
 	_local_view()
 	_update_boss_bar()
 	if not _host:

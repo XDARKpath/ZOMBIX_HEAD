@@ -25,6 +25,17 @@ PAL = {
     "cloth": (128, 112, 84), "leather": (84, 58, 40), "clay": (154, 94, 62), "glass": (150, 186, 180), "potion_g": (84, 170, 72), "potion_r": (178, 44, 50),
     "blood": (84, 18, 20), "food": (178, 126, 70), "meat": (150, 62, 56), "soot": (34, 32, 31), "orange": (216, 104, 36), "white": (206, 204, 196), "leaf": (66, 98, 54),
     "skin": (217, 164, 131), "sleeve": (107, 115, 69), "glove": (141, 138, 98),
+    # Consumati dal passaggio (gradini, pavimento in mezzo alle sale, stipiti): un po' più chiari e lisci. In coda per non spostare le celle.
+    "stone_w": (124, 119, 108), "floor_w": (92, 88, 82),
+}
+# Rugosità e metallo per colore (default pietra ruvida 0,92): stessa texture di palette, un solo materiale, nessuna draw call in più.
+SURF = {
+    "floor": (0.9, 0), "floor2": (0.9, 0), "stone_w": (0.75, 0), "floor_w": (0.78, 0),
+    "wood": (0.8, 0), "wood2": (0.8, 0), "wood_d": (0.82, 0), "plank": (0.76, 0), "leather": (0.7, 0),
+    "iron": (0.5, 0.5), "iron_d": (0.6, 0.4), "steel": (0.35, 0.7), "brass": (0.4, 0.65), "rust": (0.85, 0.15), "rust2": (0.88, 0.1),
+    "cloth_r": (1.0, 0), "cloth_b": (1.0, 0), "cloth_g": (1.0, 0), "cloth": (1.0, 0), "paper": (0.95, 0), "sleeve": (1.0, 0), "glove": (0.9, 0),
+    "wax": (0.6, 0), "glass": (0.2, 0), "potion_g": (0.25, 0), "potion_r": (0.25, 0), "blood": (0.4, 0), "food": (0.7, 0), "meat": (0.65, 0),
+    "bone": (0.8, 0), "clay": (0.85, 0), "skin": (0.7, 0), "leaf": (0.85, 0),
 }
 NAMES = list(PAL)
 GRID = 8
@@ -32,31 +43,43 @@ CELL = 32
 assert len(NAMES) <= GRID * GRID
 
 
-def build_materials():
-    img = bpy.data.images.new("T_ZX_Kit_Palette", GRID * CELL, GRID * CELL, alpha=False)
+def palette_image(name, rgb_of, non_color=False):
+    img = bpy.data.images.new(name, GRID * CELL, GRID * CELL, alpha=False)
+    if non_color:
+        img.colorspace_settings.name = "Non-Color"
     px = [0.0] * (GRID * CELL * GRID * CELL * 4)
-    # Immagine a 8 bit: i valori di pixels sono già sRGB, nessuna conversione.
-    def lin(c):
-        return c / 255.0
-    for i, name in enumerate(NAMES):
-        r, g, b = PAL[name]
+    # Immagine a 8 bit: i valori di pixels sono già sRGB (o dati lineari se non_color), nessuna conversione.
+    for i, cname in enumerate(NAMES):
+        r, g, b = rgb_of(cname)
         cx, cy = i % GRID, i // GRID
         for y in range(cy * CELL, (cy + 1) * CELL):
             for x in range(cx * CELL, (cx + 1) * CELL):
                 o = (y * GRID * CELL + x) * 4
-                px[o:o + 4] = [lin(r), lin(g), lin(b), 1.0]
+                px[o:o + 4] = [r, g, b, 1.0]
     img.pixels.foreach_set(px)
     img.pack()
     img.file_format = "PNG"
+    return img
+
+
+def build_materials():
+    img = palette_image("T_ZX_Kit_Palette", lambda n: tuple(c / 255.0 for c in PAL[n]))
+    # glTF metallicRoughness: G = rugosità, B = metallo (R non usato).
+    orm = palette_image("T_ZX_Kit_ORM", lambda n: (1.0, SURF.get(n, (0.92, 0))[0], SURF.get(n, (0.92, 0))[1]), non_color=True)
     mat = bpy.data.materials.new("M_ZX_Kit_Palette")
     mat.use_nodes = True
     node = mat.node_tree.nodes["Principled BSDF"]
-    node.inputs["Roughness"].default_value = 0.88
-    node.inputs["Metallic"].default_value = 0.0
     tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
     tex.image = img
     tex.interpolation = "Closest"
     mat.node_tree.links.new(tex.outputs["Color"], node.inputs["Base Color"])
+    tex2 = mat.node_tree.nodes.new("ShaderNodeTexImage")
+    tex2.image = orm
+    tex2.interpolation = "Closest"
+    sep = mat.node_tree.nodes.new("ShaderNodeSeparateColor")
+    mat.node_tree.links.new(tex2.outputs["Color"], sep.inputs["Color"])
+    mat.node_tree.links.new(sep.outputs["Green"], node.inputs["Roughness"])
+    mat.node_tree.links.new(sep.outputs["Blue"], node.inputs["Metallic"])
     ember = bpy.data.materials.new("M_ZX_Kit_Ember")
     ember.use_nodes = True
     n = ember.node_tree.nodes["Principled BSDF"]
@@ -269,17 +292,27 @@ def passage(name, half, wood=False):
             p.box(s * 1.45 - 0.05, 2.9, -t - 0.09, s * 1.45 + 0.05, 3.0, t + 0.09, "iron_d")
     else:
         for s in (-1, 1):
-            p.box(s * w + (0.06 if s > 0 else -0.2), -0.2, -t - 0.03, s * w + (0.2 if s > 0 else -0.06), spring, t + 0.03, "stone3")
+            p.box(s * w + (0.06 if s > 0 else -0.2), -0.2, -t - 0.03, s * w + (0.2 if s > 0 else -0.06), spring, t + 0.03, "stone_w")   # stipiti lisciati
     return p
 
 
-def floor_tiles(p, hx, hz, y0=-0.13, top=0.0, pad=1.0):
+def worn(x, z, w):
+    """Usura a chiazze: probabilità w (0..1) con un generatore suo, così la geometria casuale del pezzo non cambia."""
+    return random.Random(int(round((x * 7919 + z * 104729) * 1000))).random() < w
+
+
+def floor_tiles(p, hx, hz, y0=-0.13, top=0.0, pad=1.0, lane=False):
+    """lane=True: si cammina lungo Z (corridoio), consumata la fascia centrale; altrimenti il centro della stanza."""
     p.box(-hx, y0, -hz, hx, top - 0.02, hz, "stone_d")
     x = -hx
     while x < hx - 1e-3:
         z = -hz
         while z < hz - 1e-3:
             c = p.rnd.choice(["floor", "floor", "floor2"])
+            cx, cz = x + pad / 2, z + pad / 2
+            mid = 1.0 - (abs(cx) / hx if lane else max(abs(cx) / hx, abs(cz) / hz))
+            if worn(cx, cz + hz * 13, 0.08 + 0.6 * mid * mid):
+                c = "floor_w"
             p.box(x + 0.012, top - 0.02, z + 0.012, min(x + pad, hx) - 0.012, top - p.rnd.uniform(0.0, 0.004), min(z + pad, hz) - 0.012, c)
             z += pad
         x += pad
@@ -300,7 +333,7 @@ def m_floor_tile():
 def m_straight(name="M_Straight", z0=-2.0, z1=2.0):
     p = Piece(name)
     if z0 == -2.0:
-        floor_tiles(p, 2, 2)
+        floor_tiles(p, 2, 2, lane=True)
     else:
         p.box(-2, -0.13, z0, 2, 0.0, z1, "floor")
         p.solid(-2, -0.13, z0, 2, 0.0, z1)
@@ -379,7 +412,8 @@ def m_stairs(name, base, bottom):
         z1 = 2.0 - i * 0.5
         z0 = z1 - 0.5
         p.box(-2.0, bottom, z0, 2.0, top - 0.05, z1, "stone2", solid=True)
-        p.box(-2.0, top - 0.05, z0, 2.0, top, z1 + 0.035, p.rnd.choice(["stone3", "stone"]))
+        tread = p.rnd.choice(["stone3", "stone"])
+        p.box(-2.0, top - 0.05, z0, 2.0, top, z1 + 0.035, "stone_w" if worn(i, base, 0.7) else tread)
         p.solid(-2.0, top - 0.05, z0, 2.0, top, z1)
     for s in (-1, 1):
         x0, x1 = (2.0, 2.1) if s > 0 else (-2.1, -2.0)
@@ -392,7 +426,7 @@ def m_steps():
     for i in range(3):
         top = (i + 1) / 3.0
         z1 = 0.86 - i * 0.62
-        p.box(-1, 0, -1.0, 1, top, z1, "stone3" if i % 2 else "stone", solid=True)
+        p.box(-1, 0, -1.0, 1, top, z1, "stone_w" if i % 2 else "stone", solid=True)
     return p
 
 
@@ -422,7 +456,7 @@ def m_staircase():
         pts = []
         for ang, r in ((a0, 0.4), (a0, 2.02), (a1, 2.02), (a1, 0.4)):
             pts.append((r * math.sin(ang), -r * math.cos(ang)))
-        for bm_y0, bm_y1, col in ((h - 0.14, h, "stone3" if int(a) % 20 == 0 else "stone"), (h - 0.34, h - 0.14, "stone_d")):
+        for bm_y0, bm_y1, col in ((h - 0.14, h, "stone_w" if int(a) % 20 == 0 else "stone"), (h - 0.34, h - 0.14, "stone_d")):
             top = [p.bm.verts.new((x, bm_y1, z)) for x, z in pts]
             bot = [p.bm.verts.new((x, bm_y0, z)) for x, z in pts]
             p.bm.faces.new(top)
