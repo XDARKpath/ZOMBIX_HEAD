@@ -156,8 +156,15 @@ func _search() -> void:
 	elif Vector2(global_position.x - _search_at.x, global_position.z - _search_at.z).length() > 1.2 and clock < _search_until:
 		return
 	searched += 1
-	var turn := randf() * TAU
-	_search_at = last_seen + Vector3(cos(turn), 0, sin(turn)) * randf_range(2.5, 5.0)
+	# Cerca solo dove si arriva senza muri in mezzo: se il giocatore è in casa i punti fuori dalle pareti
+	# lo facevano girare attorno all'edificio. Dopo quattro prove resta sull'ultimo punto visto.
+	_search_at = last_seen
+	for attempt in 4:
+		var turn := randf() * TAU
+		var spot: Vector3 = last_seen + Vector3(cos(turn), 0, sin(turn)) * randf_range(2.5, 5.0)
+		if _hit_at(last_seen + Vector3.UP, spot + Vector3.UP).is_empty():
+			_search_at = spot
+			break
 	_search_until = clock + 4.0
 	agent.target_position = _search_at
 
