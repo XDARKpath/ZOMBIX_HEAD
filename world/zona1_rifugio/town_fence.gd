@@ -12,6 +12,9 @@ const HEIGHT := 2.5
 const OPEN_DISTANCE := 7.5
 const C_WOOD := Color("5a4630")
 const C_DARK := Color("3a2d20")
+## Portone ovest a nord del portico della casa del Vecchio: a Layout.WEST_GATE_Z (-2) chi entrava da fuori
+## finiva contro i pali del portico e la sedia a dondolo (la casa sta a x -34..-26, z -2.4..8).
+const WEST_GATE_Z := -9.0
 
 var world: Node3D
 var gates: Array = []              # {left, right, body, at, side, open}
@@ -31,7 +34,7 @@ func build(owner_world: Node3D, parent: Node3D) -> void:
 	var b: Vector2 = Layout.FENCE_MAX
 	var water := b.y + 6.0
 	_side(Vector2(a.x, a.y), Vector2(b.x, a.y), _gaps_on_z(a.y, a.x, b.x), true)
-	_side(Vector2(a.x, a.y), Vector2(a.x, water), [Layout.WEST_GATE_Z], false)
+	_side(Vector2(a.x, a.y), Vector2(a.x, water), [WEST_GATE_Z], false)
 	_side(Vector2(b.x, a.y), Vector2(b.x, water), _gaps_on_x(b.x, a.y, b.y), false)
 	_flush_logs()
 

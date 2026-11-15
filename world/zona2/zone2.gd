@@ -419,7 +419,8 @@ func _town() -> void:
 	# La cisterna del paese.
 	kit.call("SM_Prop_Pallet_01", 17.0, 14.0, 0.8)
 	kit.call("SM_Prop_GasCan_01", 15.8, 13.2, 0.3)
-	kit.call("SM_Borgo_Truck_Wreck", 30.0, 2.0, 2.3)
+	var truck := kit.call("SM_Borgo_Truck_Wreck", 30.0, 2.0, 2.3) as Node3D
+	if truck: truck.add_child(truck_body())
 	kit.call("SM_Prop_Powerbox_01", 13.0, 18.0, PI)
 	# Le barche: è un porto senza mare.
 	_put(town, "res://art/lake/SM_Lake_Rowboat.glb", c + Vector3(-13, 0, -24), 0.7, 3.6, 0.35, Vector3(0.14, 0, 0.24))
@@ -606,6 +607,19 @@ func _arena_signore() -> void:
 		_skulls(arena, c + spot, rng)
 
 
+## Collisione di SM_Borgo_Truck_Wreck (muso verso +Z, misurata con i raggi sulla mesh): cassone col telone alto 2,55
+## e cabina più stretta e bassa; il paraurti resta fuori. I valichi (zone_gates.gd) mettono le forme nel corpo del muro,
+## con la posa del camion in `at`, così si spengono insieme quando il valico si apre.
+static func truck_body(body: StaticBody3D = StaticBody3D.new(), at := Transform3D.IDENTITY) -> StaticBody3D:
+	for box in [AABB(Vector3(-1.25, 0, -3.45), Vector3(2.5, 2.55, 5.05)), AABB(Vector3(-1.15, 0, 1.6), Vector3(2.3, 2.4, 2.0))]:
+		var shape := CollisionShape3D.new()
+		shape.shape = BoxShape3D.new()
+		shape.shape.size = box.size
+		shape.transform = at * Transform3D(Basis.IDENTITY, box.get_center())
+		body.add_child(shape)
+	return body
+
+
 func _box_for(node: Node3D, size: Vector3) -> void:
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()
@@ -692,4 +706,4 @@ func _scatter() -> void:
 					var sanded := absf(h[0] + h[3] - h[1] - h[2]) > 1.2 or absf(pitch) > 0.25 or absf(roll) > 0.25
 					wreck.position.y = (h[0] + h[1] + h[2] + h[3]) * 0.25 - (1.0 if sanded else 0.05)
 					wreck.rotation = Vector3(clampf(pitch, -0.25, 0.25), yaw, clampf(roll, -0.25, 0.25))
-					_box_for(wreck, Vector3(2.4, 2.5, 7.0))
+					wreck.add_child(truck_body())

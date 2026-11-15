@@ -14,6 +14,7 @@ const HOOD_OPEN := 58.0
 const TAILGATE_OPEN := 85.0
 const WHEEL_RADIUS := 0.42
 const SUSPENSION := 0.25                                             # corsa grafica delle ruote verso il basso (m)
+const BUMP := 0.1                                                    # e verso l'alto, dentro il passaruota (m)
 const FIX_NODES := ["Fix_Battery", "Fix_Belt", "Fix_FuelCap"]       # campaign.PART_NAMES order
 
 var model: Node3D
@@ -164,14 +165,15 @@ func settle(delta: float) -> void:
 	var base: float = _hubs[2].z - _hubs[0].z
 	var pitch := clampf(atan2((h[0] + h[1]) - (h[2] + h[3]), 2.0 * base), -0.6, 0.6)
 	var tilt := clampf(atan2((h[1] + h[3]) - (h[0] + h[2]), 2.0 * track), -0.6, 0.6)
-	var lift := clampf((h[0] + h[1] + h[2] + h[3]) * 0.25, -1.0, 0.05)
-	var k := 1.0 - exp(-delta * 10.0)
+	# Nelle conche la scatola di guida appoggia sui bordi e il terreno sotto le ruote sta più in alto: la carrozzeria sale.
+	var lift := clampf((h[0] + h[1] + h[2] + h[3]) * 0.25, -1.0, 0.3)
+	var k := 1.0 - exp(-delta * 16.0)
 	rotation.x = lerpf(rotation.x, pitch, k)
 	rotation.z = lerpf(rotation.z, tilt, k)
 	position.y = lerpf(position.y, lift, k)
 	for i in wheels.size():
 		var plane: float = position.y - _hubs[i].z * sin(rotation.x) + _hubs[i].x * sin(rotation.z)
-		wheels[i].position.y = _rest[i] + clampf(h[i] - plane, -SUSPENSION, 0.05)
+		wheels[i].position.y = _rest[i] + clampf(h[i] - plane, -SUSPENSION, BUMP)
 
 
 func marker(name_: String) -> Node3D:

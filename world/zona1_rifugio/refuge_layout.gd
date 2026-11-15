@@ -33,7 +33,8 @@ const RUIN_SIZE:=8.0
 static func occupied(x:float,z:float) -> bool:
 	# I due edifici del paese e le due rovine restano ingombri: il resto è prato.
 	if absf(x-SHERIFF.x)<8.6 and absf(z-SHERIFF.z)<8.6:return true
-	if absf(x-SHOP.x)<8.6 and absf(z-SHOP.z)<8.6:return true
+	# Il portico dell'armeria sporge verso la strada fino a 9.8 m: niente erba sotto.
+	if x>SHOP.x-8.6 and x<SHOP.x+10.2 and absf(z-SHOP.z)<8.6:return true
 	for corner in [CABIN,FARM]:
 		if x>corner.x-2.0 and x<corner.x+RUIN_SIZE+2.0 and z>corner.z-2.5 and z<corner.z+RUIN_SIZE+2.0:return true
 	return false

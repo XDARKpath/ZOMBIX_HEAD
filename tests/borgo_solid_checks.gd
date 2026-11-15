@@ -180,11 +180,23 @@ func _run() -> void:
 					print("    vicino alla porta: ", k.name, " ", kb)
 	check(doors > 30 and reached == doors, "Percorso dalla via dentro %d/%d edifici con porta" % [reached, doors])
 	_identity(geo, doors)
+	_church(geo, map)
+	_sidewalk(geo, village)
+	_cabin()
 	# Barricate su: niente strada sotto (il link della via si spegne); giù: la piazza si raggiunge da ogni via.
+	# Le due reti si cuociono su un thread: prima che siano pronte lo scambio non può avvenire.
+	for i in 1200:
+		if village._nav_closed != null and village._nav_open != null and village._nav_open.get_polygon_count() > 0: break
+		await physics_frame
 	var target := L.CENTER + Vector3(3, 0.1, 5)
 	for up in [false, true, false]:
+		var before := NavigationServer3D.map_get_iteration_id(map)
 		village.set_barricades(up)
-		await wait(40)                        # la mappa si aggiorna su un thread: qualche frame
+		# la mappa si ricostruisce su un thread: si aspetta la nuova versione, non un numero fisso di frame
+		for i in 600:
+			if NavigationServer3D.map_get_iteration_id(map) != before: break
+			await physics_frame
+		await wait(10)
 		var through := 0
 		for key in village.DIRS:
 			var d: Vector2 = village.DIRS[key]
@@ -215,7 +227,11 @@ func _run() -> void:
 	for b in village.barricades:
 		if (b.get_meta("shape") as CollisionShape3D).disabled or absf(b.position.y - L.CENTER.y) > 0.05: holes += 1
 	check(holes == 0, "Su, giù e su in fretta: tutte le barricate alzate e solide (%d no)" % holes)
+	var before := NavigationServer3D.map_get_iteration_id(map)
 	village.set_barricades(false)
+	for i in 600:                          # rete aperta pronta prima degli inseguimenti
+		if NavigationServer3D.map_get_iteration_id(map) != before: break
+		await physics_frame
 	await wait(120)
 
 	# --- Inseguimento vero: un infetto dalla via entra in casa e nel campo profughi.
@@ -228,6 +244,9 @@ func _run() -> void:
 	for side in 5:
 		await _chase("casa (lato %d)" % side, house.to_global(Vector3(-1.5, 0.3, -2.0)), house.to_global(Vector3(house.get_meta("door_x"), 0.3, 16.0)), house, side)
 	await _chase("campo profughi", L.CENTER + Vector3(-128.5, 0.3, 4.0), L.CENTER + Vector3(-100, 0.3, 0), null)
+	# il bruto (0.8 m/s) dalla via N alla piazza con le barricate giù: 46 m, ~60-100 s di cammino secondo il giro
+	await _chase("piazza (bruto dalla via N)", L.CENTER + Vector3(3, 0.3, 5), L.CENTER + Vector3(0, 0.3, -40), null, -1, 2, 120.0)   # fuori dal pozzo
+	await _west_gate()
 	print("FALLITI: ", fails.size())
 	for f in fails: print("  - ", f)
 	quit(1 if fails.size() > 0 else 0)
@@ -269,7 +288,7 @@ func _identity(geo: Node3D, doors: int) -> void:
 		# capsula del giocatore dalla via alla stanza, attraverso la porta (sopra la rampa)
 		var q := PhysicsShapeQueryParameters3D.new()
 		q.shape = capsule
-		q.transform = Transform3D(h.global_basis, h.to_global(Vector3(h.get_meta("door_x"), 1.08, 5.9)))   # dal gradino (pali e lampioni della via esclusi)
+		q.transform = Transform3D(h.global_basis, h.to_global(Vector3(h.get_meta("door_x"), 1.13, 5.9)))   # dal gradino o dal marciapiede (pali e lampioni esclusi)
 		q.motion = h.global_basis * Vector3(0, 0, -3.9)
 		var hit := space.cast_motion(q)
 		if hit.size() > 0 and hit[0] < 0.999:
@@ -285,18 +304,29 @@ func _identity(geo: Node3D, doors: int) -> void:
 	check(blocked == 0, "Capsula del giocatore libera in %d porte (%d chiuse)" % [doors, blocked])
 
 
-func _chase(where: String, hide: Vector3, start: Vector3, house: Node3D, side := -1) -> void:
+## Gli infetti del borgo non devono spingere il giocatore né mettersi in mezzo: resta solo quello della prova.
+func _park_others(keep: Node) -> void:
+	for o in root.find_children("*", "CharacterBody3D", true, false):
+		if o == p or o == keep or o.global_position.y < -100.0 or not o.has_method("hear"): continue
+		o.set_physics_process(false)
+		o.set_process(false)
+		o.global_position += Vector3(0, -300, 0)
+
+
+func _chase(where: String, hide: Vector3, start: Vector3, house: Node3D, side := -1, kind := 1, seconds := 45.0) -> void:
 	world.terrain.ensure_near([hide, start])
 	p.reset_at(hide)
 	await wait(10)
 	var e: Node3D = world._spawn_enemy(start)
-	e.set_kind(1)                                # corridore: stessa navigazione, prova più corta
+	e.set_kind(kind)                             # di solito il corridore: stessa navigazione, prova più corta
 	if side >= 0: e.network_id += side - e.network_id % 5
 	await wait(5)
 	var best := 999.0
-	for i in 60 * 45:
+	for i in int(60 * seconds):
 		p.health = 100.0
-		if i % 30 == 0: e.hear(p, 100.0)
+		if i % 30 == 0:
+			e.hear(p, 100.0)
+			_park_others(e)
 		await physics_frame
 		best = minf(best, e.global_position.distance_to(p.global_position))
 		if i % 120 == 0: print("  %s: infetto a %s (casa %s), stato %d, distanza %.1f" % [where, e.global_position.snapped(Vector3.ONE * 0.1), house.to_local(e.global_position).snapped(Vector3.ONE * 0.1) if house else "-", e.state, best])
@@ -304,3 +334,121 @@ func _chase(where: String, hide: Vector3, start: Vector3, house: Node3D, side :=
 	var inside := house == null or (absf(house.to_local(e.global_position).x) < 6.0 and absf(house.to_local(e.global_position).z) < 4.3)
 	check(best < e.attack_reach + 0.3 and inside, "L'infetto raggiunge il giocatore nel %s (a %.1f m, dentro %s)" % [where, best, inside])
 	e.queue_free()
+
+
+## Chiesa (fase 3): navata e campanile solidi, portale ad arco libero per la capsula, panche dentro i muri
+## e senza compenetrazioni, navmesh fino al presbiterio.
+func _church(geo: Node3D, map: RID) -> void:
+	var c: Node3D = geo.get_node("Chiesa")
+	var nave: Node3D = null
+	var tower: Node3D = null
+	var pews := []
+	for k in c.get_children():
+		if k.scene_file_path.contains("Church_Nave"): nave = k
+		elif k.scene_file_path.contains("Church_Tower"): tower = k
+		elif k.scene_file_path.contains("Church_Pew"): pews.append(k)
+	var solid := nave != null and tower != null and not nave.find_children("*", "StaticBody3D", true, false).is_empty() and not tower.find_children("*", "StaticBody3D", true, false).is_empty()
+	check(solid and _box(tower, c).end.y > 20.0, "Chiesa: navata e campanile solidi, campanile alto %.1f m" % (_box(tower, c).end.y if tower else 0.0))
+	var bad := 0
+	for i in pews.size():
+		var a := _box(pews[i], c)
+		if pews[i].find_children("*", "StaticBody3D", true, false).is_empty() or absf(a.position.x) > 5.05 or absf(a.end.x) > 5.05 or a.position.z < -6.2 or a.end.z > 9.5: bad += 1
+		for j in range(i + 1, pews.size()):
+			if a.grow(-0.02).intersects(_box(pews[j], c)): bad += 1
+	check(pews.size() >= 12 and bad == 0, "Chiesa: %d panche solide, dentro la navata, senza compenetrazioni (%d no)" % [pews.size(), bad])
+	var q := PhysicsShapeQueryParameters3D.new()
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.31
+	capsule.height = 1.78
+	q.shape = capsule
+	q.transform = Transform3D(c.global_basis, c.to_global(Vector3(0, 1.13, 13.0)))
+	q.motion = c.global_basis * Vector3(0, 0, -6.3)              # dal sagrato a davanti alla prima panca
+	var hit := c.get_world_3d().direct_space_state.cast_motion(q)
+	check(hit.size() > 0 and hit[0] >= 0.999, "Chiesa: il portale ad arco lascia passare la capsula (%.2f)" % (hit[0] if hit.size() else -1.0))
+	for local in [Vector3(0, 0.1, -131), Vector3(2.5, 0.34, -139.5), Vector3(-4.4, 0.1, -126)]:
+		var to: Vector3 = L.CENTER + local
+		var path := NavigationServer3D.map_get_path(map, L.CENTER + Vector3(0, 0, -110), to, true)
+		var d: float = path[path.size() - 1].distance_to(to) if path.size() else 99.0
+		check(d < 0.6, "Chiesa: navmesh dalla via a %s (%.2f m)" % [local, d])
+
+
+## Marciapiede della piazza (fase 3): solido, e niente scalini fra lastricato, cordolo, rampa sulla via e soglia dei negozi.
+func _sidewalk(geo: Node3D, village: Node3D) -> void:
+	var walk: Node3D = geo.get_node("Piazza/Marciapiede")
+	check(walk != null and not walk.find_children("*", "StaticBody3D", true, false).is_empty(), "Marciapiede solido")
+	var space := geo.get_world_3d().direct_space_state
+	var worst := 0.0
+	var where := ""
+	var lines := []
+	for key in village.DIRS:
+		var d: Vector2 = village.DIRS[key]
+		var n := Vector3(d.x, 0, d.y)
+		var a := Vector3(-d.y, 0, d.x)
+		lines.append([key + " cordolo", n * 14.0 + a * 10.0, n * 18.2 + a * 10.0])
+		lines.append([key + " rampa sulla via", n * 17.4 + a * 3.0, n * 17.4 + a * 8.0])
+	for h in geo.get_children():
+		if String(h.name).begins_with("Negozio"):
+			var dx: float = h.get_meta("door_x")
+			lines.append([String(h.name) + " soglia", h.transform * Vector3(dx, 0, 7.0), h.transform * Vector3(dx, 0, 3.2)])   # 3.0 cade nella fuga fra due assi
+	for row in lines:
+		var prev := NAN
+		for i in 101:
+			var at: Vector3 = L.CENTER + (row[1] as Vector3).lerp(row[2], i / 100.0)
+			# due raggi a 2 cm: uno può cadere nella fuga fra due assi del pavimento, dove nessun piede entra
+			var y := -INF
+			for off in [-0.02, 0.02]:
+				var p0: Vector3 = at + ((row[2] as Vector3) - (row[1] as Vector3)).normalized() * off
+				var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p0 + Vector3.UP * 1.5, p0 + Vector3.DOWN * 0.5, 1))
+				if not hit.is_empty() and _is_floor(hit.collider, walk, geo): y = maxf(y, hit.position.y)
+			if y == -INF:
+				prev = NAN
+				continue                                  # una cassa o un sacco sul marciapiede: non è il suolo
+			if not is_nan(prev) and absf(y - prev) > 0.05: print("  scalino %s a %.2f: %.3f -> %.3f" % [row[0], i / 100.0, prev, y])
+			if not is_nan(prev) and absf(y - prev) > worst:
+				worst = absf(y - prev)
+				where = row[0]
+			prev = y
+	check(worst < 0.05, "Marciapiede, rampe e soglie senza scalini: salto massimo %.3f m ogni 4 cm (%s)" % [worst, where])
+
+
+## Suolo: marciapiede, piano del borgo, pavimenti e rampe dei negozi (non casse, sacchi, muri).
+func _is_floor(who: Node, walk: Node, geo: Node) -> bool:
+	if who.get_parent() == walk or who.get_parent() == geo: return true
+	var n := who.get_parent()
+	while n != null and n != geo:
+		if n.scene_file_path.contains("Floor_Ceiling"): return true
+		if n.scene_file_path != "": return false
+		if n is MeshInstance3D and (n as MeshInstance3D).mesh is ArrayMesh and n.get_parent().name.begins_with("Negozio"): return true
+		n = n.get_parent()
+	return false
+
+
+## Casa del Vecchio (fase 3): il soffitto chiude sotto il punto più basso della lamiera, su tutta la stanza.
+func _cabin() -> void:
+	var cabin: Node3D = world.find_child("CasaDelVecchio", true, false)
+	var ceiling: Node3D = cabin.get_node_or_null("Soffitto") if cabin else null
+	var low := INF
+	if cabin:
+		for k in cabin.get_children():
+			if k.scene_file_path.contains("Roof_Corrugated"): low = minf(low, _box(k, cabin).position.y)
+	var top := _box(ceiling, cabin) if ceiling else AABB()
+	check(ceiling != null and top.end.y <= low + 0.01 and top.size.x >= 7.6 and top.size.z >= 7.6,
+		"Casa del Vecchio: soffitto a %.2f sotto la lamiera (%.2f), largo %.1f x %.1f" % [top.end.y, low, top.size.x, top.size.z])
+
+
+## Portone ovest: da fuori si entra camminando dritti (prima ci si fermava contro il portico della casa del Vecchio).
+func _west_gate() -> void:
+	var z := -9.0
+	var ground := func(x: float) -> Vector3: return Vector3(x, world.terrain.height(x, z) + 0.1, z)
+	world.terrain.ensure_near([ground.call(-44.0), ground.call(-12.0)])
+	p.reset_at(ground.call(-44.0))
+	await wait(30)
+	Input.action_press("move_forward")
+	var frames := 0
+	while p.global_position.x < -13.0 and frames < 1200:
+		var d: Vector3 = ground.call(-12.0) - p.global_position
+		p.rig.yaw = atan2(-d.x, -d.z)
+		await physics_frame
+		frames += 1
+	Input.action_release("move_forward")
+	check(p.global_position.x >= -13.0, "Portone ovest: da fuori si entra dritti (x %.1f dopo %d frame)" % [p.global_position.x, frames])

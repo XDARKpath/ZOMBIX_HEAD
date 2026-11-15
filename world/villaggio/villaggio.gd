@@ -222,6 +222,7 @@ func _plaza() -> void:
 		# barricata (giù finché non inizia lo scontro)
 		# Di piatto attraverso la via: larghezza lungo "along".
 		_barricade(normal * (PLAZA - 0.6), atan2(-along.z, along.x))
+	_sidewalks(p)
 	# ---- arredo della piazza
 	for c in [Vector3(-12, 0, -12), Vector3(12, 0, -12), Vector3(-12, 0, 12), Vector3(12, 0, 12)]:
 		_streetlamp(p, c, atan2(-c.x, -c.z))
@@ -290,6 +291,59 @@ func _plaza() -> void:
 		_puddle(p, Vector3(rng.randf_range(-15, 15), 0.035, rng.randf_range(-15, 15)))
 
 
+## Marciapiede rialzato davanti ai negozi: 0.12 m sopra il lastricato, cordolo smussato verso la piazza e rampa
+## dove finisce sulla via (niente scalini: la collisione è la mesh stessa). Una mesh sola per tutta la piazza.
+const WALK_TOP := 0.19
+const WALK_IN := PLAZA - 2.4          # piede del cordolo (distanza dal centro)
+const WALK_START := STREET + 0.8      # dalla bocca della via: fuori dalla barricata (mezza larghezza 4.8 + pali)
+
+
+func _sidewalks(p: Node3D) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var vs := [WALK_IN, WALK_IN + 0.3, PLAZA - 0.2]        # fino al filo dei muri (faccia esterna a PLAZA - 0.22)
+	for key in DIRS:
+		var d: Vector2 = DIRS[key]
+		var normal := Vector3(d.x, 0, d.y)
+		var along := Vector3(-d.y, 0, d.x)
+		for s in [-1, 1]:
+			var us := [WALK_START * s, (WALK_START + 0.6) * s, PLAZA * s]
+			var at := func(i: int, j: int) -> Vector3:
+				var y := 0.0 if i == 0 or j == 0 else WALK_TOP          # il piede del cordolo sta sulla collisione del suolo (y 0)
+				return along * us[i] + normal * vs[j] + Vector3(0, y, 0)
+			for i in 2:
+				for j in 2:
+					var c := Color("a29f95") if j == 0 else Color("8a877d")
+					_quad(st, at.call(i, j), at.call(i + 1, j), at.call(i + 1, j + 1), at.call(i, j + 1), Vector3.UP, c)
+			# fianco contro i muri e testa nell'angolo (si vedono dalle porte e dai varchi)
+			for i in 2:
+				var a: Vector3 = at.call(i, 2)
+				var b: Vector3 = at.call(i + 1, 2)
+				_quad(st, a, b, Vector3(b.x, 0.0, b.z), Vector3(a.x, 0.0, a.z), normal, Color("6f6c63"))
+			for j in 2:
+				var a: Vector3 = at.call(2, j)
+				var b: Vector3 = at.call(2, j + 1)
+				_quad(st, a, b, Vector3(b.x, 0.0, b.z), Vector3(a.x, 0.0, a.z), along * s, Color("6f6c63"))
+	st.generate_normals()
+	var walk := MeshInstance3D.new()
+	walk.name = "Marciapiede"
+	walk.mesh = st.commit()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 0.95
+	walk.material_override = mat
+	p.add_child(walk)
+	walk.create_trimesh_collision()
+
+
+## Quadrilatero con la faccia davanti verso 'facing' (la collisione è da un lato solo).
+func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, facing: Vector3, color: Color) -> void:
+	st.set_color(color)
+	for t in [[a, b, c], [a, c, d]]:
+		if (t[2] - t[0]).cross(t[1] - t[0]).dot(facing) < 0.0: t = [t[0], t[2], t[1]]
+		for v in t: st.add_vertex(v)
+
+
 func _orient_wall(w: Node3D, at: Vector3, along: Vector3, length: float) -> void:
 	# il pezzo di muro va da 'at' lungo 'along' per 'length' metri
 	w.position = at
@@ -351,8 +405,7 @@ func _barricade(at: Vector3, yaw: float) -> void:
 	b.set_meta("shape", cs)
 	b.set_meta("light", light)
 	b.set_meta("half", w * 0.5)
-	# Navigazione: il bake toglie una striscia sotto la barricata e un link la riattraversa solo a barricata giù
-	# (niente bake ripetuto; il link si accende e spegne con lo stato, anche sui client).
+	# Navigazione: questa sagoma toglie la striscia sotto la barricata solo dalla rete "chiusa" (_bake, _swap_nav).
 	var along := Basis(Vector3.UP, yaw).x
 	var across := Basis(Vector3.UP, yaw).z
 	var carve := NavigationObstacle3D.new()
@@ -363,11 +416,7 @@ func _barricade(at: Vector3, yaw: float) -> void:
 	carve.position = at + Vector3(0, -0.5, 0)
 	carve.vertices = PackedVector3Array([-along * 5.2 - across * 0.8, along * 5.2 - across * 0.8, along * 5.2 + across * 0.8, -along * 5.2 + across * 0.8])
 	geo.add_child(carve)
-	var link := NavigationLink3D.new()
-	link.start_position = at - across * 1.5
-	link.end_position = at + across * 1.5
-	geo.add_child(link)
-	b.set_meta("link", link)
+
 	barricades.append(b)
 
 
@@ -378,9 +427,6 @@ func set_barricades(up: bool) -> void:
 	for b in barricades:
 		var cs: CollisionShape3D = b.get_meta("shape")
 		var light: OmniLight3D = b.get_meta("light")
-		var link: NavigationLink3D = b.get_meta("link")                 # barricata su: niente strada sotto
-		link.enabled = not up
-		link.navigation_layers = 0 if up else 1
 		var y0 := L.CENTER.y - 3.2
 		# Su e giù in fretta: il tween di prima (e il suo "spegni la collisione") non deve finire dopo questo.
 		if b.has_meta("tween"): (b.get_meta("tween") as Tween).kill()
@@ -399,6 +445,7 @@ func set_barricades(up: bool) -> void:
 				cs.disabled = true
 				b.visible = false)
 	if _is_host():
+		_swap_nav()                                           # barricata su: niente strada sotto
 		_push_state()
 
 
@@ -453,14 +500,13 @@ func _shop(at: Vector3, yaw: float, title: String, index: int) -> void:
 	# frontone finto sopra la gronda: la sagoma dice "negozio" anche da lontano (4 forme, una per coppia di negozi)
 	asset(h, "Bld_Shop_Front_%02d" % (index % 4 + 1), Vector3(0, 3 * hs, 4.5), 0, true)
 	signboard(h, Vector3(0, 3 * hs + 0.42, 4.88), title, 6.5)
-	_entry_ramp(h, 2.4, -1.5)
-	asset(h, "Bld_Step_01", Vector3(-1.5, 0, 4.69), 0, false, Vector3(2.4 / 2.2, 1, 1))
+	_entry_ramp(h, 2.4, -1.5, WALK_TOP, 4.75, 3.9)        # dal marciapiede (_sidewalks) giù al pavimento
 	h.set_meta("door_x", -1.5)
 	_boarded(h, 4, 1)
 	_interior(h, 4, true, SHOP_KIT[title])
 	supplies.append(h.position + Vector3(0, 0.3, 0).rotated(Vector3.UP, yaw) + Vector3(2.5, 0, 0).rotated(Vector3.UP, yaw))
 	for i in 2:
-		_junk(h, Vector3(rng.randf_range(-5, 5), 0.07, rng.randf_range(5.3, 7.0)))
+		_junk(h, Vector3(rng.randf_range(-5, 5), WALK_TOP, rng.randf_range(5.3, 6.4)))   # sul marciapiede, prima del cordolo
 
 
 func _backyard(at: Vector3, yaw: float, w: int) -> void:
@@ -557,51 +603,24 @@ func _street(key: String) -> void:
 
 # ================================================================== fine delle vie
 func _church() -> void:
-	# fine via N: chiesa con campanile e cimitero
-	var c := _node(geo, Vector3(0, 0, -(PLAZA + STREET_LEN + 12)), 0, "Chiesa")
-	var hs := 1.7
-	_floor(c, 4, 3)
-	_walls(c, 4, 3, false, hs)
-	for i in 4:
-		asset(c, "Bld_Wall_Brick_Door_01" if i == 1 or i == 2 else "Bld_Wall_Brick_Window_01", Vector3(-6 + i * 3, 0, 4.5), 0, true, Vector3(1, hs, 1))
-	_roof(c, 4, 3 * hs + 0.05)
-	_entry_ramp(c, 6.2)
-	# campanile
-	var tw := _node(c, Vector3(-7.5, 0, 3.0), 0, "Campanile")
-	for level in 3:
-		for side in 4:
-			var yaw := side * PI / 2
-			var off := Vector3(0, level * 3.0, 0) + Vector3(sin(yaw), 0, cos(yaw)) * 1.5
-			var piece := "Bld_Wall_Brick_01" if level < 2 else "Bld_Wall_Brick_Window_01"
-			var w := asset(tw, piece, off - Vector3(cos(yaw), 0, -sin(yaw)) * 1.5, yaw, true)
-			w.rotation.y = yaw
-	box(tw, Vector3(0, 9.1, 0), Vector3(3.5, 0.25, 3.5), Color("5d5f55"), true)
-	var spire := MeshInstance3D.new()
-	tw.add_child(spire)
-	var cone := CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 2.3
-	cone.height = 4.0
-	cone.radial_segments = 4
-	spire.mesh = cone
-	spire.position = Vector3(0, 11.2, 0)
-	spire.rotation.y = PI / 4
-	spire.material_override = Props.material(Color("403e34"))
-	var bell := Props.cylinder(tw, Vector3(0, 7.6, 0), 0.45, 0.7, Color("8a6a2e"), 0.7)
+	# fine via N: navata lunga con la facciata a capanna e il portale ad arco verso la via, campanile di 23 m
+	# che si vede dalla statale (pezzi Bld_Church_* del kit). Cimitero a ovest.
+	var c := _node(geo, Vector3(0, 0, -(PLAZA + STREET_LEN + 14)), 0, "Chiesa")
+	asset(c, "Bld_Church_Nave_01", Vector3.ZERO, 0, true)
+	asset(c, "Bld_Church_Tower_01", Vector3(-7.6, 0, 7.9), 0, true).name = "Campanile"
+	var bell := Props.cylinder(c, Vector3(-7.6, 13.6, 7.9), 0.45, 0.7, Color("8a6a2e"), 0.7)
 	bell.name = "Campana"
-	_tilted(tw, Vector3(0, 13.6, 0), Vector3(0.1, 1.2, 0.1), Color("2f3533"), Vector3.ZERO)
-	_tilted(tw, Vector3(0, 13.7, 0), Vector3(0.6, 0.1, 0.1), Color("2f3533"), Vector3.ZERO)
-	signboard(c, Vector3(0, 3 * hs + 0.8, 4.8), "CHIESA DI SAN ROCCO", 6)
-	# panche dentro, alcune ribaltate
-	for row in 4:
+	signboard(c, Vector3(0, 5.15, 10.13), "CHIESA DI SAN ROCCO", 5.2)
+	# panche in due file con la navata in mezzo; le prime quattro file spostate dalla fuga
+	# (le stesse 8 estrazioni di rng della chiesa di prima: il resto del borgo non cambia)
+	for row in 7:
 		for s in [-1, 1]:
-			var b := Vector3(s * 2.6, 0.08, 2.0 - row * 1.6)
-			_bench(c, b, 0)
-			if rng.randf() < 0.3:
-				c.get_child(c.get_child_count() - 1).rotation.z = PI / 2
-	box(c, Vector3(0, 0.55, -3.5), Vector3(2.6, 1.0, 1.0), Color("b5ac89"), true)   # altare
+			var pew := asset(c, "Prop_Church_Pew_01", Vector3(s * 2.75, 0.1, 6.2 - row * 1.75), 0, true)
+			if row < 4 and rng.randf() < 0.3:
+				pew.position.x += s * 0.35
+				pew.rotation.y = s * 0.1
 	for i in 6:
-		_blood(c, Vector3(rng.randf_range(-4, 4), 0.06, rng.randf_range(-3, 3)), 0.8)
+		_blood(c, Vector3(rng.randf_range(-4, 4), 0.075, rng.randf_range(-3, 3)), 0.8)
 	# cimitero a est della chiesa
 	var cem := _node(geo, CEMETERY, 0, "Cimitero")
 	_fence_line(cem, Vector3(-10, 0, -10), Vector3(10, 0, -10), 0.2)
@@ -628,7 +647,7 @@ func _church() -> void:
 		_tree(cem, NATURE + "DeadTree_%d.gltf" % rng.randi_range(1, 5), Vector3(rng.randf_range(-8, 8), 0, rng.randf_range(-8, 8)), rng.randf_range(0.5, 0.7))
 	for i in 30:
 		_scatter(NATURE + ("Grass_Wispy_Tall.gltf" if i % 2 else "Mushroom_Common.gltf"), Vector3(rng.randf_range(-9, 9), 0, rng.randf_range(-9, 9)), rng.randf_range(0.5, 1.0))
-	_perch(c, Vector3(-7.5, 9.35, 3.0))             # sputatore sul campanile
+	_perch(c, Vector3(-7.6, 11.25, 7.9))            # sputatore nella cella campanaria
 
 
 func _refugee_camp() -> void:
@@ -868,8 +887,34 @@ func _bake() -> void:
 	nm.cell_size = 0.25
 	nm.cell_height = 0.25
 	nm.filter_baking_aabb = AABB(L.CENTER + Vector3(-NAV_HALF, -1.5, -NAV_HALF), Vector3(NAV_HALF * 2, 16, NAV_HALF * 2))
+	# Due reti dallo stesso rilievo: aperta (barricate giù) e con le strisce sotto le barricate tolte. Su e giù si
+	# scambia la rete della regione, senza ricuocere. Un NavigationLink sopra la striscia non bastava: a metà striscia
+	# l'infetto era fuori rete, ricalcolava dal bordo e tornava indietro (il bruto restava davanti alla barricata);
+	# una regione a parte per la striscia non si univa ai bordi cotti.
+	var source := NavigationMeshSourceGeometryData3D.new()
+	NavigationServer3D.parse_source_geometry_data(nm, source, nav)
+	var open_source := NavigationMeshSourceGeometryData3D.new()          # lo stesso rilievo senza le sagome
+	open_source.set_vertices(source.get_vertices())
+	open_source.set_indices(source.get_indices())
+	_nav_open = nm.duplicate()
+	NavigationServer3D.bake_from_source_geometry_data_async(_nav_open, open_source, func() -> void: _swap_nav.call_deferred())
 	nav.navigation_mesh = nm
+	nav.bake_finished.connect(func() -> void:
+		_nav_closed = nm
+		_swap_nav())
 	nav.bake_navigation_mesh(true)
+
+
+var _nav_open: NavigationMesh
+var _nav_closed: NavigationMesh
+
+
+## Rete della regione secondo le barricate (solo host: i client non hanno rete).
+func _swap_nav() -> void:
+	var want := _nav_closed if barricade_up else _nav_open
+	if want == null or want.get_polygon_count() == 0: return
+	nav.navigation_mesh = want
+	NavigationServer3D.region_set_navigation_mesh(nav.get_rid(), want)
 
 
 # ================================================================== boss UI
