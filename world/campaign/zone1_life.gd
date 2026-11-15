@@ -13,7 +13,10 @@ const Route := preload("res://world/campaign/route.gd")
 const RoadNet := preload("res://world/zona1_rifugio/roadnet.gd")
 const Terrain := preload("res://world/campaign/terrain.gd")
 const FISHING_SPOT := preload("res://world/zona1_rifugio/lake.gd").FISHING_SPOT   # piattaforma a T del pontile
-const SACK_EAT_SECONDS := 8.0
+const SACK_EAT_SECONDS := 20.0   # un infetto solo; i successivi frugano peggio (SACK_CROWD)
+## Ogni infetto in più accelera di metà, al massimo 2,5×: quattro infetti = 8 s, non 2.
+const SACK_CROWD := 0.5
+const SACK_CROWD_MAX := 2.5
 const FED_SECONDS := 90.0
 const Arsenal := preload("res://weapons/zx_arsenal.gd")
 ## Rumore per categoria: "swing" è il raggio del colpo/sparo, "hit" quello dell'impatto corpo a corpo.
@@ -127,7 +130,7 @@ func drop_sack(actor: CharacterBody3D) -> void:
 	var node := Node3D.new()
 	add_child(node)
 	var at := actor.global_position
-	node.global_position = Vector3(at.x, Terrain.ground_height(at.x, at.z) if at.z <= 14 else at.y, at.z)
+	node.global_position = _floor_under(actor)
 	var P := preload("res://art/placeholders.gd")
 	var bag := MeshInstance3D.new()
 	var sphere := SphereMesh.new()
@@ -160,6 +163,18 @@ func drop_sack(actor: CharacterBody3D) -> void:
 	sacks.append({"node": node, "label": label, "heads": lost, "items": lost_items, "eaten": 0.0})
 	world.announce(Localization.t("HAI PERSO {0} TESTE · IL SACCO È RIMASTO DOVE SEI CADUTO", [lost]), 6)
 
+## Il pavimento sotto chi è caduto: cripta, Rocca, scale e piani alti compresi.
+## Prima la superficie veniva presa per buona ovunque a sud del rifugio (z <= 14), e la cripta è a z -1800.
+func _floor_under(actor: CharacterBody3D) -> Vector3:
+	var at := actor.global_position
+	var space := actor.get_world_3d().direct_space_state
+	var ray := PhysicsRayQueryParameters3D.create(at + Vector3.UP * 0.6, at + Vector3.DOWN * 30.0)
+	ray.exclude = [actor.get_rid()]
+	ray.collision_mask = 1   # solo il mondo: niente infetti o vetture sotto il corpo
+	var hit := space.intersect_ray(ray)
+	if not hit.is_empty(): return hit["position"]
+	return at if actor.is_on_floor() or at.z > 14 else Vector3(at.x, Terrain.ground_height(at.x, at.z), at.z)
+
 func _sacks(delta: float) -> void:
 	for sack in sacks.duplicate():
 		var at: Vector3 = sack["node"].global_position
@@ -170,7 +185,10 @@ func _sacks(delta: float) -> void:
 			if d < 2.2: eaters += 1
 			# Gli infetti che non inseguono nessuno vanno a frugare nel sacco.
 			elif d < 28.0 and int(enemy.state) == 0: enemy.home = at
-		sack["eaten"] = float(sack["eaten"]) + delta * eaters
+		if eaters > 0 and not sack.get("warned", false):
+			sack["warned"] = true
+			world.announce(Localization.t("GLI INFETTI FRUGANO NEL TUO SACCO"), 4)
+		sack["eaten"] = float(sack["eaten"]) + delta * minf(SACK_CROWD_MAX, 0.0 if eaters == 0 else 1.0 + SACK_CROWD * (eaters - 1))
 		var left := 1.0 - float(sack["eaten"]) / SACK_EAT_SECONDS
 		sack["label"].text = Localization.t("SACCO · {0} TESTE\n{1}%", [sack["heads"], int(left * 100)])
 		if left <= 0.0:
@@ -220,7 +238,8 @@ func eat() -> void:
 		if int(food[kind]) <= 0: continue
 		food[kind] = int(food[kind]) - 1
 		var heal: float = {"fish": 20.0, "can": 15.0, "mushroom": 8.0}[kind]
-		p.health = minf(100.0, p.health + heal)
+		p.health = minf(p.max_health(), p.health + heal)
+		p.vitals_changed.emit(p.health, p.stamina)
 		fed = FED_SECONDS if kind != "mushroom" else maxf(fed, 40.0)
 		world.announce(Localization.t({"fish": "PESCE MANGIATO · SAZIO", "can": "SCATOLETTA MANGIATA · SAZIO", "mushroom": "FUNGHI MANGIATI"}[kind]), 3)
 		return
@@ -312,8 +331,9 @@ func _process(delta: float) -> void:
 		fed = maxf(0.0, fed - delta)
 		var p: CharacterBody3D = world.player
 		if not p.dead:
-			p.health = minf(100.0, p.health + 0.6 * delta)
-			p.stamina = minf(100.0, p.stamina + 4.0 * delta)
+			# Mai sopra il massimo vero (potenziamenti compresi), e mai verso il basso.
+			p.health = maxf(p.health, minf(p.max_health(), p.health + 0.6 * delta))
+			p.stamina = maxf(p.stamina, minf(p.max_stamina(), p.stamina + 4.0 * delta))
 
 func food_count() -> int:
 	return int(food["can"]) + int(food["mushroom"]) + int(food["fish"])

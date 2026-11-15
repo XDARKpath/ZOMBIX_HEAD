@@ -226,32 +226,32 @@ func _capture(path: String) -> void:
 	queue_free()
 
 func _verify_zombix() -> void:
-	var checks := preload("res://tests/zombix_checks.gd").new()
+	var checks = load("res://tests/zombix_checks.gd").new()
 	var success: bool = await checks.run(self)
 	Session.leave()
 	get_tree().quit(0 if success else 1)
 
 func _verify_expedition_network(hosting: bool) -> void:
-	var check := preload("res://tests/coop_expedition.gd").new()
+	var check = load("res://tests/coop_expedition.gd").new()
 	add_child(check)
 	await check.run(self,hosting)
 
 func _verify_save() -> void:
 	Session.launch()
 	await get_tree().create_timer(1.2).timeout
-	var probe := preload("res://tests/save_probe.gd").new()
+	var probe = load("res://tests/save_probe.gd").new()
 	var success: bool = await probe.run(self)
 	Session.leave()
 	get_tree().quit(0 if success else 1)
 
 func _verify_menu() -> void:
-	var checks := preload("res://tests/menu05_checks.gd").new()
+	var checks = load("res://tests/menu05_checks.gd").new()
 	var success: bool = await checks.run(self)
 	Session.leave()
 	get_tree().quit(0 if success else 1)
 
 func _verify_graphics() -> void:
-	var checks := preload("res://tests/graphics_menu_checks.gd").new()
+	var checks = load("res://tests/graphics_menu_checks.gd").new()
 	var success: bool = await checks.run(self)
 	Session.leave()
 	get_tree().quit(0 if success else 1)
@@ -270,7 +270,7 @@ func _record_menu(folder: String) -> void:
 	queue_free()
 
 func _verify_camp() -> void:
-	var checks := preload("res://tests/camp10_checks.gd").new()
+	var checks = load("res://tests/camp10_checks.gd").new()
 	var success: bool = await checks.run(self)
 	Session.leave()
 	get_tree().quit(0 if success else 1)

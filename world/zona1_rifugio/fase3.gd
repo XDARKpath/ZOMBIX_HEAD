@@ -668,7 +668,7 @@ func _capture(path: String) -> void:
 	get_tree().quit()
 
 func _verify3() -> void:
-	var checks := preload("res://tests/phase3_checks.gd").new()
+	var checks = load("res://tests/phase3_checks.gd").new()
 	var success: bool = await checks.run(self)
 	Session.leave()
 	get_tree().quit(0 if success else 1)

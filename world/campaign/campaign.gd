@@ -16,6 +16,8 @@ var operation:int=1
 var hold:float=8
 var repairing_peer:int=0
 var downloading:bool=false
+## Perché il download è fermo ("" = scarica). Il download non si azzera più: si ferma, dice chi lo blocca e riparte da solo.
+var download_block:String=""
 var guardians_warned:bool=false
 var publish_clock:float=0
 var broadcast_count:int=0
@@ -83,12 +85,26 @@ func use(peer:int) -> bool:
 	if car.repaired and actor.position.distance_to(car.position)<3.4: return car.interact(peer)
 	if stage==3 and can_reach(actor,beacons[zone_index].position):
 		if remaining_enemies()>0 or not squad_near(): return false
-		downloading=true;_publish();return true
+		downloading=true;download_block="";_publish();return true
 	return false
 
 ## Davanti al muso (cofano aperto) si lavora al motore, altrove sulle ruote.
 func repair_kind(actor:Node3D) -> String:
 	return "engine" if car.to_local(actor.global_position).z < -1.2 else "wheel"
+
+## Chi o cosa ferma il download, in parole: compagno a terra, compagno lontano (con i metri) o infetti vicini.
+func download_blocker() -> String:
+	for peer in world.actors:
+		var actor:CharacterBody3D=world.actors[peer]
+		var who:String=str(Session.roster[peer].name) if Session.roster.has(peer) else Localization.t("UN COMPAGNO")
+		var me:bool=actor==world.player
+		if actor.dead: return Localization.t("SEI A TERRA") if me else Localization.t("{0} È A TERRA",[who])
+		var d:float=actor.position.distance_to(Route.POINTS[zone_index])
+		if d>45: return Localization.t("SEI TROPPO LONTANO ({0} m, torna entro 45)",[int(d)]) if me else Localization.t("{0} È TROPPO LONTANO ({1} m, torna entro 45)",[who,int(d)])
+	var n:=remaining_enemies()
+	if n==1: return Localization.t("UN INFETTO ENTRO 65 m DAL PRESIDIO")
+	if n>1: return Localization.t("{0} INFETTI ENTRO 65 m DAL PRESIDIO",[n])
+	return ""
 
 func squad_near() -> bool:
 	for actor in world.actors.values():
@@ -105,7 +121,7 @@ func try_arrive() -> bool:
 	if not authority() or stage!=2 or not car.repaired or not car.all_aboard(): return false
 	if unlocked==1 and world.get("roadblocks") and world.roadblocks.cleared.count(true)!=2:return false
 	if car.position.distance_to(Route.POINTS[unlocked])>22 or absf(car.speed)>1: return false
-	zone_index=unlocked;operation=zone_index+1;stage=3;hold=10;downloading=false
+	zone_index=unlocked;operation=zone_index+1;stage=3;hold=10;downloading=false;download_block=""
 	world.activate_zone(zone_index)
 	if zone_index==1:
 		world.announce("ZONA 1 COMPLETATA · Lago Cenere è alle tue spalle · +500 crediti",10)
@@ -129,8 +145,12 @@ func _process(delta:float) -> void:
 				car.repaired=true;stage=2;unlocked=1;repairing_peer=0;car.publish();_publish()
 	elif stage==2: try_arrive()
 	elif stage==3 and downloading:
-		if not squad_near() or remaining_enemies()>0: downloading=false;hold=10
-		else:
+		var block:=download_blocker()
+		if block!=download_block:
+			download_block=block
+			if block!="": world.announce(Localization.t("DOWNLOAD IN PAUSA · {0}",[block]),4)
+			_publish()
+		if block=="":
 			hold=maxf(0,hold-delta)
 			if hold<=0:
 				downloading=false
@@ -168,6 +188,7 @@ func prompt() -> String:
 	if stage==0: return "G  GPS"
 	if world.player.position.distance_to(target_point())>3.2: return "G  GPS"
 	if stage==3:
+		if downloading and download_block!="": return Localization.t("DOWNLOAD IN PAUSA · {0} s CONSERVATI · {1}",[ceili(hold),download_block])
 		if remaining_enemies()>0: return "ELIMINA GLI INFETTI DEL PRESIDIO"
 		if not squad_near(): return "RIUNISCI LA SQUADRA AL PRESIDIO"
 		return Localization.t("DOWNLOAD  {0} s",[ceili(hold)]) if downloading else "E  SCARICA LA PROSSIMA COORDINATA"
@@ -184,7 +205,9 @@ func detail() -> String:
 		0: return world.quest.detail()
 		1: return "8 secondi di lavoro vicino al motore"
 		2: return "%02d → %02d · %.2f km\n%s"%[zone_index+1,unlocked+1,car.position.distance_to(Route.POINTS[unlocked])/1000.0,Localization.t(Route.TITLES[unlocked])]
-		3: return Localization.t("{0} infetti · riunitevi e scaricate il segnale",[remaining_enemies()])
+		3:
+			if downloading and download_block!="": return Localization.t("Download in pausa a {0} s: {1}",[ceili(hold),download_block])
+			return Localization.t("{0} infetti · riunitevi e scaricate il segnale",[remaining_enemies()])
 		_: return "8 / 8 · fine del percorso prototipo"
 
 func _refresh() -> void:
@@ -193,11 +216,11 @@ func _refresh() -> void:
 func _publish() -> void:
 	_refresh()
 	if Session.online and multiplayer.is_server():
-		for peer in Session.connected_peers(): receive.rpc_id(peer,collected,stage,zone_index,unlocked,hold,repairing_peer,downloading)
+		for peer in Session.connected_peers(): receive.rpc_id(peer,collected,stage,zone_index,unlocked,hold,repairing_peer,downloading,download_block)
 
 @rpc("authority","call_remote","reliable")
-func receive(items:Array,step:int,current:int,revealed:int,remaining:float,repairer:int,download:bool) -> void:
-	collected=items;stage=step;zone_index=current;unlocked=revealed;hold=remaining;repairing_peer=repairer;downloading=download
+func receive(items:Array,step:int,current:int,revealed:int,remaining:float,repairer:int,download:bool,block:String="") -> void:
+	collected=items;stage=step;zone_index=current;unlocked=revealed;hold=remaining;repairing_peer=repairer;downloading=download;download_block=block
 	operation=zone_index+1;broadcast_count+=1;_refresh()
 	if repairing_peer and world.actors.has(repairing_peer):
 		world.actors[repairing_peer].set_meta("repair_until",Time.get_ticks_msec()+300)

@@ -104,11 +104,19 @@ func _run() -> void:
 	check(mission.stage == 4, "Ultima tappa: rotta completata")
 	screens("Fine")
 
-	# Salvataggio e ripresa in fondo al viaggio.
-	root.get_node("SaveManager").write(world)
+	# Salvataggio e ripresa in fondo al viaggio. Il salvataggio vero dell'utente si mette da parte e si rimette.
+	var sm: Node = root.get_node("SaveManager")
+	var keep := {}
+	for path in [sm.SLOT_PATH, sm.BACKUP_PATH]: keep[path] = FileAccess.get_file_as_bytes(path) if FileAccess.file_exists(path) else null
+	sm.write(world)
 	mission.stage = 0
-	root.get_node("SaveManager").apply(world)
+	sm.apply(world)
 	check(mission.stage == 4 and car.repaired and world.zone2.stage == world.zone2.DONE, "Il salvataggio riprende a fine viaggio")
+	for path in keep:
+		if FileAccess.file_exists(path): DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+		if keep[path] != null:
+			var f := FileAccess.open(path, FileAccess.WRITE)
+			f.store_buffer(keep[path]); f.close()
 	print("VIAGGIO: %d errori %s" % [fails.size(), fails])
 	quit(0 if fails.is_empty() else 1)
 

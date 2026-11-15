@@ -6,15 +6,34 @@ signal save_completed(slot: int)
 signal save_failed(reason: String)
 
 const SLOT_PATH: String = "user://save_slot_1.json"
+## Copia dell'ultimo salvataggio buono: se il file principale è rotto (gioco chiuso mentre scriveva) si riparte da qui.
+const BACKUP_PATH: String = "user://save_slot_1.bak.json"
+## La campagna sostituita da una nuova partita, finché non se ne inizia un'altra.
+const OLD_PATH: String = "user://save_slot_1.old.json"
 const REMOVED := ["spade", "fire_axe"]
 var pending_resume: bool = false
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SLOT_PATH)
+	return FileAccess.file_exists(SLOT_PATH) or FileAccess.file_exists(BACKUP_PATH)
 
+## Nuova partita: la campagna non si cancella, si sposta in OLD_PATH.
 func erase() -> void:
-	if has_save():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SLOT_PATH))
+	if FileAccess.file_exists(SLOT_PATH): _move(SLOT_PATH, OLD_PATH)
+	elif FileAccess.file_exists(BACKUP_PATH): _move(BACKUP_PATH, OLD_PATH)
+	if FileAccess.file_exists(BACKUP_PATH): DirAccess.remove_absolute(ProjectSettings.globalize_path(BACKUP_PATH))
+
+func _move(from: String, to: String) -> void:
+	if FileAccess.file_exists(to): DirAccess.remove_absolute(ProjectSettings.globalize_path(to))
+	DirAccess.rename_absolute(ProjectSettings.globalize_path(from), ProjectSettings.globalize_path(to))
+
+## Per il menu: tappa (da 1), crediti e boss sconfitti della campagna salvata.
+func summary() -> Dictionary:
+	var data := read()
+	var bosses := 0
+	for done in data.get("boss_cleared", []): bosses += int(bool(done))
+	var quest: Dictionary = data.get("quest", {})
+	bosses += int(bool(quest.get("carceriere", false)))
+	return {"stage": int(data.get("zone", 0)) + 1, "credits": int(data.get("credits", 0)), "bosses": bosses}
 
 func _vec(point: Vector3) -> Array:
 	return [point.x, point.y, point.z]
@@ -67,20 +86,28 @@ func write(world: Node) -> bool:
 		"quest": world.quest.save_data() if world.get("quest") else {},
 		"zone2": world.zone2.save_data() if world.get("zone2") else {},
 	}
-	var file := FileAccess.open(SLOT_PATH, FileAccess.WRITE)
+	if world.get("zone_life"): data["food"] = world.zone_life.food.duplicate()
+	# Scrive accanto e poi sostituisce: chiudere il gioco a metà lascia intatto l'ultimo salvataggio.
+	var temp := SLOT_PATH + ".tmp"
+	var file := FileAccess.open(temp, FileAccess.WRITE)
 	if file == null:
 		save_failed.emit("write")
 		return false
 	file.store_string(JSON.stringify(data))
 	file.close()
+	if FileAccess.file_exists(SLOT_PATH) and read_file(SLOT_PATH).size() > 0: _move(SLOT_PATH, BACKUP_PATH)
+	_move(temp, SLOT_PATH)
 	save_completed.emit(1)
 	return true
 
 func read() -> Dictionary:
-	if not has_save():
-		return {}
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(SLOT_PATH))
-	return parsed if parsed is Dictionary else {}
+	var data := read_file(SLOT_PATH)
+	return data if not data.is_empty() else read_file(BACKUP_PATH)
+
+func read_file(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path): return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if parsed is Dictionary and parsed.has("stage") else {}
 
 func apply(world: Node) -> bool:
 	var data := read()
@@ -110,6 +137,8 @@ func apply(world: Node) -> bool:
 	world.player.health = world.player.max_health()
 	world.player.stamina = world.player.max_stamina()
 	world.player.arrows = int(data.get("arrows", 0))
+	if world.get("zone_life") and data.has("food"):
+		for kind in world.zone_life.food: world.zone_life.food[kind] = int(data["food"].get(kind, 0))
 	# Salvataggi di prima della barra rapida: la barra si ricostruisce dalle armi.
 	var saved_items: Dictionary = data.get("items", {})
 	var bar: Array = data.get("hotbar", [])
