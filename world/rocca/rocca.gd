@@ -918,8 +918,9 @@ func _masonry(tint: Color) -> StandardMaterial3D:
 	mat.albedo_texture = _brick_tex
 	mat.albedo_color = tint
 	mat.uv1_triplanar = true
-	mat.uv1_scale = Vector3.ONE * 0.5
-	mat.roughness = 0.95
+	# Blocchi da 1 x 0,5 m come la muratura del kit (tools/castle_kit); rugosità come nel kit: pietra 0,92, spigoli consumati 0,72, gradini 0,9.
+	mat.uv1_scale = Vector3.ONE * 0.25
+	mat.roughness = 0.72 if tint == C_NOSE else (0.9 if tint == C_FLOOR else 0.92)
 	# La nebbia del bosco non scende sottoterra.
 	mat.disable_fog = true
 	_stone_mats[tint] = mat
@@ -1757,12 +1758,18 @@ func _process(delta: float) -> void:
 		return
 	clock += delta
 	var t := Time.get_ticks_msec() * 0.001
+	var cam := get_viewport().get_camera_3d()
 	for i in torches.size():
 		var l := torches[i]
+		var base: float = l.get_meta("base")
 		var k := 0.88 + 0.12 * sin(t * 9.0 + i * 1.7) * sin(t * 13.0 + i)
 		if _rage > 0 and arena_lights.has(l):
 			k = 0.6 + 0.4 * absf(sin(t * 3.0 + i * 0.4))
-		l.light_energy = l.get_meta("base") * k
+		# Tremolio solo vicino alla camera (25 m): le torce lontane restano ferme e non si aggiornano ogni frame.
+		elif cam and l.global_position.distance_squared_to(cam.global_position) > 625.0:
+			if l.light_energy != base: l.light_energy = base
+			continue
+		l.light_energy = base * k
 	_local_view()
 	_update_ui()
 	if not host:

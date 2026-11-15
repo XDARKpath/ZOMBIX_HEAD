@@ -9,14 +9,28 @@ const BRASS := Color("d4a937")
 const SIZE := Vector3(1.0, 0.5, 0.62)     # cassa senza coperchio
 
 
+static var _mats := {}   # un materiale per colore, condiviso da tutti i forzieri
+
+
+## Ferro e ottone un po' metallici, legno opaco.
+static func _mat(color: Color) -> StandardMaterial3D:
+	if not _mats.has(color):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = color
+		mat.roughness = 0.82
+		if color == IRON:
+			mat.metallic = 0.55; mat.roughness = 0.5
+		elif color.r > 0.6 and color.g > 0.45 and color.b < 0.35:   # ottone della serratura
+			mat.metallic = 0.65; mat.roughness = 0.4
+		_mats[color] = mat
+	return _mats[color]
+
+
 static func _box(parent: Node3D, at: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = size
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.85
-	mesh.material = mat
+	mesh.material = _mat(color)
 	mi.mesh = mesh
 	mi.position = at
 	parent.add_child(mi)
