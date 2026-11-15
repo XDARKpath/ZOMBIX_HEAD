@@ -5,6 +5,7 @@ extends Node3D
 const Route := preload("res://world/campaign/route.gd")
 const Terrain := preload("res://world/campaign/terrain.gd")
 const Fx := preload("res://bosses/boss_fx.gd")
+const Zone2 := preload("res://world/zona2/zone2.gd")
 const KIT := "res://art/zx_borgo/%s.glb"
 const WIDTH := 34.0
 const HEIGHT := 14.0
@@ -51,6 +52,8 @@ func _gate(index: int, at: Vector3, dir: Vector3) -> void:
 			["SM_Prop_RoadBarrier_Small", Vector3(-3.4, 0, 2.6), 0.1, 1.4], ["SM_Prop_RoadBarrier_Small", Vector3(0.0, 0, 3.0), -0.07, 1.4], ["SM_Prop_RoadBarrier_Small", Vector3(3.4, 0, 2.6), 0.06, 1.4],
 			["SM_Prop_Barrel_Metal_01", Vector3(5.4, 0, 1.9), 0.0, 1.0], ["SM_Prop_Barrel_Metal_01", Vector3(6.2, 0, 2.4), 0.5, 1.0]]:
 		_prop(gate, row[0], row[1], row[2], row[3])
+	# Il camion sporge dal muro verso sud: solido anche lì.
+	Zone2.truck_body(body, Transform3D(Basis(Vector3.UP, 1.45), Vector3(0.8, 0, 0.5)))
 	# Ai due lati il pendio sale subito: i blocchi di roccia chiudono la fessura sopra i container.
 	for x in [-17.0, -13.5, 13.5, 17.0]:
 		var rock: Node3D = load("res://art/nature/Rock_Medium_%d.gltf" % (1 + int(absf(x)) % 3)).instantiate()

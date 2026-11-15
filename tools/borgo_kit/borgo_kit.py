@@ -449,7 +449,7 @@ k.cyl((0, -0.16, 0), (0, 0.19, 0), 0.11, 'traffic_orange', n=8, r1=0.02)
 k.cyl((0, -0.02, 0), (0, 0.06, 0), 0.075, 'paint_white', n=8, r1=0.058)
 
 k = mk('Prop_CardboardBox_Stack_01', 31)
-for (x, y, z, s) in ((-0.36, 0, -0.36, 0.72), (0.38, 0, -0.32, 0.68), (-0.3, 0, 0.4, 0.66), (0.0, 0.7, -0.1, 0.5)):
+for (x, y, z, s) in ((-0.36, 0, -0.36, 0.72), (0.38, 0, -0.32, 0.68), (-0.3, 0, 0.4, 0.66), (0.0, 0.446, -0.1, 0.5)):       # la scatola in cima posa sulla prima (alta 0.72 * 0.62)
     k.push((x, y, z), (0, k.rnd.uniform(-12, 12), 0))
     k.box((0, s * 0.62 / 2, 0), (s, s * 0.62, s), 'cardboard')
     k.box((0, s * 0.62 + 0.002, 0), (s * 0.15, 0.004, s * 1.002), 'paper_old')       # nastro
@@ -992,6 +992,160 @@ shop_front('Bld_Shop_Front_01', 'plaster_borgo', 'concrete_light', 'step', 59)
 shop_front('Bld_Shop_Front_02', 'plaster_ochre', 'paint_cream', 'gable', 60)
 shop_front('Bld_Shop_Front_03', 'plaster_sage', 'paint_cream', 'flat', 61)
 shop_front('Bld_Shop_Front_04', 'plaster_rose', 'concrete_light', 'arch', 62)
+
+# ============================================================== CHIESA (fase 3)
+# Navata 11 x 20 m (x +-5.5, z +-10), facciata a capanna verso +Z con portale ad arco, campanile a parte.
+# Origine a terra al centro della navata; pavimento a y 0.1 come le case, sagrato in pendenza verso la via.
+CH_H = 6.5                          # muri della navata
+CH_R = 10.8                         # colmo
+CH_S = (CH_R - (CH_H - 0.1)) / 5.95  # pendenza delle falde (gronda a x +-5.95)
+
+
+def arch_fill(k, x0, x1, ys, w0, w1, col, axis='x', n=8):
+    """riempie gli angoli sopra un arco a tutto sesto (vano x0..x1 che imposta a ys): strisce verticali fino alla chiave"""
+    R = (x1 - x0) / 2
+    cx, top = (x0 + x1) / 2, ys + R
+    pts = [(cx - R * math.cos(math.pi * i / n), ys + R * math.sin(math.pi * i / n)) for i in range(n + 1)]
+    for (ua, ya), (ub, yb) in zip(pts, pts[1:]):
+        poly = [(ua, ya), (ub, yb), (ub, top), (ua, top)]
+        if axis == 'x':
+            prism_z(k, poly, w0, w1, col)
+        else:
+            k.prism_x([(y, u) for u, y in poly], w0, w1, col)
+    return pts
+
+
+def arch_ring(k, pts, w, axis='x', col='stone', t=0.16):
+    """cornice in pietra lungo l'arco, sporgente sulla faccia w"""
+    for (ua, ya), (ub, yb) in zip(pts, pts[1:]):
+        p0 = (ua, ya + 0.02, w) if axis == 'x' else (w, ya + 0.02, ua)
+        p1 = (ub, yb + 0.02, w) if axis == 'x' else (w, yb + 0.02, ub)
+        k.beam(p0, p1, t, 0.12, col, up=(0, 0, 1) if axis == 'x' else (1, 0, 0))
+
+
+def church_wall(k, u0, u1, h, w0, w1, holes, axis, col):
+    """muro pieno meno i vani (u0..u1 lungo il muro, w0..w1 spessore); i vani con 'ys' hanno l'arco"""
+    rect = [(a, b, c, d) for (a, b, c, d, ys) in holes]
+    for (a, b, c, d) in rects(u0, u1, 0, h, rect):
+        if axis == 'x':
+            B(k, a, c, w0, b, d, w1, col)
+        else:
+            B(k, w0, c, a, w1, d, b, col)
+    out = []
+    for (a, b, c, d, ys) in holes:
+        if ys is not None:
+            out.append(arch_fill(k, a, b, ys, w0, w1, col, axis))
+    return out
+
+
+k = mk('Bld_Church_Nave_01', 70)
+# pavimento in lastre, sagrato in pendenza verso la via
+B(k, -5.5, 0.0, -10.0, 5.5, 0.1, 10.0, 'stone_dark')
+for i in range(10):
+    B(k, -5.1, 0.1, -9.6 + i * 1.92 + 0.02, 5.1, 0.104, -9.6 + i * 1.92 + 0.06, 'stone')       # fughe
+B(k, -0.9, 0.1, -6.2, 0.9, 0.104, 9.6, 'cloth_red')                                          # passatoia nella navata
+k.prism_x([(0.0, 12.2), (0.1, 10.6), (0.1, 10.0), (0.0, 10.0)], -2.6, 2.6, 'stone')
+# presbiterio rialzato, raccordato alla navata da uno scivolo (uno scalino di 12 cm ferma giocatore e infetti), altare
+B(k, -5.1, 0.1, -9.6, 5.1, 0.34, -6.6, 'stone_light')
+k.prism_x([(0.1, -5.4), (0.34, -6.6), (0.1, -6.6)], -5.1, 5.1, 'stone')
+B(k, -1.3, 0.34, -8.7, 1.3, 1.25, -7.7, 'stone_light')
+B(k, -1.45, 1.25, -8.85, 1.45, 1.36, -7.55, 'stone')
+B(k, -1.0, 1.36, -8.5, 1.0, 1.37, -7.9, 'cloth_white')
+# facciata (z 9.6..10.0) col portale ad arco; retro (z -10..-9.6) con una finestra alta
+port = [(-1.3, 1.3, 0.0, 4.4, 3.1)]
+for pts in church_wall(k, -5.5, 5.5, CH_H, 9.6, 10.0, port, 'x', 'stone_light'):
+    arch_ring(k, pts, 10.06, 'x', 'stone', 0.22)
+for sx in (-1, 1):
+    B(k, sx * 1.3, 0.0, 10.0, sx * 1.62, 3.1, 10.14, 'stone')                                # stipiti
+    B(k, sx * 1.3, 0.1, 9.53, sx * 2.6, 3.0, 9.6, 'wood_dark')                                # ante aperte contro il muro
+B(k, -0.24, 4.28, 10.0, 0.24, 4.62, 10.2, 'stone')                                          # chiave dell'arco
+back = [(-0.6, 0.6, 2.4, 5.6, 5.0)]
+for pts in church_wall(k, -5.5, 5.5, CH_H, -10.0, -9.6, back, 'x', 'stone_light'):
+    arch_ring(k, pts, -10.06, 'x', 'stone', 0.14)
+k.face([k.vert(p) for p in [(-0.6, 2.4, -9.8), (0.6, 2.4, -9.8), (0.6, 5.0, -9.8), (0.0, 5.6, -9.8), (-0.6, 5.0, -9.8)]], 'glass_dark')
+B(k, -0.7, 2.3, -9.62, 0.7, 2.4, -9.4, 'stone')                                              # davanzale
+# croce di legno sul muro di fondo, sotto la finestra
+B(k, -0.07, 0.34, -9.6, 0.07, 2.2, -9.48, 'wood_dark')
+B(k, -0.5, 1.55, -9.6, 0.5, 1.69, -9.48, 'wood_dark')
+# fianchi con quattro finestre ad arco per parte (vetro scuro dentro il vano), contrafforti fra le finestre
+WZ = (-7.0, -3.0, 1.0, 5.0)
+for sx in (-1, 1):
+    w0, w1 = sorted((sx * 5.1, sx * 5.5))
+    holes = [(z - 0.5, z + 0.5, 2.3, 5.1, 4.6) for z in WZ]
+    for pts in church_wall(k, -10.0, 10.0, CH_H, w0, w1, holes, 'z', 'stone_light'):
+        arch_ring(k, pts, sx * 5.56, 'z', 'stone', 0.12)
+    for z in WZ:
+        B(k, sx * 5.08, 2.2, z - 0.62, sx * 5.68, 2.3, z + 0.62, 'stone')                    # davanzale
+        k.face([k.vert(p) for p in [(sx * 5.3, 2.3, z - 0.5), (sx * 5.3, 2.3, z + 0.5), (sx * 5.3, 4.6, z + 0.5), (sx * 5.3, 5.1, z), (sx * 5.3, 4.6, z - 0.5)]], 'glass_dark')
+        B(k, sx * 5.27, 2.3, z - 0.03, sx * 5.33, 5.0, z + 0.03, 'iron_dark')                 # piombo
+    for z in (-9.0, -5.0, -1.0, 3.0):
+        k.cbox((sx * 5.75, 1.6, z), (0.5, 3.2, 0.7), 'stone', ch=0.05)                         # contrafforti
+    B(k, sx * 5.5, 0.0, -10.05, sx * 5.62, 0.6, 10.05, 'stone_dark')                         # zoccolo
+# zoccolo e lesene della facciata, cornicione
+for sx in (-1, 1):
+    B(k, sx * 1.62, 0.0, 10.0, sx * 5.5, 0.6, 10.1, 'stone_dark')
+    k.cbox((sx * 5.45, CH_H / 2, 9.95), (0.7, CH_H, 0.5), 'stone', ch=0.05)
+B(k, -5.8, CH_H - 0.12, 9.95, 5.8, CH_H + 0.1, 10.24, 'stone')
+# timpani: sotto le falde, con il bordo un po' dentro la lastra (da dentro niente cielo)
+yb = lambda x: CH_R - abs(x) * CH_S - 0.25 + 0.06
+for z0, z1 in ((9.6, 10.0), (-10.0, -9.6)):
+    prism_z(k, [(-5.5, CH_H - 0.1), (5.5, CH_H - 0.1), (5.5, yb(5.5)), (0.0, yb(0.0)), (-5.5, yb(5.5))], z0, z1, 'stone_light')
+# rosone sul timpano della facciata, croce in cima
+k.cyl((0, 8.15, 10.0), (0, 8.15, 10.18), 1.05, 'stone', n=12)
+k.cyl((0, 8.15, 10.0), (0, 8.15, 10.22), 0.8, 'glass_dark', n=12)
+for a in range(4):
+    ang = a * math.pi / 4
+    k.beam((-math.cos(ang) * 0.8, 8.15 - math.sin(ang) * 0.8, 10.24), (math.cos(ang) * 0.8, 8.15 + math.sin(ang) * 0.8, 10.24), 0.06, 0.04, 'iron_dark', up=(0, 0, 1))
+B(k, -0.09, CH_R + 0.05, 9.75, 0.09, CH_R + 1.6, 9.93, 'iron_dark')
+B(k, -0.5, CH_R + 1.0, 9.75, 0.5, CH_R + 1.16, 9.93, 'iron_dark')
+# tetto: due falde di ardesia, colmo; capriate a vista dentro
+for sx in (-1, 1):
+    poly = [(0.0, CH_R), (0.0, CH_R - 0.25), (sx * 5.95, CH_R - 5.95 * CH_S - 0.25), (sx * 5.95, CH_R - 5.95 * CH_S)]
+    prism_z(k, poly, -10.4, 10.4, 'slate_dark')
+    for i in range(5):
+        x = sx * (0.8 + i * 1.1)
+        k.beam((x, CH_R - abs(x) * CH_S + 0.005, -10.4), (x, CH_R - abs(x) * CH_S + 0.005, 10.4), 0.06, 0.03, 'slate', up=(0, 1, 0))   # filari
+    B(k, sx * 5.95 - 0.06, CH_R - 5.95 * CH_S - 0.4, -10.45, sx * 5.95 + 0.06, CH_R - 5.95 * CH_S - 0.05, 10.45, 'wood_dark')   # gronda
+B(k, -0.18, CH_R - 0.08, -10.45, 0.18, CH_R + 0.1, 10.45, 'slate')
+for z in (-6.0, -2.0, 2.0, 6.0):
+    k.beam((-5.1, CH_H - 0.05, z), (5.1, CH_H - 0.05, z), 0.22, 0.26, 'wood_dark', up=(0, 1, 0))             # catena
+    k.beam((0, CH_H - 0.05, z), (0, CH_R - 0.25, z), 0.18, 0.18, 'wood_dark', up=(0, 0, 1))               # monaco
+    for sx in (-1, 1):
+        k.beam((sx * 5.1, CH_H + 0.05, z), (sx * 0.1, CH_R - 0.3, z), 0.18, 0.22, 'wood_dark', up=(0, 0, 1))   # puntoni
+
+# campanile: 4.2 x 4.2, cella campanaria con quattro arcate e parapetto, cuspide fino a 23 m. Origine a terra al centro.
+k = mk('Bld_Church_Tower_01', 71)
+TW = 2.1
+for side in range(4):
+    k.push((0, 0, 0), (0, side * 90, 0))
+    holes = [(-0.75, 0.75, 12.0, 14.35, 13.6), (-0.18, 0.18, 6.0, 7.4, 7.22)]
+    for pts in church_wall(k, -TW, TW, 15.5, TW - 0.4, TW, holes, 'x', 'stone_light'):
+        arch_ring(k, pts, TW + 0.06, 'x', 'stone', 0.14)
+    B(k, -0.18, 6.0, TW - 0.22, 0.18, 7.2, TW - 0.18, 'glass_dark')                            # feritoia
+    B(k, -0.95, 11.9, TW - 0.45, 0.95, 12.0, TW + 0.15, 'stone')                                # davanzale delle arcate
+    for y0, y1 in ((0.0, 0.7), (5.5, 5.7), (11.0, 11.25), (15.3, 15.6)):
+        B(k, -TW - 0.1, y0, TW, TW + 0.1, y1, TW + 0.1, 'stone' if y0 > 0 else 'stone_dark')   # zoccolo e marcapiani
+    k.pop()
+B(k, -TW + 0.4, 11.0, -TW + 0.4, TW - 0.4, 11.2, TW - 0.4, 'wood_dark')                        # piano della cella
+B(k, -TW + 0.4, 5.5, -TW + 0.4, TW - 0.4, 5.7, TW - 0.4, 'wood_dark')
+B(k, -1.5, 14.1, -0.09, 1.5, 14.3, 0.09, 'wood_dark')                                          # trave della campana
+B(k, -TW - 0.15, 15.5, -TW - 0.15, TW + 0.15, 15.7, TW + 0.15, 'stone')
+apex = k.vert((0, 22.0, 0))
+base = [k.vert(p) for p in [(-2.2, 15.7, -2.2), (2.2, 15.7, -2.2), (2.2, 15.7, 2.2), (-2.2, 15.7, 2.2)]]
+for i in range(4):
+    k.face([base[i], base[(i + 1) % 4], apex], 'slate_dark')
+k.face(list(reversed(base)), 'slate_dark')
+B(k, -0.07, 21.7, -0.07, 0.07, 23.4, 0.07, 'iron_dark')
+B(k, -0.45, 22.75, -0.07, 0.45, 22.89, 0.07, 'iron_dark')
+
+# panca della chiesa: 3.4 m, seduta verso -Z (l'altare), schienale dietro, fianchi pieni. Origine a terra al centro.
+k = mk('Prop_Church_Pew_01', 72)
+B(k, -1.7, 0.42, -0.25, 1.7, 0.47, 0.2, 'wood')
+B(k, -1.7, 0.47, 0.16, 1.7, 0.95, 0.22, 'wood')
+B(k, -1.7, 0.86, 0.12, 1.7, 0.95, 0.26, 'wood_dark')
+for sx in (-1, 1):
+    B(k, sx * 1.7 - 0.05, 0.0, -0.28, sx * 1.7 + 0.05, 0.98, 0.26, 'wood_dark')
+B(k, -1.6, 0.1, 0.18, 1.6, 0.2, 0.22, 'wood_dark')
 
 # ============================================================== export
 for name, k in pieces.items():

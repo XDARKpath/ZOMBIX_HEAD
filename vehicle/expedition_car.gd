@@ -1,7 +1,9 @@
 extends CharacterBody3D
 const Route=preload("res://world/campaign/route.gd")
-# Seated avatar origins for SM_Veh_Ranger4x4 (cushion top - 0.555, same offset as the old seats): driver, passenger, rear L, rear R.
-const SEATS:=[Vector3(-0.46,0.33,0.20),Vector3(0.46,0.33,0.20),Vector3(-0.46,0.39,0.96),Vector3(0.46,0.39,0.96)]
+# Origine dell'avatar seduto = marker Seat_* del glb: con le clip da seduti il bacino poggia sul cuscino
+# (anteriori 0,885, posteriori 0,945) e i piedi sul pianale (0,50); davanti c'è posto per le ginocchia fino al cruscotto.
+# Ordine: guidatore, passeggero, dietro sinistra, dietro destra.
+const SEATS:=[Vector3(-0.46,0.53,0.32),Vector3(0.46,0.53,0.32),Vector3(-0.46,0.56,0.96),Vector3(0.46,0.56,0.96)]
 const RangerVisual=preload("res://vehicle/ranger_visual.gd")
 var campaign:Node3D
 var seats:Array=[0,0,0,0]

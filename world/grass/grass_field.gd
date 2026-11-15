@@ -46,18 +46,34 @@ const QUALITY_SCALE := [0.55, 0.75, 0.9, 1.2]
 const PUSHERS := 8
 const PLAYER_PUSH := 0.8
 const ZOMBIE_PUSH := 0.65
+# Niente erba dentro gli abitacoli: la maschera si azzera sotto relitti e 4×4 fermo. La maschera ha celle da 2 m
+# lette in lineare (ogni punto pesca le celle entro 2 m), quindi si spegne anche un bordo di VEHICLE_MARGIN attorno
+# (lì il terreno diventa terra battuta) e dentro, a 0,3 m dalla carrozzeria, non resta nemmeno un ciuffo.
+const VEHICLE_MARGIN := 1.7
+const VEHICLE_SCENES := ["res://art/zx_borgo/SM_Borgo_Car_Wreck", "res://art/zx_borgo/SM_Borgo_Police_Wreck", "res://art/zx_borgo/SM_Borgo_Truck_Wreck", "res://art/kaykit_city/car_"]
 
 var world: Node3D
 var layers: Array[GPUParticles3D] = []
 var density_texture: ImageTexture
 var process: ShaderMaterial
+var _base: Image                 # maschera senza veicoli
+var _mask: Image
+var _pending: Array[Node3D] = []
+var holes := {}                  # chiave di posizione -> [Transform3D, AABB locale]
+var _boxes := {}                 # scena -> AABB locale delle mesh
+var _dirty := false
+var _clock := 0.0
 
 func build(owner_world: Node3D) -> void:
 	world = owner_world
 	name = "GrassField"
 	var heights := _height_image()
 	var mask := _density_image()
-	density_texture = ImageTexture.create_from_image(mask)
+	_base = mask
+	_mask = mask.duplicate()
+	density_texture = ImageTexture.create_from_image(_mask)
+	world.get_tree().node_added.connect(_vehicle_added)
+	for n in world.get_tree().root.find_children("*", "Node3D", true, false): _vehicle_added(n)
 	add_to_group("grass_field")
 	process = ShaderMaterial.new()
 	process.shader = preload("res://world/grass/grass_particles.gdshader")
@@ -110,6 +126,63 @@ func _process(_delta: float) -> void:
 	if world and is_instance_valid(world.player):
 		global_position = world.player.global_position * Vector3(1, 0, 1)
 		_update_pushers()
+	_clock -= _delta
+	if _clock <= 0.0:
+		_clock = 0.5
+		_update_holes()
+
+func _vehicle_added(node: Node) -> void:
+	if node is Node3D and node.scene_file_path != "":
+		for prefix in VEHICLE_SCENES:
+			if node.scene_file_path.begins_with(prefix): _pending.append(node)
+
+## Le posizioni arrivano dopo add_child: le buche si scavano al giro dopo. Il 4×4 conta solo da fermo.
+func _update_holes() -> void:
+	for node in _pending:
+		if is_instance_valid(node) and node.is_inside_tree(): _hole(node, node.scene_file_path, node.global_transform)
+	_pending.clear()
+	var expedition = world.get("expedition")
+	var car = expedition.get("car") if expedition else null
+	if car and is_instance_valid(car) and car.visual:
+		var parked: bool = absf(car.speed) < 0.2
+		var old: Array = holes.get("ranger", [])
+		if not parked and not old.is_empty():
+			holes.erase("ranger"); _dirty = true
+		elif parked and (old.is_empty() or old[0].origin.distance_to(car.global_position) > 0.5 or old[0].basis.z.dot(car.global_basis.z) < 0.995):
+			_hole(car.visual.model, "ranger", car.global_transform, "ranger")
+	if _dirty:
+		_dirty = false
+		_mask.copy_from(_base)
+		for key in holes: _carve(holes[key][0], holes[key][1])
+		density_texture.update(_mask)
+
+func _hole(node: Node3D, scene: String, at: Transform3D, key := "") -> void:
+	if not _boxes.has(scene):
+		var box := AABB()
+		var inv := node.global_transform.affine_inverse()
+		for mi in node.find_children("*", "MeshInstance3D", true, false):
+			var b: AABB = (inv * (mi as MeshInstance3D).global_transform) * (mi as MeshInstance3D).mesh.get_aabb()
+			box = b if box.size == Vector3.ZERO else box.merge(b)
+		_boxes[scene] = box
+	if key == "": key = str(at.origin.snapped(Vector3.ONE * 0.5))
+	holes[key] = [at, _boxes[scene]]
+	_dirty = true
+
+## Celle della maschera a zero dove cade il veicolo (rettangolo ruotato, più il margine).
+func _carve(at: Transform3D, box: AABB) -> void:
+	var turn := at.basis.orthonormalized().inverse()
+	# Il margine è un quadrato allineato alla maschera: visto dal veicolo ruotato sporge di più (|cos| + |sin|).
+	var a := atan2(at.basis.x.z, at.basis.x.x)
+	var half := Vector2(box.size.x, box.size.z) * 0.5 * Vector2(at.basis.x.length(), at.basis.z.length()) + Vector2.ONE * VEHICLE_MARGIN * (absf(cos(a)) + absf(sin(a)))
+	var reach := half.length()
+	var c := at * box.get_center()
+	var x0 := int(floor((c.x - reach - ORIGIN.x) / MASK_STEP)); var x1 := int(ceil((c.x + reach - ORIGIN.x) / MASK_STEP))
+	var z0 := int(floor((c.z - reach - ORIGIN.y) / MASK_STEP)); var z1 := int(ceil((c.z + reach - ORIGIN.y) / MASK_STEP))
+	for z in range(maxi(z0, 0), mini(z1, _mask.get_height() - 1) + 1):
+		for x in range(maxi(x0, 0), mini(x1, _mask.get_width() - 1) + 1):
+			var w := Vector3(ORIGIN.x + (x + 0.5) * MASK_STEP, c.y, ORIGIN.y + (z + 0.5) * MASK_STEP)
+			var l := turn * (w - c)
+			if absf(l.x) <= half.x and absf(l.z) <= half.y: _mask.set_pixel(x, z, Color(0, 0, 0))
 
 ## Giocatori e zombie vicini piegano l'erba: solo grafica, ogni macchina usa le posizioni che già vede.
 func _update_pushers() -> void:

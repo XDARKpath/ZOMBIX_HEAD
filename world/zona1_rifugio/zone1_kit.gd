@@ -188,6 +188,27 @@ func _cabin(corner: Vector3) -> void:
 	_tile(cabin, "SM_Bld_Pillar_Porch", Vector3(4.6, 0, -2.4), 0.0)
 	_tile(cabin, "SM_Bld_Pillar_Porch", Vector3(7.6, 0, -2.4), 0.0)
 	_tile(cabin, "SM_Bld_Beam_4m", Vector3(4.2, 2.95, -2.4), 0.0)
+	# Soffitto di tavole sotto la lamiera: le falde del kit sono inclinate a dente di sega e fra la cima dei
+	# tronchi (3.03) e la lamiera si vedeva il cielo. Il soffitto chiude a 2.98, appena sotto il punto più basso del tetto.
+	var ceiling := MeshInstance3D.new()
+	ceiling.name = "Soffitto"
+	var planks := BoxMesh.new()
+	planks.size = Vector3(7.8, 0.06, 7.8)
+	ceiling.mesh = planks
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color("5e4630")
+	wood.roughness = 0.95
+	ceiling.material_override = wood
+	cabin.add_child(ceiling)
+	ceiling.position = Vector3(4.0, 2.95, 4.0)
+	for x in [2.0, 4.0, 6.0]:
+		var beam := MeshInstance3D.new()
+		var bar := BoxMesh.new()
+		bar.size = Vector3(0.16, 0.16, 7.8)
+		beam.mesh = bar
+		beam.material_override = wood
+		cabin.add_child(beam)
+		beam.position = Vector3(x, 2.84, 4.0)
 	_loot_chest(cabin, Vector3(1.5, 0.02, 6.6), 0.2, "bende")
 	put(cabin, ENV + "shop/SM_Prop_OilTin.glb", Vector3(6.5, 0.02, 6.8), 0.0)
 	put(cabin, ENV + "shop/SM_Prop_Rag.glb", Vector3(6.2, 0.02, 6.5), 0.5)
@@ -272,7 +293,7 @@ func _cabin_furniture() -> void:
 	prop(cabin, WOOD + "Chair_A.glb", Vector3(3.4, 0.02, 4.2), PI / 2 + 0.2)
 	prop(cabin, WOOD + "Chair_B.glb", Vector3(5.0, 0.02, 4.8), -PI / 2 - 0.3)
 	prop(cabin, WOOD + "BookShelf_A.glb", Vector3(0.45, 0.02, 3.0), -PI / 2)   # il fronte del modello è -Z: guarda la stanza
-	prop(cabin, WOOD + "Cabinet_A_Static.glb", Vector3(7.5, 0.02, 2.0), -PI / 2)
+	prop(cabin, WOOD + "Cabinet_A_Static.glb", Vector3(7.5, 0.02, 5.3), -PI / 2)   # non davanti alla porta est (z 1..3), quella verso il portone
 	prop(cabin, WOOD + "Shelf_A.glb", Vector3(4.0, 1.45, 7.75), PI, false)
 	prop(cabin, WOOD + "Barrel_A.glb", Vector3(0.6, 0.02, 7.3), 0.0)
 	prop(cabin, WOOD + "Basket_E.glb", Vector3(7.3, 0.02, 7.2), 0.5)
