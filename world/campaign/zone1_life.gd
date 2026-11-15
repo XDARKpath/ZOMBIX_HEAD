@@ -45,7 +45,10 @@ var noise_level := 0.0      # 0..1, letto dall'HUD
 var step_clock := 0.0
 var fed := 0.0              # secondi di sazietà rimasti
 var food := {"can": 0, "mushroom": 0, "fish": 0}
-var sacks: Array = []       # {node, label, heads, eaten}
+var sacks: Array = []       # {id, node, label, heads, items, eaten, owner, name}
+var next_sack_id := 0
+var sack_clock := 0.0
+const SACK_REACH := 2.4
 var pickups: Array = []     # {node, kind}
 var fishing := ""           # "", "wait", "bite"
 var fishing_timer := 0.0
@@ -56,11 +59,12 @@ func build(owner_world: Node3D) -> void:
 	world = owner_world
 	name = "Zone1Life"
 	rng.seed = 5150
-	world.player.died.connect(func(): drop_sack(world.player))
+	_watch(world.player)
 	world.player.melee.impact.connect(func(_t, _heavy): impact_noise(world.player))
 	_spawn_food()
 
 func reset() -> void:
+	for actor in world.actors.values(): _watch(actor)
 	for sack in sacks: sack["node"].queue_free()
 	sacks.clear()
 	for item in pickups: item["node"].queue_free()
@@ -123,14 +127,58 @@ func _footsteps(delta: float) -> void:
 		emit(p, 5.5 * quiet, 0.22 * quiet)
 
 # ---------------------------------------------------------------- sacco della morte
+# In cooperativa decide l'host: il sacco nasce dove cade qualunque giocatore, gli infetti lo divorano
+# sull'host e i client ne ricevono una copia (sacks_sync). Il recupero passa da survival_rules ("sack:<id>").
+# Prima ogni macchina guardava solo il proprio giocatore: l'host non creava il sacco di un client e il client
+# se ne faceva uno finto, che l'inventario dell'host poi smentiva.
+
+func authority() -> bool:
+	return not Session.online or multiplayer.is_server()
+
+## Ascolta la morte di ogni giocatore (sull'host anche quella dei client).
+func _watch(actor: CharacterBody3D) -> void:
+	if actor.has_meta("sack_watch"): return
+	actor.set_meta("sack_watch", true)
+	actor.died.connect(func(): if authority(): drop_sack(actor))
+
+func _peer_of(actor: CharacterBody3D) -> int:
+	for peer in world.actors:
+		if world.actors[peer] == actor: return int(peer)
+	return multiplayer.get_unique_id()
+
+func _owner_name(peer: int) -> String:
+	if Session.online and Session.roster.has(peer): return str(Session.roster[peer].name)
+	return ""
+
+## Avviso a un giocatore solo (peer) o a tutti (peer 0), anche ai client.
+func _tell(peer: int, text: String, seconds: float) -> void:
+	if peer == 0 or peer == multiplayer.get_unique_id(): world.announce(text, seconds)
+	if Session.online and multiplayer.is_server():
+		for other in Session.connected_peers():
+			if peer == 0 or other == peer: notice.rpc_id(other, text, seconds)
+
+@rpc("authority", "call_remote", "reliable")
+func notice(text: String, seconds: float) -> void:
+	world.announce(text, seconds)
+
 func drop_sack(actor: CharacterBody3D) -> void:
 	if actor.carried_heads <= 0: return
 	var lost := int(ceil(actor.carried_heads * 0.5))
 	var lost_items: Dictionary = actor.take_heads(lost)
+	var peer := _peer_of(actor)
+	next_sack_id += 1
+	var sack := _make_sack(next_sack_id, _floor_under(actor), lost, _owner_name(peer))
+	sack["items"] = lost_items
+	sack["owner"] = peer
+	sacks.append(sack)
+	_tell(peer, Localization.t("HAI PERSO {0} TESTE · IL SACCO È RIMASTO DOVE SEI CADUTO", [lost]), 6)
+	if world.get("survival"): world.survival._publish()
+	_publish_sacks()
+
+func _make_sack(id: int, at: Vector3, heads: int, owner_name: String) -> Dictionary:
 	var node := Node3D.new()
 	add_child(node)
-	var at := actor.global_position
-	node.global_position = _floor_under(actor)
+	node.global_position = at
 	var P := preload("res://art/placeholders.gd")
 	var bag := MeshInstance3D.new()
 	var sphere := SphereMesh.new()
@@ -160,8 +208,15 @@ func drop_sack(actor: CharacterBody3D) -> void:
 	label.position.y = 1.2
 	label.modulate = Color("ffd591")
 	node.add_child(label)
-	sacks.append({"node": node, "label": label, "heads": lost, "items": lost_items, "eaten": 0.0})
-	world.announce(Localization.t("HAI PERSO {0} TESTE · IL SACCO È RIMASTO DOVE SEI CADUTO", [lost]), 6)
+	var sack := {"id": id, "node": node, "label": label, "heads": heads, "items": {}, "eaten": 0.0, "name": owner_name}
+	_label_sack(sack)
+	return sack
+
+func _label_sack(sack: Dictionary) -> void:
+	var left := 1.0 - float(sack["eaten"]) / SACK_EAT_SECONDS
+	var who: String = sack.get("name", "")
+	var title: String = Localization.t("SACCO DI {0}", [who]) if who != "" else Localization.t("SACCO")
+	sack["label"].text = Localization.t("{0} · {1} TESTE\n{2}%", [title, sack["heads"], int(left * 100)])
 
 ## Il pavimento sotto chi è caduto: cripta, Rocca, scale e piani alti compresi.
 ## Prima la superficie veniva presa per buona ovunque a sud del rifugio (z <= 14), e la cripta è a z -1800.
@@ -176,6 +231,7 @@ func _floor_under(actor: CharacterBody3D) -> Vector3:
 	return at if actor.is_on_floor() or at.z > 14 else Vector3(at.x, Terrain.ground_height(at.x, at.z), at.z)
 
 func _sacks(delta: float) -> void:
+	if not authority(): return
 	for sack in sacks.duplicate():
 		var at: Vector3 = sack["node"].global_position
 		var eaters := 0
@@ -187,14 +243,57 @@ func _sacks(delta: float) -> void:
 			elif d < 28.0 and int(enemy.state) == 0: enemy.home = at
 		if eaters > 0 and not sack.get("warned", false):
 			sack["warned"] = true
-			world.announce(Localization.t("GLI INFETTI FRUGANO NEL TUO SACCO"), 4)
+			_tell(int(sack.get("owner", 0)), Localization.t("GLI INFETTI FRUGANO NEL TUO SACCO"), 4)
 		sack["eaten"] = float(sack["eaten"]) + delta * minf(SACK_CROWD_MAX, 0.0 if eaters == 0 else 1.0 + SACK_CROWD * (eaters - 1))
-		var left := 1.0 - float(sack["eaten"]) / SACK_EAT_SECONDS
-		sack["label"].text = Localization.t("SACCO · {0} TESTE\n{1}%", [sack["heads"], int(left * 100)])
-		if left <= 0.0:
+		_label_sack(sack)
+		if float(sack["eaten"]) >= SACK_EAT_SECONDS:
 			sack["node"].queue_free()
 			sacks.erase(sack)
-			world.announce(Localization.t("GLI INFETTI HANNO DIVORATO IL SACCO"), 5)
+			_tell(int(sack.get("owner", 0)), Localization.t("GLI INFETTI HANNO DIVORATO IL SACCO"), 5)
+			_publish_sacks()
+	sack_clock += delta
+	if sack_clock >= 0.5 and not sacks.is_empty():
+		sack_clock = 0.0
+		_publish_sacks()
+
+## Recupero (solo host): le teste vanno a chi raccoglie il sacco, che sia suo o di un compagno.
+func recover(actor: CharacterBody3D, id: int) -> bool:
+	if not authority() or actor.dead: return false
+	for sack in sacks:
+		if int(sack["id"]) != id or actor.global_position.distance_to(sack["node"].global_position) > SACK_REACH + 0.6: continue
+		for item in sack["items"]: actor.add_item(item, int(sack["items"][item]))
+		sack["node"].queue_free()
+		sacks.erase(sack)
+		if world.get("survival"): world.survival._publish()
+		_publish_sacks()
+		_tell(_peer_of(actor), Localization.t("SACCO RECUPERATO · +{0} TESTE", [sack["heads"]]), 4)
+		return true
+	return false
+
+func _publish_sacks() -> void:
+	if not (Session.online and multiplayer.is_server()): return
+	var rows := []
+	for sack in sacks: rows.append([sack["id"], sack["node"].global_position, sack["heads"], sack["eaten"], sack.get("name", "")])
+	for peer in Session.connected_peers(): sacks_sync.rpc_id(peer, rows)
+
+## Copia dei sacchi sul client: stessi id, posizione e avanzamento dell'host.
+@rpc("authority", "call_remote", "reliable")
+func sacks_sync(rows: Array) -> void:
+	var keep := {}
+	for row in rows: keep[int(row[0])] = row
+	for sack in sacks.duplicate():
+		if not keep.has(int(sack["id"])):
+			sack["node"].queue_free()
+			sacks.erase(sack)
+	for id in keep:
+		var row: Array = keep[id]
+		var sack: Dictionary = {}
+		for s in sacks: if int(s["id"]) == id: sack = s
+		if sack.is_empty():
+			sack = _make_sack(id, row[1], int(row[2]), str(row[4]))
+			sacks.append(sack)
+		sack["eaten"] = float(row[3])
+		_label_sack(sack)
 
 # ---------------------------------------------------------------- cibo
 func _spawn_food() -> void:
@@ -269,7 +368,7 @@ func context() -> String:
 	if fishing == "wait": return Localization.t("LA LENZA È IN ACQUA…")
 	if fishing == "bite": return Localization.t("E  TIRA!")
 	for sack in sacks:
-		if p.global_position.distance_to(sack["node"].global_position) < 2.4:
+		if p.global_position.distance_to(sack["node"].global_position) < SACK_REACH:
 			return Localization.t("E  RECUPERA IL SACCO ({0} TESTE)", [sack["heads"]])
 	for item in pickups:
 		if p.global_position.distance_to(item["node"].global_position) < 2.0:
@@ -289,14 +388,10 @@ func request() -> bool:
 		world.announce(Localization.t("PESCE PRESO · H PER MANGIARE"), 3)
 		return true
 	if fishing == "wait": return true
-	for sack in sacks.duplicate():
-		if p.global_position.distance_to(sack["node"].global_position) < 2.4:
-			for id in sack.get("items", {"item_testa": int(sack["heads"])}):
-				p.add_item(id, int(sack["items"][id]) if sack.has("items") else int(sack["heads"]))
-			sack["node"].queue_free()
-			sacks.erase(sack)
-			world.survival._publish()
-			world.announce(Localization.t("SACCO RECUPERATO · +{0} TESTE", [sack["heads"]]), 4)
+	for sack in sacks:
+		if p.global_position.distance_to(sack["node"].global_position) < SACK_REACH:
+			if authority(): return recover(p, int(sack["id"]))
+			world.survival.request("sack:%d" % int(sack["id"]))   # il client chiede, l'host decide
 			return true
 	for item in pickups.duplicate():
 		if p.global_position.distance_to(item["node"].global_position) < 2.0:

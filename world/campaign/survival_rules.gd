@@ -447,6 +447,8 @@ func act(peer:int,action:String) -> bool:
 	if not authority() or not world.started or not world.actors.has(peer):return false
 	var a:CharacterBody3D=world.actors[peer]
 	if a.dead or a.seated:return false
+	if action.begins_with("sack:"):
+		return world.get("zone_life") != null and world.zone_life.recover(a,int(action.get_slice(":",1)))
 	if action.begins_with("table:"):
 		if not world.get("weapon_table") or not world.weapon_table.take(a,action.get_slice(":",1)):return false
 		gesture(a,"pickup");_publish();return true
