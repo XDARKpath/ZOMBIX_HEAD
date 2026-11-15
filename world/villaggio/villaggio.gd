@@ -41,6 +41,8 @@ const SHOP_KIT := {
 	"TABACCHI": ["Prop_Office_Desk_01", "Prop_Shelf_01", "Prop_Cabinets_01"],
 }
 const DIRS := {"N": Vector2(0, -1), "S": Vector2(0, 1), "O": Vector2(-1, 0), "E": Vector2(1, 0)}
+## persiane per via (non per casa): ogni via ha il suo colore, la via E delle officine niente
+const SHUTTERS := {"N": "Green", "S": "Brown", "O": "Blue", "E": ""}
 
 var world: Node3D
 var nav: NavigationRegion3D
@@ -349,6 +351,23 @@ func _barricade(at: Vector3, yaw: float) -> void:
 	b.set_meta("shape", cs)
 	b.set_meta("light", light)
 	b.set_meta("half", w * 0.5)
+	# Navigazione: il bake toglie una striscia sotto la barricata e un link la riattraversa solo a barricata giù
+	# (niente bake ripetuto; il link si accende e spegne con lo stato, anche sui client).
+	var along := Basis(Vector3.UP, yaw).x
+	var across := Basis(Vector3.UP, yaw).z
+	var carve := NavigationObstacle3D.new()
+	carve.avoidance_enabled = false
+	carve.affect_navigation_mesh = true
+	carve.carve_navigation_mesh = true
+	carve.height = 4.0
+	carve.position = at + Vector3(0, -0.5, 0)
+	carve.vertices = PackedVector3Array([-along * 5.2 - across * 0.8, along * 5.2 - across * 0.8, along * 5.2 + across * 0.8, -along * 5.2 + across * 0.8])
+	geo.add_child(carve)
+	var link := NavigationLink3D.new()
+	link.start_position = at - across * 1.5
+	link.end_position = at + across * 1.5
+	geo.add_child(link)
+	b.set_meta("link", link)
 	barricades.append(b)
 
 
@@ -359,6 +378,9 @@ func set_barricades(up: bool) -> void:
 	for b in barricades:
 		var cs: CollisionShape3D = b.get_meta("shape")
 		var light: OmniLight3D = b.get_meta("light")
+		var link: NavigationLink3D = b.get_meta("link")                 # barricata su: niente strada sotto
+		link.enabled = not up
+		link.navigation_layers = 0 if up else 1
 		var y0 := L.CENTER.y - 3.2
 		# Su e giù in fretta: il tween di prima (e il suo "spegni la collisione") non deve finire dopo questo.
 		if b.has_meta("tween"): (b.get_meta("tween") as Tween).kill()
@@ -428,8 +450,11 @@ func _shop(at: Vector3, yaw: float, title: String, index: int) -> void:
 	_flat_roof(h, 4, 3 * hs, true)
 	asset(h, "Bld_Exterior_Shade_01", Vector3(-1.5, 2.75, 4.75), 0, false, Vector3(1.3, 0.7, 1))
 	asset(h, "Bld_Exterior_Shade_01", Vector3(3.0, 2.75, 4.75), 0, false, Vector3(1.3, 0.7, 1))
-	signboard(h, Vector3(0, 3 * hs + 0.75, 4.8), title, 6.5)
+	# frontone finto sopra la gronda: la sagoma dice "negozio" anche da lontano (4 forme, una per coppia di negozi)
+	asset(h, "Bld_Shop_Front_%02d" % (index % 4 + 1), Vector3(0, 3 * hs, 4.5), 0, true)
+	signboard(h, Vector3(0, 3 * hs + 0.42, 4.88), title, 6.5)
 	_entry_ramp(h, 2.4, -1.5)
+	asset(h, "Bld_Step_01", Vector3(-1.5, 0, 4.69), 0, false, Vector3(2.4 / 2.2, 1, 1))
 	h.set_meta("door_x", -1.5)
 	_boarded(h, 4, 1)
 	_interior(h, 4, true, SHOP_KIT[title])
@@ -495,7 +520,7 @@ func _street(key: String) -> void:
 					style = 1                 # tetto piatto (sputatori)
 				elif sr < 0.4:
 					style = 3                 # casa alta
-				_home(center, yaw, w, style)
+				_home(center, yaw, w, style, SHUTTERS[key])
 				if roll < 0.9:
 					_backyard(center, yaw, w)
 			# davanti alla casa, sul bordo della via
@@ -517,7 +542,7 @@ func _street(key: String) -> void:
 			_puddle(geo, dir * (t + rng.randf_range(-6, 6)) + side_v * rng.randf_range(-2.5, 2.5))
 		if rng.randf() < 0.18:
 			_fire(geo, dir * (t + 5) + side_v * (STREET + 1.2) * (-1 if rng.randf() < 0.5 else 1))
-		poles.append(dir * t + side_v * (STREET + 1.6))
+		poles.append(dir * (t + 4.0) + side_v * (STREET + 1.6))      # fra due porte, non davanti a una
 		street_points.append(dir * (t + rng.randf_range(-4, 4)) + side_v * rng.randf_range(-2.5, 2.5))
 		street_points.append(dir * (t + 8) + side_v * rng.randf_range(-2.5, 2.5))
 		_streetlamp(geo, dir * (t + 8) - side_v * (STREET + 1.2), atan2(side_v.x, side_v.z))

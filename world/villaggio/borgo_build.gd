@@ -91,8 +91,14 @@ func _walls(parent: Node3D, width: int, depth: int, metal: bool = false, height_
 		asset(parent, window if i == 1 else wall, Vector3(width * 1.5, 0, depth * 1.5 - i * 3), PI / 2, true, scale_value)
 
 
+const EAVE := 0.35            # gronda sui timpani: le falde sporgono oltre i muri laterali
+
+
 func _roof(parent: Node3D, width: int, y: float) -> void:
-	for i in range(width): asset(parent, "Bld_Roof_01", Vector3(-width * 1.5 + (i + 1) * 3, y, 4.5), 0, true)
+	var sx := (width * 3 + EAVE * 2) / (width * 3.0)
+	for i in range(width): asset(parent, "Bld_Roof_01", Vector3(-width * 1.5 - EAVE + (i + 1) * 3 * sx, y, 4.5), 0, true, Vector3(sx, 1, 1))
+	asset(parent, "Bld_Roof_Verge_01", Vector3(width * 1.5 + EAVE, y, 4.5), 0, false)
+	asset(parent, "Bld_Roof_Verge_01", Vector3(-width * 1.5 - EAVE, y, -4.5), PI, false)
 	for z in [-4.5, 4.5]: box(parent, Vector3(0, y + 0.08, z), Vector3(width * 3, 0.3, 0.22), Color("403e34"))
 	for x in [-width * 1.5, width * 1.5]: asset(parent, "Bld_Roof_Truss_01", Vector3(x, y, 4.5), 0, false)
 	# Timpani: prisma spesso come il muro, con il bordo appena sotto le falde (misurate su Bld_Roof_01:
@@ -461,14 +467,17 @@ func _flat_roof(h: Node3D, w: int, y: float, plaza: bool) -> void:
 	_perch(h, Vector3(w * 0.75, top + 0.1, 0.5), plaza)
 
 
-func _boarded(h: Node3D, w: int, door_i: int) -> void:
+func _boarded(h: Node3D, w: int, door_i: int) -> Array:
 	# assi inchiodate sulle finestre della facciata (non su tutte, mai sulla porta: le case con porta si visitano)
+	var out := []
 	for i in w:
 		if rng.randf() < 0.45 or i == door_i:
 			continue
+		out.append(i)
 		var x := -w * 1.5 + i * 3 + 1.5
 		for k in 2:
 			_tilted(h, Vector3(x, 1.55 + k * 0.35, 4.72), Vector3(1.5, 0.18, 0.05), Color("7b5d3b").darkened(rng.randf_range(0, 0.25)), Vector3(0, 0, rng.randf_range(-0.35, 0.35)))
+	return out
 
 
 ## Profondità (lato verso il muro) e altezza dei mobili del kit, per appoggiarli al muro senza entrarci.
@@ -546,10 +555,13 @@ func _no_sun_shadow(node: Node) -> void:
 
 
 ## casa modulare (come quelle del rifugio): w = 2..4 moduli da 3 m, profonda 9 m, facciata verso +Z locale
-func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
+## shutter: colore delle persiane della via ("Green", "Brown", "Blue"; "" = niente persiane)
+func _home(at: Vector3, yaw: float, w: int, style: int, shutter := "") -> void:
 	var h := _node(geo, at, yaw, "Casa")
 	var metal := style == 2
 	var hs := 1.0 if style != 3 else 1.25
+	var pick := absi(int(at.x * 7.3 + at.z * 13.1)) % 100      # scelte d'aspetto fuori da rng: la pianta del borgo resta quella
+	box(h, Vector3.ZERO, Vector3(w * 3 + 0.5, 0.14, 9.5), Color("6b6a62"), false)   # fondazione: la casa poggia su uno zoccolo
 	_floor(h, w, 3)
 	_walls(h, w, 3, metal, hs)
 	var door_i := w / 2
@@ -559,7 +571,10 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 			if metal:
 				box(h, Vector3(x0 + 1.5, 2.3 + (3 * hs - 2.3) * 0.5, 4.5), Vector3(3, 3 * hs - 2.3, 0.22), Color("4c5d5b"), true)
 				if w >= 4:
-					continue                                      # officina: portone aperto
+					# officina: saracinesca alzata, portone aperto. Il nome tiene lontana la scatola di solid_props.box_loose_props
+					# (a metà del pezzo non c'è niente: la scatola chiuderebbe il portone; la collisione è già la sua)
+					asset(h, "Bld_Roll_Shutter_01", Vector3(x0, 0, 4.5), 0, true).name = "Saracinesca_Portone"
+					continue
 				asset(h, "Bld_Metal_Door_01", Vector3(x0 + 2.88, 0, 4.5), -PI / 2, true)   # anta aperta contro lo stipite: il vano resta libero
 			else:
 				asset(h, "Bld_Wall_Brick_Door_01", Vector3(x0, 0, 4.5), 0, true, Vector3(1, hs, 1))
@@ -586,17 +601,28 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 	else:
 		_roof(h, w, 3 * hs + 0.05)
 		if rng.randf() < 0.6:
-			# comignolo: canna fumaria dal pavimento contro il muro di sinistra fino a 1 m sopra la falda
-			# (la falda è più sottile della pendenza sotto il comignolo: una base sospesa si vedeva da dentro)
+			# comignolo: canna fumaria dal pavimento contro il muro di sinistra fino a 1 m sopra la falda,
+			# in casa con il camino (la falda è più sottile della pendenza: una base sospesa si vedeva da dentro)
 			var top := 3 * hs + 0.05 + 2.3
-			box(h, Vector3(-w * 1.5 + 0.52, (0.08 + top) * 0.5, -1.8), Vector3(0.7, top - 0.08, 0.7), Color("6d4a3a"), true)
+			asset(h, "Bld_Chimney_01", Vector3(-w * 1.5 + 0.52, 0.08, -1.8), 0, true, Vector3(1, (top - 0.08) / 5.27, 1))
 	var door_x := -w * 1.5 + door_i * 3 + 1.5
 	_entry_ramp(h, 2.2, door_x)
 	h.set_meta("door_x", door_x)                 # per i controlli di navigazione (tests/borgo_solid_checks.gd)
-	if not metal:
-		asset(h, "Bld_Exterior_Shade_01", Vector3(door_x, 2.7, 4.8), 0, false, Vector3(1.1, 0.7, 1))
-	if rng.randf() < 0.6:
-		_boarded(h, w, door_i)
+	if metal:
+		box(h, Vector3(door_x, 0.015, 6.4), Vector3(4.2, 0.03, 3.4), Color("6f706a"), false)   # piazzale cementato dell'officina
+	else:
+		asset(h, "Bld_Step_01", Vector3(door_x, 0, 4.69), 0, false)          # gradino sopra la rampa (la rampa resta la collisione)
+		# portico con due pali solo su alcune case basse da 3 moduli, le altre una pensilina (le tende sono dei negozi)
+		if w == 3 and style <= 1 and pick < 50:
+			asset(h, "Bld_Porch_01", Vector3(door_x, 0, 4.69), 0, true).name = "Portico_Porta"   # come sopra: niente scatola fra i pali
+		else:
+			var hood := asset(h, "Bld_Door_Canopy_01", Vector3(door_x, 2.5 * hs + 0.02, 4.69), 0, true)
+			if style == 4: _char(hood)
+	var boarded: Array = _boarded(h, w, door_i) if rng.randf() < 0.6 else []
+	if shutter != "" and not metal and style != 4:
+		for i in w:
+			if i != door_i and not i in boarded:
+				asset(h, "Bld_Shutters_%s_01" % shutter, Vector3(-w * 1.5 + i * 3, 0, 4.5), 0, false, Vector3(1, hs, 1))
 	_interior(h, w, metal and w >= 4)              # officina: niente letto
 	if metal and w >= 4:
 		# officina: ruote, banco, macchina sul ponte
@@ -613,11 +639,11 @@ func _home(at: Vector3, yaw: float, w: int, style: int) -> void:
 		if rng.randf() < 0.7:
 			_glb(h, BK + "SM_Borgo_Car_Wreck.glb", Vector3(0, 0.08, -0.5), PI / 2 + rng.randf_range(-0.1, 0.1))
 	# davanti: cassetta della posta, vaso di fiori o un sacco
-	_mailbox(h, Vector3(-w * 1.5 + door_i * 3 + 3.2, 0, 6.3), 0)
+	_mailbox(h, Vector3(door_x + 2.2, 0, 6.3), 0)                 # fuori dal portico
 	if rng.randf() < 0.5:
 		_scatter(NATURE + ("Flower_3_Group.gltf" if rng.randf() < 0.5 else "Flower_4_Group.gltf"), Vector3(-w * 1.5 + 0.8, 0, 5.6), rng.randf_range(0.5, 0.8))
 	if rng.randf() < 0.5:
-		_junk(h, Vector3(w * 1.5 - 0.8, 0.0, 5.8))
+		_junk(h, Vector3(door_x - 2.6 if door_x > 0.0 else w * 1.5 - 0.8, 0.0, 5.8))   # mai accanto alla porta
 
 
 func _ruin(at: Vector3, yaw: float, w: int) -> void:

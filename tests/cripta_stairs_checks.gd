@@ -19,12 +19,17 @@ func face(at_local: Vector3, pitch := -0.1) -> void:
 	p.rig.yaw = atan2(-d.x, -d.z)
 	p.rig.pitch = pitch
 ## cammina in avanti verso "to" (locale della Rocca) per al massimo "frames": torna la distanza rimasta in orizzontale
-func walk(from: Vector3, to: Vector3, frames := 500) -> float:
-	for e in root.find_children("*", "CharacterBody3D", true, false):      # gli infetti delle stanze non fanno da muro
-		if e == p: continue
+## Gli infetti delle stanze non fanno da muro e non attaccano: anche quelli che nascono quando si entra in una stanza.
+func park() -> void:
+	for e in root.find_children("*", "CharacterBody3D", true, false):
+		if e == p or e.global_position.y < -100.0: continue
 		e.set_physics_process(false)
 		e.set_process(false)
 		e.global_position += Vector3(0, -300, 0)
+
+
+func walk(from: Vector3, to: Vector3, frames := 500) -> float:
+	park()
 	p.health = 100.0
 	p.reset_at(r.to_global(from))
 	p.velocity = Vector3.ZERO
@@ -32,6 +37,7 @@ func walk(from: Vector3, to: Vector3, frames := 500) -> float:
 	Input.action_press("move_forward")
 	var left := 99.0
 	for i in frames:
+		if i % 10 == 0: park()
 		face(to)
 		await physics_frame
 		var l: Vector3 = r.to_local(p.global_position)

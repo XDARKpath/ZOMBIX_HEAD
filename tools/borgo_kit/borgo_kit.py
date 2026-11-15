@@ -25,6 +25,8 @@ EXTRA = {
     'water_blue': (60, 110, 160), 'water_blue_dark': (44, 84, 124), 'puddle': (50, 62, 66),
     'char': (38, 34, 32), 'char_light': (74, 66, 60), 'seat_cloth': (96, 92, 86), 'seat_cloth_dark': (66, 63, 60),
     'foam': (206, 190, 140),
+    'plaster_ochre': (198, 164, 104), 'plaster_rose': (192, 146, 128), 'plaster_sage': (150, 160, 128),
+    'shutter_green': (70, 104, 74), 'shutter_brown': (112, 74, 48), 'shutter_blue': (78, 104, 124),
 }
 for _k, _v in EXTRA.items():
     if _k not in lib.PALETTE:
@@ -843,6 +845,153 @@ for sx in (-1.7, 1.7):
     for sz in (-0.4, 0.4):
         k.beam((sx, 0.0, sz), (sx, 0.95, 0), 0.07, 0.07, 'iron', up=(1, 0, 0))
 B(k, -0.15, 1.1, -0.01, 0.15, 1.35, 0.01, 'hazard_yellow')
+
+# ============================================================== SAGOMA DEGLI EDIFICI (fase 2)
+def prism_z(k, poly, z0, z1, col):
+    """poligono convesso nel piano XY estruso lungo Z"""
+    f = [k.vert((x, y, z0)) for x, y in poly]
+    b = [k.vert((x, y, z1)) for x, y in poly]
+    k.face(list(reversed(f)), col)
+    k.face(b, col)
+    for j in range(len(poly)):
+        i = (j + 1) % len(poly)
+        k.face([f[j], f[i], b[i], b[j]], col)
+
+
+def roof_line(z):
+    """quota della falda di Bld_Roof_01 (sopra il piano d'appoggio) a una z locale del modulo"""
+    return -0.06 + (min(0.48 - z, z + 9.49) / 4.98) * 1.84
+
+
+# tavola di bordo sul timpano: stessa origine di Bld_Roof_01 (z 0.6..-9.6), spessa 7 cm verso +X
+k = mk('Bld_Roof_Verge_01', 50)
+for z in (0.62, -9.62):
+    k.beam((0.035, roof_line(z) - 0.03, z), (0.035, 1.75, -4.5), 0.3, 0.07, 'wood_dark', up=(1, 0, 0))
+B(k, -0.01, 1.72, -4.66, 0.09, 2.04, -4.34, 'wood_dark')                          # puntale al colmo
+for z in (0.62, -9.62):
+    B(k, -0.01, roof_line(z) - 0.26, z - 0.05, 0.09, roof_line(z) + 0.1, z + 0.05, 'wood_dark')
+
+# comignolo dal pavimento (origine a terra al centro della canna, camino verso +X), alto 5.27 m per le case basse
+k = mk('Bld_Chimney_01', 51)
+B(k, -0.35, 0, -0.35, 0.35, 3.0, 0.35, 'plaster_borgo')                           # in casa: intonaco come i muri
+B(k, -0.35, 3.0, -0.35, 0.35, 5.0, 0.35, 'brick_borgo')                           # sopra il soffitto: mattoni
+y = 3.3
+while y < 4.9:
+    B(k, -0.355, y, -0.355, 0.355, y + 0.025, 0.355, 'mortar_borgo')
+    y += 0.3
+B(k, -0.42, 4.8, -0.42, 0.42, 4.95, 0.42, 'concrete_light')                         # cornice
+B(k, -0.3, 4.95, -0.3, 0.3, 5.0, 0.3, 'soot')                                      # bocca annerita
+for sx in (-1, 1):
+    for sz in (-1, 1):
+        B(k, sx * 0.34 - 0.05, 4.95, sz * 0.34 - 0.05, sx * 0.34 + 0.05, 5.15, sz * 0.34 + 0.05, 'concrete')
+B(k, -0.46, 5.15, -0.46, 0.46, 5.27, 0.46, 'concrete_dark')                         # cappello
+B(k, 0.30, 0, -0.56, 0.46, 1.15, 0.56, 'stone_light')                               # camino: cornice in pietra
+B(k, 0.30, 0.06, -0.3, 0.465, 0.78, 0.3, 'soot')                                    # bocca del fuoco
+B(k, 0.30, 1.15, -0.64, 0.58, 1.23, 0.64, 'wood_dark')                              # mensola
+B(k, 0.30, 0, -0.62, 0.78, 0.05, 0.62, 'stone')                                     # focolare
+
+# portico: origine sulla faccia esterna del muro (z = 0), al centro della porta; pali a x ±1.45
+k = mk('Bld_Porch_01', 52)
+for sx in (-1.45, 1.45):
+    k.cbox((sx, 0.07, 1.5), (0.3, 0.14, 0.3), 'stone', ch=0.03)
+    B(k, sx - 0.075, 0.14, 1.425, sx + 0.075, 2.6, 1.575, 'wood')
+    k.beam((sx, 2.2, 1.5), (sx * 0.8, 2.56, 1.5), 0.08, 0.08, 'wood_dark', up=(0, 0, 1))
+    k.beam((sx, 2.2, 1.5), (sx, 2.56, 1.15), 0.08, 0.08, 'wood_dark', up=(1, 0, 0))
+B(k, -1.62, 2.52, 1.42, 1.62, 2.68, 1.58, 'wood_dark')                              # trave
+B(k, -1.72, 2.6, 0.0, 1.72, 2.78, 0.08, 'wood_dark')                                # corrente sul muro
+for x in (-1.5, -0.5, 0.5, 1.5):
+    k.beam((x, 2.74, 0.06), (x, 2.62, 1.72), 0.07, 0.1, 'wood', up=(1, 0, 0))
+k.push((0, 2.74, 0.9), (math.degrees(math.atan2(0.2, 1.85)), 0, 0))
+k.box((0, 0.06, 0), (3.6, 0.06, 1.92), 'roof_grey_dark')
+for i in range(6):
+    k.box((-1.5 + i * 0.6, 0.1, 0), (0.05, 0.03, 1.92), 'roof_grey')                    # nervature della lamiera
+k.pop()
+B(k, -1.8, 2.5, 1.82, 1.8, 2.66, 1.88, 'paint_cream')                               # tavola di gronda
+
+# pensilina sopra la porta: origine sulla faccia del muro, alla cima dell'architrave
+k = mk('Bld_Door_Canopy_01', 53)
+for s in (-1, 1):
+    k.push((s * 0.43, 0.18, 0.46), (0, 0, -s * 22))
+    k.box((0, 0, 0), (0.98, 0.06, 0.96), 'roof_grey_dark')
+    k.pop()
+    k.beam((s * 0.88, 0.0, 0.94), (0, 0.36, 0.94), 0.12, 0.05, 'paint_cream', up=(0, 0, 1))   # tavola del frontoncino
+    k.beam((s * 0.66, -0.45, 0.02), (s * 0.66, 0.08, 0.82), 0.06, 0.06, 'iron', up=(1, 0, 0))  # mensole
+B(k, -0.9, 0.0, 0.0, 0.9, 0.12, 0.06, 'wood_dark')
+
+
+# persiane aperte ai lati della finestra: stessa origine del modulo finestra (x 0..3), vano x 0.85..2.15, y 1.0..2.25
+def shutters(name, col, seed):
+    k = mk(name, seed)
+    for x0, x1 in ((0.14, 0.76), (2.24, 2.86)):
+        B(k, x0, 1.0, 0.19, x1, 2.25, 0.215, col)
+        for (a, b) in ((x0, x0 + 0.06), (x1 - 0.06, x1)):
+            B(k, a, 1.0, 0.215, b, 2.25, 0.235, col)
+        y = 1.1
+        while y < 2.17:
+            B(k, x0 + 0.06, y, 0.215, x1 - 0.06, y + 0.04, 0.232, col)
+            y += 0.1
+        for y in (1.25, 2.0):
+            hx = x1 - 0.02 if x0 < 1 else x0 - 0.02
+            B(k, hx, y, 0.19, hx + 0.04, y + 0.06, 0.24, 'iron_dark')                 # cardini
+
+
+shutters('Bld_Shutters_Green_01', 'shutter_green', 54)
+shutters('Bld_Shutters_Brown_01', 'shutter_brown', 55)
+shutters('Bld_Shutters_Blue_01', 'shutter_blue', 56)
+
+# gradino di pietra davanti alla porta: origine sulla faccia del muro, sporge 0.6 m
+k = mk('Bld_Step_01', 57)
+k.cbox((0, 0.05, 0.3), (2.2, 0.1, 0.6), 'stone', ch=0.025)
+B(k, -1.1, 0.0, 0.0, 1.1, 0.102, 0.08, 'stone_dark')
+
+# saracinesca arrotolata dell'officina: stessa origine del modulo muro (vano x 0..3, alto 2.3)
+k = mk('Bld_Roll_Shutter_01', 58)
+k.cbox((1.5, 2.46, 0.34), (3.0, 0.32, 0.32), 'iron_dark', ch=0.04)
+B(k, 0.06, 2.3, 0.5, 2.94, 2.42, 0.54, 'corrugated')                                # ultima stecca, tutta su (sotto resta 2.3 m)
+for x in (0.0, 2.93):
+    B(k, x, 0.0, 0.17, x + 0.07, 2.3, 0.27, 'iron')
+B(k, 1.3, 2.32, 0.54, 1.7, 2.36, 0.58, 'steel')                                    # maniglia
+
+
+# frontone finto dei negozi: origine sul filo alto della facciata (y = 3*hs), al centro; pilastri fino a terra (hs 1.15)
+def shop_front(name, body, trim, shape, seed):
+    k = mk(name, seed)
+    H = 3.45
+    for sx in (-1, 1):
+        B(k, sx * 5.82, -H, -0.05, sx * 6.22, 0.0, 0.24, trim)                     # pilastro d'angolo
+        B(k, sx * 5.78, -H, -0.05, sx * 6.26, -H + 0.5, 0.24, 'concrete_dark')      # zoccolo del pilastro
+    B(k, -6.22, -0.2, 0.19, 6.22, 0.0, 0.26, trim)                                   # fascia sopra le vetrine
+    if shape == 'step':
+        parts = [(-6.2, 6.2, 0.0, 0.85), (-3.6, 3.6, 0.85, 1.4), (-1.8, 1.8, 1.4, 1.9)]
+    elif shape == 'flat':
+        parts = [(-6.2, 6.2, 0.0, 1.35)]
+    else:
+        parts = [(-6.2, 6.2, 0.0, 0.85)]
+    for (x0, x1, y0, y1) in parts:
+        B(k, x0, y0, -0.12, x1, y1, 0.26, body)
+        B(k, x0 - 0.06, y1 - 0.06, -0.14, x1 + 0.06, y1 + 0.06, 0.32, trim)            # cornice
+    if shape == 'gable':
+        prism_z(k, [(-4.0, 0.85), (4.0, 0.85), (0.0, 2.05)], -0.12, 0.26, body)
+        for s in (-1, 1):
+            k.beam((s * 4.15, 0.83, 0.11), (0, 2.13, 0.11), 0.12, 0.44, trim, up=(0, 0, 1))
+        k.cbox((0, 1.4, 0.28), (0.7, 0.7, 0.06), 'paint_cream', ch=0.05)           # tondo nel timpano
+    if shape == 'arch':
+        arch = [(-3.0, 0.85), (-2.6, 1.3), (-1.8, 1.6), (-0.9, 1.75), (0.9, 1.75), (1.8, 1.6), (2.6, 1.3), (3.0, 0.85)]
+        prism_z(k, arch, -0.12, 0.26, body)
+        for a, b in zip(arch, arch[1:]):
+            k.beam((a[0], a[1] + 0.02, 0.11), (b[0], b[1] + 0.02, 0.11), 0.1, 0.44, trim, up=(0, 0, 1))
+    if shape == 'flat':
+        for i in range(24):
+            x = -5.9 + i * 0.513
+            B(k, x, 1.1, 0.26, x + 0.18, 1.23, 0.32, trim)                             # dentelli
+    for sx in (-1, 1):
+        k.cbox((sx * 6.02, parts[0][3] + 0.25, 0.08), (0.34, 0.38, 0.34), trim, ch=0.04)   # pinnacoli agli angoli
+
+
+shop_front('Bld_Shop_Front_01', 'plaster_borgo', 'concrete_light', 'step', 59)
+shop_front('Bld_Shop_Front_02', 'plaster_ochre', 'paint_cream', 'gable', 60)
+shop_front('Bld_Shop_Front_03', 'plaster_sage', 'paint_cream', 'flat', 61)
+shop_front('Bld_Shop_Front_04', 'plaster_rose', 'concrete_light', 'arch', 62)
 
 # ============================================================== export
 for name, k in pieces.items():

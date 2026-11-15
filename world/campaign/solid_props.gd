@@ -193,7 +193,7 @@ static func box_loose_props(root: Node3D, world: Node3D) -> int:
 	for found in root.find_children("*", "MeshInstance3D", true, false):
 		var mi := found as MeshInstance3D
 		if mi.mesh == null or mi.mesh is PlaneMesh or mi.mesh is QuadMesh: continue
-		if _is_skipped(mi, world): continue
+		if _is_skipped(mi, world) or _has_own_collision(mi): continue
 		var box: AABB = mi.global_transform * mi.get_aabb()
 		var floor_y: float = world.terrain.height(box.get_center().x, box.get_center().z)
 		if box.position.y - floor_y > 1.4: continue
@@ -210,6 +210,16 @@ static func box_loose_props(root: Node3D, world: Node3D) -> int:
 		mi.add_child(body)
 		count += 1
 	return count
+
+
+## Il modello importato (glb) ha già le sue collisioni: portici, saracinesche e pezzi cavi non vanno chiusi da una scatola piena.
+static func _has_own_collision(mi: MeshInstance3D) -> bool:
+	var n: Node = mi
+	for i in 4:
+		if n == null: return false
+		if n.scene_file_path != "": return not n.find_children("*", "CollisionShape3D", true, false).is_empty()
+		n = n.get_parent()
+	return false
 
 
 static func _is_skipped(mi: MeshInstance3D, world: Node3D) -> bool:

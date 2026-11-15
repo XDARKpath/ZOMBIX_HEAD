@@ -179,6 +179,21 @@ func _run() -> void:
 				if kb.size != Vector3.ZERO and kb.end.z > 2.5 and kb.position.z < 6.5 and absf(kb.get_center().x - float(h.get_meta("door_x"))) < 2.0 + kb.size.x * 0.5:
 					print("    vicino alla porta: ", k.name, " ", kb)
 	check(doors > 30 and reached == doors, "Percorso dalla via dentro %d/%d edifici con porta" % [reached, doors])
+	_identity(geo, doors)
+	# Barricate su: niente strada sotto (il link della via si spegne); giù: la piazza si raggiunge da ogni via.
+	var target := L.CENTER + Vector3(3, 0.1, 5)
+	for up in [false, true, false]:
+		village.set_barricades(up)
+		await wait(40)                        # la mappa si aggiorna su un thread: qualche frame
+		var through := 0
+		for key in village.DIRS:
+			var d: Vector2 = village.DIRS[key]
+			var path := NavigationServer3D.map_get_path(map, L.CENTER + Vector3(d.x, 0, d.y) * (village.PLAZA + 10), target, true)
+			if path.size() > 0 and path[path.size() - 1].distance_to(target) < 0.6:
+				through += 1
+				if up: print("  percorso ", key, ": ", Array(path).map(func(v): return (v - L.CENTER).snapped(Vector3.ONE * 0.1)))
+				if up: print("  sotto la barricata %s: rete a %.2f m dal centro della linea" % [key, NavigationServer3D.map_get_closest_point(map, L.CENTER + Vector3(d.x, 0, d.y) * (village.PLAZA - 0.6)).distance_to(L.CENTER + Vector3(d.x, 0, d.y) * (village.PLAZA - 0.6))])
+		check(through == (0 if up else 4), "Barricate %s: piazza raggiungibile da %d vie su 4" % ["su" if up else "giù", through])
 	# chiesa (fra le panche), cimitero, campo profughi, davanti al fienile
 	for local in [Vector3(0, 0.2, -131), village.CEMETERY + Vector3(1.3, 0.2, -1.7), Vector3(-128.5, 0.2, 4), Vector3(-14, 0.2, 120.5)]:
 		var world_at: Vector3 = L.CENTER + local
@@ -216,6 +231,58 @@ func _run() -> void:
 	print("FALLITI: ", fails.size())
 	for f in fails: print("  - ", f)
 	quit(1 if fails.size() > 0 else 0)
+
+
+## Pezzi della fase 2 (portici, comignoli con camino, pensiline, saracinesche, frontoni): solidi, fuori dai mobili,
+## porte libere per la capsula del giocatore.
+func _identity(geo: Node3D, doors: int) -> void:
+	const SOLID := ["Porch", "Chimney", "Door_Canopy", "Roll_Shutter", "Shop_Front"]
+	var counts := {}
+	var loose := 0
+	var clash := 0
+	var blocked := 0
+	var space := geo.get_world_3d().direct_space_state
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.31
+	capsule.height = 1.78
+	for c in geo.get_children():
+		if not c.has_meta("door_x"): continue
+		var h := c as Node3D
+		var others := []
+		var mine := []
+		for k in h.get_children():
+			var kind := ""
+			for s in SOLID:
+				if k.scene_file_path.contains(s): kind = s
+			if kind != "":
+				counts[kind] = counts.get(kind, 0) + 1
+				if k.find_children("*", "StaticBody3D", true, false).is_empty(): loose += 1
+				if kind in ["Porch", "Chimney"]: mine.append([kind, _box(k, h)])
+			elif not k.scene_file_path.contains("Bld_") and not k.find_children("*", "StaticBody3D", true, false).is_empty():
+				var kb := _box(k, h)
+				if kb.size.y > 0.2 and kb.position.y < 2.0: others.append([k.name, kb])   # mobili e arredi a terra (non timpani e gronde)
+		for m in mine:
+			for o in others:
+				if (m[1] as AABB).grow(-0.02).intersects(o[1]):
+					clash += 1
+					print("  compenetra: ", h.name, " ", m[0], " ", o[0], " ", o[1])
+		# capsula del giocatore dalla via alla stanza, attraverso la porta (sopra la rampa)
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = capsule
+		q.transform = Transform3D(h.global_basis, h.to_global(Vector3(h.get_meta("door_x"), 1.08, 5.9)))   # dal gradino (pali e lampioni della via esclusi)
+		q.motion = h.global_basis * Vector3(0, 0, -3.9)
+		var hit := space.cast_motion(q)
+		if hit.size() > 0 and hit[0] < 0.999:
+			blocked += 1
+			q.transform.origin += q.motion * hit[1]
+			var rest := space.get_rest_info(q)
+			var who: Object = instance_from_id(rest["collider_id"]) if rest.has("collider_id") else null
+			print("  porta chiusa per la capsula: ", h.name, " a ", 5.9 - 3.9 * hit[0], " contro ", who.get_parent().get_parent().name if who else "-", " ", h.to_local(rest.get("point", Vector3.ZERO)))
+	print("  pezzi nuovi: ", counts)
+	check(counts.get("Chimney", 0) > 5 and counts.get("Porch", 0) > 2 and counts.get("Door_Canopy", 0) > 5 and counts.get("Shop_Front", 0) == 8 and counts.get("Roll_Shutter", 0) > 0, "Pezzi nuovi presenti %s" % str(counts))
+	check(loose == 0, "Portici, comignoli, pensiline, saracinesche e frontoni solidi (%d senza collisione)" % loose)
+	check(clash == 0, "Portici e camini fuori da mobili e cassette (%d compenetrazioni)" % clash)
+	check(blocked == 0, "Capsula del giocatore libera in %d porte (%d chiuse)" % [doors, blocked])
 
 
 func _chase(where: String, hide: Vector3, start: Vector3, house: Node3D, side := -1) -> void:
