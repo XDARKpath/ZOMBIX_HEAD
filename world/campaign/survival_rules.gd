@@ -2,7 +2,8 @@ extends Node3D
 const Layout=preload("res://world/zona1_rifugio/refuge_layout.gd")
 const Anatomy=preload("res://art/infected_anatomy.gd")
 const Props2=preload("res://ui/camp/camp_props.gd")
-const PRICES={"knife":50,"pistol":125}
+## Banco dello sceriffo. La pistola costa quanto nel catalogo di Big Earl (zx_shop_catalog.gd): prima 125 qui e 120 là.
+const PRICES={"knife":50,"pistol":120}
 const NAMES={"pistol":"PISTOLA COMPATTA","knife":"MILITARY KNIFE"}
 const DESCS={"pistol":"8 colpi · ricarica R · buona a media distanza","knife":"Veloce e silenzioso · più danno da vicino"}
 # Si tratta dal marciapiede, non solo appoggiandosi al banco.

@@ -42,7 +42,9 @@ func run():
 	life.drop_sack(p)
 	zombie.global_position = life.sacks[0]["node"].global_position + Vector3(0.5, 0, 0)
 	for i in 10: life._sacks(1.0)
-	check(life.sacks.is_empty(), "Uno zombie sul sacco lo divora in 8 secondi")
+	check(life.sacks.size() == 1, "Uno zombie sul sacco: dopo 10 s c'è ancora (prima spariva in 8)")
+	for i in 11: life._sacks(1.0)
+	check(life.sacks.is_empty(), "Uno zombie sul sacco lo divora in 20 secondi")
 	# Cibo.
 	var item = life.pickups[0]
 	p.global_position = item["node"].global_position

@@ -71,6 +71,7 @@ func _rebuild_page() -> void:
 		"credits": credits()
 		"skins": skins()
 		"connect": connection(connection_hosting)
+		"newgame": new_game_confirm()
 		_: home()
 
 func go_back() -> void:
@@ -112,9 +113,13 @@ func home() -> void:
 				Session.info(Localization.t("Local address copied / UDP {0}", [Session.endpoint_port])))
 		button("LEAVE LOBBY",func() -> void: Session.leave(); home())
 	else:
+		# Con un salvataggio, CONTINUA è la prima scelta e NUOVA PARTITA chiede conferma:
+		# prima GIOCA cancellava la campagna senza dire niente.
 		if not world.automated and SaveManager.has_save():
 			button("CONTINUE",func() -> void: world.continue_save())
-		button("PLAY",func() -> void: Session.launch())
+			button("NEW GAME",new_game_confirm)
+		else:
+			button("PLAY",func() -> void: Session.launch())
 		button("HOST GAME",func() -> void: connection(true))
 		button("JOIN GAME",func() -> void: connection(false))
 		button("CHARACTER",skins)
@@ -125,6 +130,18 @@ func home() -> void:
 	roster_label.name = "CampRoster"
 	roster_label.size = Vector2(740,70)
 	refresh()
+	_focus_first()
+
+## Dice cosa si perde prima di sostituire la campagna salvata.
+func new_game_confirm() -> void:
+	page = "newgame"
+	clear("NEW GAME")
+	var info: Dictionary = SaveManager.summary()
+	label("Starting over replaces this campaign.",Vector2(66,168),26,TEXT)
+	label(Localization.t("Saved campaign: stage {0} of 8 · {1} credits · {2} bosses defeated",[info.stage,info.credits,info.bosses]),Vector2(66,210),22,MUTED)
+	label("The old save is kept as save_slot_1.old.json until the next new game.",Vector2(66,244),18,MUTED)
+	button("START OVER",func() -> void: Session.launch())
+	back_button(home)
 	_focus_first()
 
 func refresh() -> void:
