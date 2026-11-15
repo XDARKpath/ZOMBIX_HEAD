@@ -26,14 +26,21 @@ const TABLE_AT:=Vector3(-5.5,0,-6)
 const TABLE_YAW:=PI*0.5
 
 ## Mobili e pezzi fissi rimasti senza collisione: serve la fisica già attiva, poi la navigazione li vede.
+## Mobili senza collisione: una scatola ciascuno, poi navmesh di nuovo. Parte già nel menu e lavora a rate
+## (pochi ms per fotogramma): prima bloccava il primo fotogramma dopo GIOCA per 4–5 s.
+var _solid_running := false
 func _solidify() -> void:
+	if _solid_running: return
+	_solid_running = true
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var solid:=preload("res://world/campaign/solid_props.gd")
 	solid.settle(self,self)
-	solid.box_loose_props(self,self)
+	await solid.box_loose_props_spread(self,self)
 	await get_tree().physics_frame
-	nav_region.bake_navigation_mesh(true)
+	# Nel menu niente navmesh: la cuoce GIOCA, con il filtro della partita (un secondo bake in corso darebbe errore).
+	if started: nav_region.bake_navigation_mesh(true)
+	_solid_running = false
 
 func _ready() -> void:
 	super._ready()
@@ -78,6 +85,7 @@ func _ready() -> void:
 	weapon_table=preload("res://world/campaign/weapon_table.gd").new();nav_region.add_child(weapon_table);weapon_table.build(self,TABLE_AT,TABLE_YAW)
 	# Alberi e massi piazzati da paese, kit e borgo: solidi anche loro, e via dalla strada.
 	preload("res://world/campaign/solid_props.gd").apply(self,self)
+	_solidify()   # nel menu, a rate: a GIOCA le scatole ci sono già
 	if started: expedition.start()
 	overlay = Control.new()
 	overlay.set_script(preload("res://ui/zombix_hud.gd"))
