@@ -191,25 +191,42 @@ static func box_loose_props(root: Node3D, world: Node3D) -> int:
 	var space: PhysicsDirectSpaceState3D = world.get_world_3d().direct_space_state
 	var count := 0
 	for found in root.find_children("*", "MeshInstance3D", true, false):
-		var mi := found as MeshInstance3D
-		if mi.mesh == null or mi.mesh is PlaneMesh or mi.mesh is QuadMesh: continue
-		if _is_skipped(mi, world) or _has_own_collision(mi): continue
-		var box: AABB = mi.global_transform * mi.get_aabb()
-		var floor_y: float = world.terrain.height(box.get_center().x, box.get_center().z)
-		if box.position.y - floor_y > 1.4: continue
-		if maxf(box.size.x, box.size.z) < MIN_WIDE or box.end.y - maxf(box.position.y, floor_y) < MIN_TALL: continue
-		if box.size.y > 30.0 or box.size.x > 40.0 or box.size.z > 40.0: continue
-		if _touching_collider(space, box, maxf(box.position.y, floor_y)): continue
-		var body := StaticBody3D.new()
-		var shape := CollisionShape3D.new()
-		var cube := BoxShape3D.new()
-		cube.size = mi.get_aabb().size
-		shape.shape = cube
-		shape.position = mi.get_aabb().get_center()
-		body.add_child(shape)
-		mi.add_child(body)
-		count += 1
+		if _box_one(found as MeshInstance3D, world, space): count += 1
 	return count
+
+
+## Come box_loose_props, ma al massimo budget_ms per fotogramma: su tutto il mondo (13.500 mesh) costava 4,3 s
+## in un fotogramma solo, a ogni GIOCA. Va chiamata con await.
+static func box_loose_props_spread(root: Node3D, world: Node3D, budget_ms := 4.0) -> int:
+	var space: PhysicsDirectSpaceState3D = world.get_world_3d().direct_space_state
+	var count := 0
+	var since := Time.get_ticks_usec()
+	for found in root.find_children("*", "MeshInstance3D", true, false):
+		if Time.get_ticks_usec() - since > budget_ms * 1000.0:
+			await world.get_tree().process_frame
+			since = Time.get_ticks_usec()
+		if is_instance_valid(found) and found.is_inside_tree() and _box_one(found as MeshInstance3D, world, space): count += 1
+	return count
+
+
+static func _box_one(mi: MeshInstance3D, world: Node3D, space: PhysicsDirectSpaceState3D) -> bool:
+	if mi.mesh == null or mi.mesh is PlaneMesh or mi.mesh is QuadMesh: return false
+	if _is_skipped(mi, world) or _has_own_collision(mi): return false
+	var box: AABB = mi.global_transform * mi.get_aabb()
+	var floor_y: float = world.terrain.height(box.get_center().x, box.get_center().z)
+	if box.position.y - floor_y > 1.4: return false
+	if maxf(box.size.x, box.size.z) < MIN_WIDE or box.end.y - maxf(box.position.y, floor_y) < MIN_TALL: return false
+	if box.size.y > 30.0 or box.size.x > 40.0 or box.size.z > 40.0: return false
+	if _touching_collider(space, box, maxf(box.position.y, floor_y)): return false
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var cube := BoxShape3D.new()
+	cube.size = mi.get_aabb().size
+	shape.shape = cube
+	shape.position = mi.get_aabb().get_center()
+	body.add_child(shape)
+	mi.add_child(body)
+	return true
 
 
 ## Il modello importato (glb) ha già le sue collisioni: portici, saracinesche e pezzi cavi non vanno chiusi da una scatola piena.

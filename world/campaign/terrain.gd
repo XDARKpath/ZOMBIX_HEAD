@@ -52,7 +52,9 @@ func build(owner_world: Node3D) -> void:
 	ground_material=ShaderMaterial.new()
 	ground_material.shader=preload("res://world/campaign/ground.gdshader")
 	ground_material.set_shader_parameter("desert_box",Vector4(Route.MIN_X,Route.Z2_NORTH,Route.Z2_EAST,Route.WALL_Z))
-	for file in DirAccess.get_files_at("res://art/nature"):
+	# list_directory e non DirAccess: nella build i file sono *.gltf.import/.remap, e DirAccess non trovava nessun albero
+	# (al loro posto, con find() a -1, nascevano cactus in tutto il bosco). Stessi nomi e stesso ordine dell'editor.
+	for file in ResourceLoader.list_directory("res://art/nature"):
 		# niente alberi rossi (TwistedTree) e cespugli rossi (Bush_Common): stonano con il resto della mappa
 		if file.ends_with(".gltf") and not file.begins_with("TwistedTree") and not file.begins_with("Bush_Common"):
 			sources.append(load("res://art/nature/"+file))
