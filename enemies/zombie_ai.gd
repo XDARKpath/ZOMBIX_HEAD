@@ -273,7 +273,8 @@ func _physics_process(delta: float) -> void:
 					var flank: Vector3 = last_seen + from_target.normalized().rotated(Vector3.UP, side) * clampf(gap * 0.45, 1.1, 3.5)
 					# Il punto di lato deve stare dalla parte del giocatore: se c'è un muro in mezzo (giocatore in casa) si va dritti,
 					# altrimenti l'infetto resta fermo fuori dalla parete per sempre.
-					var wall := PhysicsRayQueryParameters3D.create(last_seen + Vector3.UP, flank + Vector3.UP, 1)
+					# Raggio all'altezza del ginocchio: a 1 m passa dalle finestre e il punto finiva fuori casa, sotto il davanzale.
+					var wall := PhysicsRayQueryParameters3D.create(last_seen + Vector3.UP * 0.4, flank + Vector3.UP * 0.4, 1)
 					if get_world_3d().direct_space_state.intersect_ray(wall).is_empty(): agent.target_position = flank
 	if push_left > 0:
 		# Spinta della reazione (due passi di lato, 1,5 m all'indietro dopo il calcio...).
@@ -407,7 +408,7 @@ func _physics_process(delta: float) -> void:
 			if way_open(delta):
 				# verso il suo punto di accerchiamento, non tutti sulla stessa linea
 				var flank: Vector3 = (agent.target_position - global_position) * Vector3(1, 0, 1)
-				if flank.length() > 0.5: direction = flank.normalized()
+				if flank.length() > 0.5 and _flank_clear: direction = flank.normalized()
 				elif straight.length() > 0.8: direction = straight.normalized()
 			elif direction == Vector3.ZERO:
 				# senza strada calcolata: dritti verso dove crede che tu sia (vista, rumore o ricerca), non dove sei davvero
@@ -654,6 +655,7 @@ func _may_attack() -> bool:
 var _open_clock := 0.0
 var _open_way := false
 var _open_hold := 0.0
+var _flank_clear := false
 ## Strada dritta libera fino al bersaglio (ginocchia e petto, entro 30 m)? La usano zombie e boss.
 ## Isteresi: cambia modo (dritto / navigazione) al massimo ogni 1,5 s, così non ondeggia fra i due.
 func way_open(delta: float) -> bool:
@@ -663,10 +665,23 @@ func way_open(delta: float) -> bool:
 		_open_hold -= 0.3
 		var lift: float = 0.6 if kind == 5 else 0.0
 		var open: bool = global_position.distance_to(target.global_position) < 30.0 and _hit_at(global_position + Vector3.UP * (0.4 + lift), target.global_position + Vector3.UP * 0.4).is_empty() and _hit_at(global_position + Vector3.UP * (1.2 + lift), target.global_position + Vector3.UP * 1.2).is_empty()
-		if open != _open_way and _open_hold <= 0.0:
-			_open_way = open
+		# Larga quanto il corpo: un raggio solo passa da una porta presa di sbieco, il corpo no (finiva contro lo stipite
+		# e girava attorno alla casa). Così si segue la navigazione, che passa dal centro della porta.
+		if open and kind != 5:
+			var side: Vector3 = (target.global_position - global_position).cross(Vector3.UP).normalized() * float(_body_size()[0])
+			for off in [side, -side]:
+				if not _hit_at(global_position + Vector3.UP * 0.4 + off, target.global_position + Vector3.UP * 0.4 + off).is_empty(): open = false
+		# Il punto di accerchiamento può stare dietro un muro anche se il giocatore si vede (casa presa da una porta):
+		# allora si va verso il giocatore, non contro la facciata.
+		_flank_clear = open and _hit_at(global_position + Vector3.UP * 0.4, agent.target_position + Vector3.UP * 0.4).is_empty()
+		# Strada chiusa: subito in navigazione, se no si cammina contro il muro di una porta o di un angolo.
+		# Strada riaperta: si torna dritti solo dopo 1,5 s, così non ondeggia fra i due modi.
+		if _open_way and not open:
+			_open_way = false
 			_open_hold = 1.5
-			if open: _detour_side = 0.0
+		elif open and not _open_way and _open_hold <= 0.0:
+			_open_way = true
+			_detour_side = 0.0
 	return _open_way
 
 

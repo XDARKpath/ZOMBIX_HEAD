@@ -615,17 +615,14 @@ func _home(at: Vector3, yaw: float, w: int, style: int, shutter := "") -> void:
 			var top := 3 * hs + 0.05 + 2.3
 			asset(h, "Bld_Chimney_01", Vector3(-w * 1.5 + 0.52, 0.08, -1.8), 0, true, Vector3(1, (top - 0.08) / 5.27, 1))
 	var door_x := -w * 1.5 + door_i * 3 + 1.5
-	if metal:
-		_entry_ramp(h, 2.2, door_x)
-	else:
-		# rampa di cemento sul gradino di pietra (alto 0.102, da z 4.69 a 5.29; 2 mm sopra: niente z-fighting): sale (2.8°), resta in piano
-		# sul gradino e scende piano al pavimento (0.085): il piede non affonda e di corsa la camera non scatta
-		_ramp_profile(h, 2.2, door_x, [Vector2(7.4, 0.0), Vector2(5.29, 0.104), Vector2(4.69, 0.104), Vector2(3.9, 0.088)])
+	# Rampa di fase 2 anche nelle case: con rampe più lunghe o più alte davanti alla porta (provate 7.4, 6.4, tagliate alla
+	# soglia o fino al pavimento) gli infetti mancavano la porta in 1-3 inseguimenti su 5 (borgo_solid_checks). Resta da capire perché.
+	_entry_ramp(h, 2.2, door_x)
 	h.set_meta("door_x", door_x)                 # per i controlli di navigazione (tests/borgo_solid_checks.gd)
 	if metal:
 		box(h, Vector3(door_x, 0.015, 6.4), Vector3(4.2, 0.03, 3.4), Color("6f706a"), false)   # piazzale cementato dell'officina
 	else:
-		asset(h, "Bld_Step_01", Vector3(door_x, 0, 4.69), 0, false)          # gradino sopra la rampa (la rampa resta la collisione)
+		asset(h, "Bld_Step_01", Vector3(door_x, -0.07, 4.69), 0, false)          # gradino abbassato sulla rampa (la rampa resta la collisione): il piede non ci affonda
 		# portico con due pali solo su alcune case basse da 3 moduli, le altre una pensilina (le tende sono dei negozi)
 		if w == 3 and style <= 1 and pick < 50:
 			asset(h, "Bld_Porch_01", Vector3(door_x, 0, 4.69), 0, true).name = "Portico_Porta"   # come sopra: niente scatola fra i pali

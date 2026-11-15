@@ -184,10 +184,19 @@ func _run() -> void:
 	_sidewalk(geo, village)
 	_cabin()
 	# Barricate su: niente strada sotto (il link della via si spegne); giù: la piazza si raggiunge da ogni via.
+	# Le due reti si cuociono su un thread: prima che siano pronte lo scambio non può avvenire.
+	for i in 1200:
+		if village._nav_closed != null and village._nav_open != null and village._nav_open.get_polygon_count() > 0: break
+		await physics_frame
 	var target := L.CENTER + Vector3(3, 0.1, 5)
 	for up in [false, true, false]:
+		var before := NavigationServer3D.map_get_iteration_id(map)
 		village.set_barricades(up)
-		await wait(40)                        # la mappa si aggiorna su un thread: qualche frame
+		# la mappa si ricostruisce su un thread: si aspetta la nuova versione, non un numero fisso di frame
+		for i in 600:
+			if NavigationServer3D.map_get_iteration_id(map) != before: break
+			await physics_frame
+		await wait(10)
 		var through := 0
 		for key in village.DIRS:
 			var d: Vector2 = village.DIRS[key]
@@ -218,7 +227,11 @@ func _run() -> void:
 	for b in village.barricades:
 		if (b.get_meta("shape") as CollisionShape3D).disabled or absf(b.position.y - L.CENTER.y) > 0.05: holes += 1
 	check(holes == 0, "Su, giù e su in fretta: tutte le barricate alzate e solide (%d no)" % holes)
+	var before := NavigationServer3D.map_get_iteration_id(map)
 	village.set_barricades(false)
+	for i in 600:                          # rete aperta pronta prima degli inseguimenti
+		if NavigationServer3D.map_get_iteration_id(map) != before: break
+		await physics_frame
 	await wait(120)
 
 	# --- Inseguimento vero: un infetto dalla via entra in casa e nel campo profughi.
@@ -231,8 +244,8 @@ func _run() -> void:
 	for side in 5:
 		await _chase("casa (lato %d)" % side, house.to_global(Vector3(-1.5, 0.3, -2.0)), house.to_global(Vector3(house.get_meta("door_x"), 0.3, 16.0)), house, side)
 	await _chase("campo profughi", L.CENTER + Vector3(-128.5, 0.3, 4.0), L.CENTER + Vector3(-100, 0.3, 0), null)
-	# il bruto (0.8 m/s) dalla via N alla piazza con le barricate giù: 46 m, ~60 s di cammino
-	await _chase("piazza (bruto dalla via N)", L.CENTER + Vector3(3, 0.3, 5), L.CENTER + Vector3(0, 0.3, -40), null, -1, 2, 90.0)   # fuori dal pozzo
+	# il bruto (0.8 m/s) dalla via N alla piazza con le barricate giù: 46 m, ~60-100 s di cammino secondo il giro
+	await _chase("piazza (bruto dalla via N)", L.CENTER + Vector3(3, 0.3, 5), L.CENTER + Vector3(0, 0.3, -40), null, -1, 2, 120.0)   # fuori dal pozzo
 	await _west_gate()
 	print("FALLITI: ", fails.size())
 	for f in fails: print("  - ", f)
@@ -291,6 +304,15 @@ func _identity(geo: Node3D, doors: int) -> void:
 	check(blocked == 0, "Capsula del giocatore libera in %d porte (%d chiuse)" % [doors, blocked])
 
 
+## Gli infetti del borgo non devono spingere il giocatore né mettersi in mezzo: resta solo quello della prova.
+func _park_others(keep: Node) -> void:
+	for o in root.find_children("*", "CharacterBody3D", true, false):
+		if o == p or o == keep or o.global_position.y < -100.0 or not o.has_method("hear"): continue
+		o.set_physics_process(false)
+		o.set_process(false)
+		o.global_position += Vector3(0, -300, 0)
+
+
 func _chase(where: String, hide: Vector3, start: Vector3, house: Node3D, side := -1, kind := 1, seconds := 45.0) -> void:
 	world.terrain.ensure_near([hide, start])
 	p.reset_at(hide)
@@ -302,7 +324,9 @@ func _chase(where: String, hide: Vector3, start: Vector3, house: Node3D, side :=
 	var best := 999.0
 	for i in int(60 * seconds):
 		p.health = 100.0
-		if i % 30 == 0: e.hear(p, 100.0)
+		if i % 30 == 0:
+			e.hear(p, 100.0)
+			_park_others(e)
 		await physics_frame
 		best = minf(best, e.global_position.distance_to(p.global_position))
 		if i % 120 == 0: print("  %s: infetto a %s (casa %s), stato %d, distanza %.1f" % [where, e.global_position.snapped(Vector3.ONE * 0.1), house.to_local(e.global_position).snapped(Vector3.ONE * 0.1) if house else "-", e.state, best])
