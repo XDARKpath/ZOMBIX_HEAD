@@ -122,6 +122,10 @@ func _load_gltf(file:String) -> Node3D:
 	var path:String="res://art/buildings/%s.gltf"%file
 	var doc:=GLTFDocument.new()
 	var state:=GLTFState.new()
+	# Nella build esportata il .gltf grezzo non c'è: resta solo la scena importata.
+	if not FileAccess.file_exists(path):
+		var packed:=load(path) as PackedScene if ResourceLoader.exists(path) else null
+		return packed.instantiate() as Node3D if packed else null
 	if doc.append_from_file(path,state)!=OK:
 		return null
 	return doc.generate_scene(state) as Node3D

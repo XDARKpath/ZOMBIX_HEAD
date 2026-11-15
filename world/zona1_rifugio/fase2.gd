@@ -338,7 +338,7 @@ func _capture(path: String) -> void:
 	get_tree().quit()
 
 func _run_checks() -> void:
-	var checks := preload("res://tests/phase2_checks.gd").new()
+	var checks = load("res://tests/phase2_checks.gd").new()
 	var success: bool = await checks.run(self)
 	sound.stop()
 	sound.stream = null
