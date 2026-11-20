@@ -365,7 +365,7 @@ func _greenbelt() -> void:
 	for i in range(70):
 		var at:=Vector3(rng.randf_range(-115,120),0,rng.randf_range(-215,-2))
 		if Layout.occupied(at.x,at.z) or Layout.safe(at):continue
-		if absf(at.x-Layout.ROAD_X)<9.5:continue
+		if preload("res://world/campaign/route.gd").road_distance(Vector2(at.x,minf(at.z,-6.0)))<9.5:continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").distance(Vector2(at.x,at.z))<8.0:continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").arena_distance(Vector2(at.x,at.z))<16.0:continue
 		var tree:Node3D=load("res://art/nature/Pine_%d.gltf"%rng.randi_range(1,5)).instantiate()
@@ -382,7 +382,7 @@ func _outskirts() -> void:
 		var at:=Vector3(rng.randf_range(-160,170),0,rng.randf_range(-280,-6))
 		if Layout.occupied(at.x,at.z) or Layout.safe(at):continue
 		var corridor:float=11.0 if at.z>-70 else 7.0
-		if absf(at.x-Layout.ROAD_X)<corridor:continue
+		if preload("res://world/campaign/route.gd").road_distance(Vector2(at.x,minf(at.z,-6.0)))<corridor:continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").distance(Vector2(at.x,at.z))<8.5:continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").arena_distance(Vector2(at.x,at.z))<16.0:continue
 		var tree:Node3D=load("res://art/nature/"+trees[i%trees.size()]+".gltf").instantiate()

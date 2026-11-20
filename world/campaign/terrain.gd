@@ -786,7 +786,8 @@ func _roadside() -> void:
 				if k<5:_box(rail,Vector3(0.07,0.16,4.0),Vector3(0,0.78,2.0),Color("77796c"))
 
 func _off_style(asset: String) -> bool:
-	return asset.begins_with("CommonTree") or asset.begins_with("TwistedTree") or asset.begins_with("DeadTree")
+	# I cactus crescono solo nel deserto (ramo apposito sopra), mai estratti a caso nel bosco.
+	return asset.begins_with("CommonTree") or asset.begins_with("TwistedTree") or asset.begins_with("DeadTree") or asset.begins_with("SM_Cactus")
 
 func _mute_tree(node: Node) -> void:
 	# Palette autunnale spenta: il bosco resta leggibile e non fluo.
