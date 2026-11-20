@@ -508,8 +508,8 @@ func tick(delta: float, equipped: String) -> void:
 func _reload_events(r: float) -> void:
 	if r >= 0.0 and _reload_r < 0.0: _reload_dry = player.magazine <= 0
 	if r >= 0.0:
+		# I suoni dei passi della ricarica li dà player.gd: girano anche col GPS aperto.
 		if r < _reload_r: _reload_r = 0.0            # nuova cartuccia: il giro riparte
-		for step in Arsenal.reload_crossed(weapon, player.reload_total, _reload_r, r): AudioManager.reload_step(weapon, step)
 	elif _reload_r >= 0.0 and _reload_dry and player.magazine >= Arsenal.magazine(weapon) and _motion.chamber():
 		AudioManager.reload_step(weapon, "chamber")
 	_reload_r = r

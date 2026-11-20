@@ -131,6 +131,11 @@ func _physics_process(delta: float) -> void:
 			reload_left=maxf(0,reload_left-delta)
 			if was>fill and reload_left<=fill:
 				magazine=mini(magazine+1,Arsenal.magazine(equipped)) if equipped in Arsenal.SHELL_RELOAD else Arsenal.magazine(equipped)
+			# Suoni del gesto (caricatore fuori/dentro, carrello...) da qui, legati alla frazione vera:
+			# prima li dava la prima persona, che col GPS aperto smette di girare e li perdeva.
+			if local_control and reload_total>0.0:
+				var r_from:=-1.0 if was>=reload_total-0.0001 else 1.0-was/reload_total
+				for step in Arsenal.reload_crossed(equipped,reload_total,r_from,1.0-reload_left/reload_total):AudioManager.reload_step(equipped,step)
 			# Una cartuccia alla volta: si continua finché il tubo è pieno (sparare interrompe).
 			if reload_left==0 and equipped in Arsenal.SHELL_RELOAD and magazine<Arsenal.magazine(equipped):
 				reload_left=Arsenal.reload_seconds(equipped);reload_total=reload_left

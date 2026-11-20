@@ -211,9 +211,17 @@ func _hold_item(id: String) -> void:
 ## (il tuo li senti già dalla prima persona).
 const Arsenal := preload("res://weapons/zx_arsenal.gd")
 var reload_seen := -1.0
+var _left_seen := 0.0
+var _total_seen := 1.6
 
 func _reload_view(reloading: bool) -> void:
-	var total: float = maxf(float(actor.get("reload_total")) if actor.get("reload_total") != null else 1.6, 0.1)
+	# Sui client il _physics_process dei compagni è spento e reload_total non arriva: la durata vera è il
+	# valore di reload_left quando sale (inizio ricarica o nuova cartuccia), come fa player.gd per sé.
+	var left: float = float(actor.reload_left) if actor.get("reload_left") != null else 0.0
+	if left > _left_seen + 0.001: _total_seen = left
+	_left_seen = left
+	var own: float = float(actor.get("reload_total")) if actor.get("reload_total") != null else 0.0
+	var total: float = maxf(own if actor.get("local_control") == true else maxf(_total_seen, 0.0), 0.1)
 	var r: float = clampf((total - actor.reload_left) / total, 0.0, 1.0) if reloading else -1.0
 	var equipped := str(actor.get("equipped"))
 	if r >= 0.0 and actor.get("local_control") != true:
