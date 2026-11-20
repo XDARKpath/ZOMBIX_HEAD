@@ -303,6 +303,7 @@ const MESSAGES := {
 	"Zaino +1 slot": {"en": "Backpack +1 slot"},
 	"Zaino\nal massimo": {"en": "Backpack\nmaxed"},
 	"GIÀ TUA": {"en": "ALREADY YOURS"},
+	"{0} · GIÀ TUA": {"en": "{0} · ALREADY YOURS"},
 	"ZAINO +1 SLOT": {"en": "BACKPACK +1 SLOT"},
 	"ZAINO AL MASSIMO ({0} SLOT)": {"en": "BACKPACK MAXED ({0} SLOTS)"},
 	"{0} · {1} CR · TE NE MANCANO {2}": {"en": "{0} · {1} CR · {2} SHORT"},
@@ -759,8 +760,9 @@ func _register_translations() -> void:
 		for table in [MESSAGES, EXTRA_MESSAGES]:
 			for key in table:
 				var row: Dictionary = table[key]
-				if row.has(language.code):
-					translation.add_message(key, str(row[language.code]))
+				# Senza la voce della lingua il testo resta com'è: altrimenti Godot ripiega sulla lingua
+				# di riserva (inglese) e in italiano Label e Label3D uscivano in inglese ("☢ RADIATION").
+				translation.add_message(key, str(row.get(language.code, key)))
 		TranslationServer.add_translation(translation)
 
 

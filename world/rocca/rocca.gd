@@ -2047,8 +2047,14 @@ func _guide(tower: Node3D) -> void:
 	glow.global_position = guide_pos + Vector3(0, 0.5, 0) + tower.global_basis * Vector3(0.5, 0, 0.4)
 	var tag := Label3D.new()
 	tag.text = Localization.t("BRUNO LO SPELEOLOGO\n[E] parla")
-	tag.font_size = 40; tag.pixel_size = 0.004; tag.outline_size = 10; tag.modulate = Color("ffe0a8")
+	tag.font_size = 40; tag.pixel_size = 0.003; tag.outline_size = 10; tag.modulate = Color("ffe0a8")
 	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	# Si legge da 5 a 30 m: da vicino non copre più l'HUD (c'è già "[E] parla" in basso), da lontano sparisce.
+	tag.visibility_range_begin = 4.0
+	tag.visibility_range_begin_margin = 1.5
+	tag.visibility_range_end = 30.0
+	tag.visibility_range_end_margin = 5.0
+	tag.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	world.add_child(tag)
 	tag.global_position = guide_pos + Vector3(0, 2.25, 0)
 
