@@ -2,6 +2,8 @@ extends Node
 # Popolazione della Zona 1 (solo host): ogni zona ha i suoi tipi di infetti, il suo livello, quanti ne tiene vivi e ogni
 # quanto ne arrivano. Vicino al paese si incontrano quelli normali, più ci si allontana più diventano pericolosi.
 # Compaiono fuori vista dal giocatore, mai nel recinto; chi resta lontano da tutti sparisce per lasciare posto.
+# Le soglie (portoni del recinto, porte di sceriffo e Big Earl) restano calme: nessuno nasce a meno di THRESHOLD m e,
+# finché tutti i giocatori sono nel recinto, le zone vicine non si riempiono. Uscire subito o dopo lo shop è uguale.
 
 const Layout := preload("res://world/zona1_rifugio/refuge_layout.gd")
 const RoadNet := preload("res://world/zona1_rifugio/roadnet.gd")
@@ -9,6 +11,10 @@ const NEAR := 22.0
 const FAR := 48.0
 const DESPAWN := 120.0
 const MAX_ALIVE := 34
+const THRESHOLD := 35.0            # niente spawn così vicino a una soglia
+const PAUSE_REACH := 60.0          # zone a meno di tanto da una soglia: ferme mentre tutti sono nel recinto
+const SIGHT := 60.0                # oltre questa distanza uno spawn in vista non si nota
+const SIGHT_COS := 0.5             # cono di ±60° attorno allo sguardo
 ## nome, centro (x, z), raggio, tipi (0 infetto, 1 corridore, 2 bruto, 3 urlatore, 4 sputatore), livello, massimo vivi, secondi tra un arrivo e l'altro
 const ZONES := [
 	["IL PRATO", Vector2(6, -78), 34.0, [0], 0, 8, 4.0],
@@ -74,8 +80,10 @@ func _process(delta: float) -> void:
 	var total := 0
 	for key in alive: total += alive[key].size()
 	if total >= MAX_ALIVE: return
+	var all_safe := players.all(func(a): return Layout.safe(a.global_position))
 	for i in ZONES.size():
 		var row: Array = ZONES[i]
+		if all_safe and _near_threshold(row[1], float(row[2]) + PAUSE_REACH): continue
 		var close := false
 		for a in players:
 			if Vector2(a.global_position.x, a.global_position.z).distance_to(row[1]) < float(row[2]) + FAR: close = true
@@ -88,16 +96,17 @@ func _process(delta: float) -> void:
 
 func _spawn(index: int, players: Array) -> void:
 	var row: Array = ZONES[index]
-	for attempt in 8:
+	for attempt in 12:
 		var angle := rng.randf() * TAU
 		var p: Vector2 = row[1] + Vector2(cos(angle), sin(angle)) * sqrt(rng.randf()) * float(row[2])
 		if Layout.near_fence(p.x, p.y) or RoadNet.safe_ring(p) or _near_roadblock(p): continue
+		if _near_threshold(p, THRESHOLD): continue
+		var at := Vector3(p.x, world.terrain.height(p.x, p.y), p.y)
 		var ok := true
 		for a in players:
 			var d := Vector2(a.global_position.x, a.global_position.z).distance_to(p)
-			if d < NEAR: ok = false
+			if d < NEAR or _seen_by(a, at): ok = false
 		if not ok: continue
-		var at := Vector3(p.x, world.terrain.height(p.x, p.y), p.y)
 		var enemy: Node3D = world._spawn_enemy(at)
 		var kinds: Array = row[3]
 		enemy.set_kind(kinds[rng.randi() % kinds.size()], int(row[4]))
@@ -105,6 +114,26 @@ func _spawn(index: int, players: Array) -> void:
 		if not alive.has(index): alive[index] = []
 		alive[index].append(enemy)
 		return
+
+
+## Portoni del recinto e porte dei due edifici: chi esce non deve trovarsi una folla davanti.
+func _near_threshold(p: Vector2, reach: float) -> bool:
+	var points: Array = [Layout.SHOP, Layout.SHERIFF]
+	if world.get("fence"): points += world.fence.gates.map(func(g): return g.at)
+	for at in points:
+		if p.distance_to(Vector2(at.x, at.z)) < reach: return true
+	return false
+
+
+## Il punto è nel cono di ±60° dello sguardo del giocatore, entro SIGHT m, e niente lo copre dagli occhi.
+func _seen_by(a: Node3D, at: Vector3) -> bool:
+	var eye: Vector3 = a.global_position + Vector3.UP * 1.6
+	var to := at + Vector3.UP * 1.2 - eye
+	if to.length() > SIGHT: return false
+	var look: Vector3 = -a.visual.global_basis.z if a.get("visual") else -a.global_basis.z
+	if Vector2(look.x, look.z).normalized().dot(Vector2(to.x, to.z).normalized()) < SIGHT_COS: return false
+	var query := PhysicsRayQueryParameters3D.create(eye, eye + to, 1, [a.get_rid()])
+	return world.get_world_3d().direct_space_state.intersect_ray(query).is_empty()
 
 
 ## Vicino a uno sbarramento ancora chiuso non arrivano rinforzi: per aprirlo l'area va ripulita.

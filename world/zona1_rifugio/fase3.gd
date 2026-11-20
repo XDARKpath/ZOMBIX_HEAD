@@ -212,7 +212,7 @@ func _spawn_enemy(at: Vector3, enemy_id: int = -1) -> Node3D:
 	enemy.world = self
 	enemy.replica = Session.online and not multiplayer.is_server()
 	enemy.blood_enabled = blood_enabled
-	enemy.rotation.y = PI
+	enemy.rotation.y = randf() * TAU   # girati a caso: tutti verso il rifugio guardavano il portone
 	enemy.defeated.connect(func(body: Node3D) -> void: kills += 1; _corpse(body))
 	targets.append(enemy)
 	return enemy
