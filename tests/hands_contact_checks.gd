@@ -8,6 +8,7 @@ const TM := preload("res://player/tool_motion.gd")
 const Arsenal := preload("res://weapons/zx_arsenal.gd")
 const GUNS := ["assault_rifle", "revolver", "smg", "pump_shotgun", "lever_rifle", "sniper_rifle", "leaf_blower", "crossbow", "pistol"]
 const TP_LEFT_MAX := 4.0      # cm
+const FP_LEFT_MAX := 3.0      # cm
 var failures := 0
 var p: CharacterBody3D
 var worst := 0.0          # le lambda catturano i locali per valore: la misura va su un membro
@@ -39,6 +40,7 @@ func run() -> void:
 	if rig:
 		for id in GUNS: await _reload_left_hand(rig, id)
 	await _reload_sounds_without_fp()
+	for id in ["katana", "longsword", "sledgehammer", "electric_guitar"]: await _melee_left_fp(id)
 	print("hands_contact_checks: %s (%d errori)" % ["OK" if failures == 0 else "FALLITO", failures])
 	quit(1 if failures else 0)
 
@@ -139,3 +141,37 @@ func _reload_sounds_without_fp() -> void:
 	var total := 0
 	for n in heard: total += int(heard[n])
 	check(total >= expected.size(), "Ricarica con la prima persona ferma: %d suoni per %d passi %s" % [total, expected.size(), str(expected)])
+
+
+## Prima persona, armi bianche a due mani: in riposo, corsa, arresto e ispezione la sinistra resta sul manico.
+func _melee_left_fp(id: String) -> void:
+	var fpw: Node = null
+	for c in p.rig.camera.get_children(): if c.has_method("give_held"): fpw = c
+	if fpw == null: return
+	var fa: Node = fpw.arms_vm
+	_equip(id)
+	await frames(50)
+	var worst_fp := 0.0
+	var n := 0
+	var phases := [["idle", 40, ""], ["sprint", 60, "sprint"], ["stop", 40, ""]]
+	for ph in phases:
+		if ph[2] == "sprint":
+			Input.action_press("move_forward"); Input.action_press("sprint")
+		for i in int(ph[1]):
+			await process_frame
+			var e := _fp_left_error(fa)
+			if e >= 0.0:
+				worst_fp = maxf(worst_fp, e); n += 1
+		Input.action_release("sprint"); Input.action_release("move_forward")
+	check(n > 30 and worst_fp <= FP_LEFT_MAX, "%s: in prima persona la sinistra resta sul manico (max %.1f cm su %d misure)" % [id, worst_fp, n])
+
+
+func _fp_left_error(fa: Node) -> float:
+	if fa._motion == null or not fa.visible: return -1.0
+	var grip: Dictionary = fa._motion.grip("l")
+	if grip.is_empty() or fa._inter != "": return -1.0
+	var sk: Skeleton3D = fa.skeleton
+	var w: Transform3D = sk.get_bone_global_pose(sk.find_bone("weapon_r"))
+	var sh: Vector3 = sk.get_bone_global_pose(sk.find_bone("upperarm_l")).origin
+	var want: Array = TM.fist_for(w, grip, "l", sh, Vector3.UP, 0.078, 0.029, 99.0, fa._motion.left_shift, fa._motion.edge_w)
+	return sk.get_bone_global_pose(sk.find_bone("hand_l")).origin.distance_to(want[0]) * 100.0
