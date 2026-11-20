@@ -258,7 +258,10 @@ func _build_ui() -> void:
 	resume_button = _button(pause_panel,"ENTRA NEL RIFUGIO",Vector2(62,428),_start)
 	_button(pause_panel,"IMPOSTAZIONI",Vector2(62,490),_show_settings)
 	_button(pause_panel,"COMANDI",Vector2(62,552),_show_controls)
-	_button(pause_panel,"ESCI",Vector2(62,614),func() -> void: get_tree().quit())
+	_button(pause_panel,"ESCI",Vector2(62,614),func() -> void:
+		# Chi esce dalla pausa non perde gli ultimi acquisti: salva l'host (il client non ha il salvataggio).
+		if not automated and (not Session.online or multiplayer.is_server()): SaveManager.write(self)
+		get_tree().quit())
 	_label(pause_panel,"SOPRAVVIVENZA  /  COMBATTIMENTO  /  ESPLORAZIONE",Vector2(62,807),11,Color("8b978d"))
 	_label(pause_panel,"VERSIONE DI SVILUPPO  0.2",Vector2(62,832),11,Color("8b978d"))
 	settings_panel = Control.new()

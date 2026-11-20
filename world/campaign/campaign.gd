@@ -52,8 +52,12 @@ func start() -> void:
 	repairing_peer=0;downloading=false;car.reset();visible=true;_refresh()
 	save_signature=_signature()
 
+## Cosa fa scattare l'autosalvataggio: tappa, ricambi, missione, e anche crediti, teste, armi e morte
+## (prima un acquisto o una vendita si perdevano chiudendo il gioco).
 func _signature() -> String:
-	return "%d|%d|%d|%s|%s|%d"%[stage,zone_index,unlocked,car.repaired,collected,world.quest.stage if world.get("quest") else 0]
+	var p:CharacterBody3D=world.player
+	return "%d|%d|%d|%s|%s|%d|%d|%d|%d|%s|%s"%[stage,zone_index,unlocked,car.repaired,collected,world.quest.stage if world.get("quest") else 0,
+		p.credits,p.carried_heads,p.heads_delivered,p.owned,p.dead]
 
 func authority() -> bool: return not Session.online or multiplayer.is_server()
 
@@ -171,7 +175,7 @@ func _process(delta:float) -> void:
 				_publish()
 	publish_clock+=delta
 	if publish_clock>=0.2: publish_clock=0;_publish()
-	# Autosalvataggio all'ingresso di ogni tappa e a ogni ricambio raccolto.
+	# Autosalvataggio a ogni cambio della firma (tappa, ricambio, acquisto, vendita, morte). Solo host: qui sopra c'è authority().
 	if not world.automated:
 		var sig:=_signature()
 		if sig!=save_signature:
