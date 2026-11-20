@@ -609,11 +609,13 @@ func _reachable(w: Transform3D) -> Transform3D:
 	# La sinistra va sul suo appoggio vero: se non ci arriva è l'arma che arretra lungo la canna verso la spalla
 	# (calcio in spalla), non la mano che scivola indietro sotto il castello.
 	var left: Dictionary = _motion.grip("l")
-	if _motion.is_gun() and not left.is_empty():
+	# Vale anche per le armi bianche a due mani (spade, katana, mazze): lì l'arma non arretra (sposterebbe il colpo),
+	# va solo la spalla incontro alla mano. Prima la sinistra scivolava fino a 28 cm fuori dal manico.
+	if not left.is_empty():
 		var left_shoulder: Vector3 = skeleton.get_bone_global_pose(skeleton.find_bone("upperarm_l")).origin
 		var barrel: Vector3 = (w.basis * Vector3.UP).normalized()
 		# In mira la tacca deve restare lontana dall'occhio: lì l'arma arretra poco e la sinistra, fuori quadro, scivola.
-		var room: float = lerpf(0.3, 0.05, _motion._aim_w)
+		var room: float = lerpf(0.3, 0.05, _motion._aim_w) if _motion.is_gun() else 0.0
 		for i in 3:
 			var hand: Array = ToolMotion.fist_for(w, left, "l", left_shoulder, Vector3.UP, 0.078, 0.029, 99.0, _motion.left_shift, _motion.edge_w)
 			var over: float = minf(((hand[0] as Vector3) - left_shoulder).length() - (ARM_REACH - 0.01), room)
