@@ -32,6 +32,16 @@ func run():
 	life.attack_noise(p)
 	check(zombie.state == zombie.State.CHASE, "Pistola: zombie a 20 m sente e insegue")
 	check(life.noise_level > 0.9, "Indicatore del rumore al massimo dopo lo sparo")
+	# La storia insegna il rumore prima del primo boss: il passo della fattoria viene prima dell'esca.
+	var quest = world.quest
+	check(quest.NOISE < quest.GET_BAIT and quest.NOISE < quest.FOREST_BOSS, "Il passo del rumore viene prima del primo boss")
+	quest.stage = quest.NOISE
+	var told: String = " ".join(quest.lines()) + " " + quest.detail()
+	check(told.contains("Accucciato") and told.contains("sparo"), "Il passo del rumore spiega accucciarsi e sparo")
+	p.global_position = quest.Layout.FARM + Vector3(10, 0.5, 0)
+	quest.arrive(p)
+	check(quest.farm_told and world.quest.target().distance_to(quest.Layout.FARM) < 0.1, "Alla fattoria arriva la lezione e il GPS ci porta")
+	quest.reset()
 	# Sacco della morte.
 	p.carried_heads = 5
 	life.drop_sack(p)

@@ -52,6 +52,13 @@ func _run() -> void:
 	samples.append(world.zone_gates.labels[0].text)
 	samples.append(world.village.context(world.player) if false else Localization_t(loc, "E  APRI {0}", [Localization_t(loc, "LA CASSA MEDICA")]))
 	samples.append(shown(mission.prompt()) + " | " + shown(mission.title()))
+	# Ogni passo della storia della Zona 1: obiettivo, dettaglio, elenco dei passi e battute dello sceriffo.
+	var quest: Node3D = world.quest
+	for step in quest.DONE + 1:
+		quest.stage = step
+		samples.append("%d: %s | %s | %s" % [step, quest.title(), quest.detail(), " ".join(quest.lines())])
+	samples.append(quest.steps_text())
+	quest.reset()
 	for text in samples:
 		var leftover := ""
 		for word in italian:
