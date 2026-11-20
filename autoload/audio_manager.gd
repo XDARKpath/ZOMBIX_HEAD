@@ -348,8 +348,46 @@ func weapon_swing_at(equipped: String, at: Vector3) -> void:
 	play_3d("swing_" + _weapon_family(equipped), at, -6.0, randf_range(0.94, 1.06), 18.0)
 
 
-func footstep(pitch: float) -> void:
-	play_sfx("footstep", -14.0, pitch)
+func footstep(pitch: float, volume_db: float = -14.0) -> void:
+	play_sfx("footstep", volume_db, pitch)
+
+
+# Porte, saracinesche, botola: da dove si aprono, udibili fino a 30 m.
+func door(open: bool, at: Vector3) -> void:
+	play_3d("world_door_open" if open else "world_door_close", at, -4.0, randf_range(0.95, 1.05), 30.0)
+
+
+func gate(open: bool, at: Vector3) -> void:
+	play_3d("world_gate_open" if open else "world_gate_close", at, -3.0, randf_range(0.95, 1.03), 36.0)
+
+
+func hatch(at: Vector3) -> void:
+	play_3d("world_hatch", at, -4.0, randf_range(0.95, 1.05), 24.0)
+
+
+func head_pickup(at: Vector3) -> void:
+	play_3d("world_head_pickup", at, -4.0, randf_range(0.92, 1.08), 14.0)
+
+
+# Un infetto ti ha sentito e viene a cercarti (senza l'urlo di chi ti vede): ringhio corto dal suo punto.
+func zombie_notice(at: Vector3) -> void:
+	play_3d("world_notice", at, -6.0, randf_range(0.94, 1.08), 26.0)
+
+
+# Fuoco acceso nel mondo: crepitio in giro continuo, si sente da vicino.
+func fire_loop(parent: Node3D, at: Vector3, volume_db: float = -8.0) -> void:
+	if DisplayServer.get_name() == "headless" or not ResourceLoader.exists("res://audio/fire.ogg"):
+		return
+	var crackle := AudioStreamPlayer3D.new()
+	crackle.name = "Crackle"
+	crackle.stream = loop_stream("res://audio/fire.ogg")
+	crackle.bus = "SFX"
+	crackle.volume_db = volume_db
+	crackle.unit_size = 3.0
+	crackle.max_distance = 18.0
+	crackle.autoplay = true
+	crackle.position = at
+	parent.add_child(crackle)
 
 
 # Un suono continuo (vento, fuoco, motore): stesso file, in giro senza stacchi.

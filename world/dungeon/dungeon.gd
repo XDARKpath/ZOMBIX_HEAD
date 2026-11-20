@@ -372,6 +372,7 @@ func set_gate(gname: String, open: bool) -> void:
 		return
 	gates[gname].open = open
 	if gname == "uscita":
+		AudioManager.door(open, _boss_door[0].global_position + Vector3.UP * 1.5)
 		var tw2 := create_tween().set_parallel(true)
 		for i in _boss_door.size():
 			var sgn := 1.0 if i == 0 else -1.0
@@ -383,6 +384,7 @@ func set_gate(gname: String, open: bool) -> void:
 			_push_state()
 		return
 	var g: Node3D = gates[gname].node
+	AudioManager.gate(open, g.global_position + Vector3.UP * 1.5)
 	var tw := create_tween()
 	tw.tween_property(g, "position:y", gates[gname].y0 + (3.7 if open else 0.0), 1.6 if open else 0.45) \
 		.set_trans(Tween.TRANS_SINE if open else Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT if open else Tween.EASE_IN)
@@ -767,6 +769,7 @@ func _do(actor: CharacterBody3D, action: String) -> void:
 
 ## Dalla botola della Rocca (host): giù nell'ingresso della Cripta.
 func enter(actor: CharacterBody3D) -> void:
+	AudioManager.hatch(to_global(cell_pos(Vector2i(1, 1)) + Vector3(2, 1.5, 0)))
 	_teleport(actor, to_global(cell_pos(Vector2i(1, 1)) + Vector3(2, 0.3, 0)))
 	world.announce("LA CRIPTA · Labirinto, segrete, cisterna. In fondo la sala dei secondini tiene bloccata l'arena.", 6)
 

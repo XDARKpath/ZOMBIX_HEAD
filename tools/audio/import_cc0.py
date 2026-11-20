@@ -161,6 +161,18 @@ SFX = {
     "explosion": [v(BOOM, "synthetic_explosion_1.flac", None, 1.0, 2.5), v(BOOM, "synthetic_explosion_1.flac", None, 0.82, 2.8)],
     "footstep": many(RPG, ["footstep00.ogg", "footstep01.ogg", "footstep02.ogg", "footstep03.ogg", "footstep04.ogg"], None, 1.0, 0.5),
 }
+# Mondo e avvisi (prefisso world_, si rifanno da soli con: ... -- <audio_raw> <progetto> world_).
+WORLD_SFX = {
+    "world_door_open": many(RPG, ["doorOpen_1.ogg", "doorOpen_2.ogg"], None, 0.9, 1.6),
+    "world_door_close": many(RPG, ["doorClose_1.ogg", "doorClose_2.ogg"], None, 0.9, 1.2),
+    "world_gate_open": [v(WM, "metal_open_01.ogg", None, 0.62, 2.2), v(WM, "metal_spring_01.ogg", None, 0.6, 2.0)],
+    "world_gate_close": [v(WM, "metal_slam_01.ogg", None, 0.75, 1.6)],
+    "world_hatch": [v(RPG, "creak1.ogg", None, 0.8, 1.6), v(WM, "wood_squeak_01.ogg", None, 0.8, 1.6)],
+    "world_head_pickup": [v(SLI, "slime_03.ogg", None, 0.85, 0.6), v(SLI, "slime_07.ogg", None, 0.85, 0.6), v(RPG, "dropLeather.ogg", None, 0.9, 0.6)],
+    # Un infetto ti ha sentito: un ringhio corto, diverso dall'urlo d'allerta di chi ti vede.
+    "world_notice": [v(SNARL, "monster-snarls_0.ogg", 0, 1.15, 0.9), v(SNARL, "monster-snarls-2_0.ogg", 0, 1.1, 0.9)],
+}
+SFX.update(WORLD_SFX)
 CUT_NOTES = {
     "reload_break_open": "sostituto: apertura metallica generica, nessuna doppietta CC0",
     "reload_break_close": "sostituto: chiusura metallica generica, nessuna doppietta CC0",
@@ -183,6 +195,9 @@ def level(key):
     if key.startswith("fire_") or key.startswith("weapon_fire"): return -4.0
     if key.startswith("swing") or key in ("swing",): return -13.0
     if key.startswith("zombie_step") or key == "footstep": return -18.0
+    if key == "world_notice": return -12.0
+    if key == "world_head_pickup": return -14.0
+    if key.startswith("world_"): return -11.0
     if key.startswith("menu"): return -18.0
     if key == "boss_defeat" or key == "explosion": return -3.0
     if key.startswith("zombie") or key.startswith("boss"): return -9.0
@@ -328,6 +343,10 @@ def cuts_section():
         for i, (pack, name, part, pitch, _) in enumerate(rows):
             if isinstance(part, tuple):
                 out.append("| audio/sfx/%s%s.wav | %s | %s | %.3f-%.3f s | %s | CC0 (https://opengameart.org/content/%s) | %s |" % (key, "" if i == 0 else "_%d" % (i + 1), pack, name, part[0], part[1], pitch, pack, CUT_NOTES.get(key, "")))
+    out += ["", "## Mondo e avvisi", "", "Porte, cancelli, botola, testa raccolta, infetto che ti sente. Pezzo = tratto rumoroso del file (\"intero\" = dal primo all'ultimo).", "", "| File | Raccolta | Sorgente | Pezzo | Tono | Licenza |", "|---|---|---|---|---|---|"]
+    for key, rows in WORLD_SFX.items():
+        for i, (pack, name, part, pitch, _) in enumerate(rows):
+            out.append("| audio/sfx/%s%s.wav | %s | %s | %s | %s | CC0 (https://opengameart.org/content/%s) |" % (key, "" if i == 0 else "_%d" % (i + 1), pack, name, "intero" if part is None else str(part), pitch, pack))
     return out
 
 

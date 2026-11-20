@@ -966,6 +966,7 @@ func _scream(victim: CharacterBody3D) -> void:
 func _voice(action: String) -> void:
 	if dead:
 		return
+	if action == "alert": _alert_voiced_at = clock
 	if kind == 5 and custom_skin != "":
 		if action in ["alert", "attack"]:
 			AudioManager.boss_voice(voice_id, action, global_position + Vector3.UP * 2.4, -3.0)
@@ -979,7 +980,17 @@ func _voice(action: String) -> void:
 	else:
 		AudioManager.zombie_voice(kind, action, global_position + Vector3.UP * 1.3, -4.0 if action == "attack" else -7.0)
 
+## Ti ha sentito (passi, colpi, spari) e parte a cercarti senza l'urlo d'allerta: ringhio corto, diverso.
+var _alert_voiced_at := -99.0
+var _was_chasing := false
+func _audio_notice() -> void:
+	var chasing: bool = state == State.CHASE and not dead
+	if chasing and not _was_chasing and kind != 5 and clock - _alert_voiced_at > 1.5:
+		AudioManager.zombie_notice(global_position + Vector3.UP * 1.3)
+	_was_chasing = chasing
+
 func _audio_steps(delta: float) -> void:
+	_audio_notice()
 	if dead or not is_on_floor():
 		return
 	if Vector2(velocity.x, velocity.z).length() < 0.18:

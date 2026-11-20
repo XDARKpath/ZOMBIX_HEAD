@@ -242,6 +242,14 @@ func thrown_state(rows:Array) -> void:
 func thrown_sync(rows:Array) -> void:
 	thrown_state(rows)
 ## Gesto visto dagli altri giocatori (zx_avatar_driver legge il meta): lancio, cura, consegna, raccolta, saluto.
+## Testa raccolta: il suono si sente da tutti, non solo dall'host.
+func _head_sound(at:Vector3) -> void:
+	head_picked(at)
+	if Session.online and multiplayer.is_server():
+		for other in Session.connected_peers():head_picked.rpc_id(other,at)
+@rpc("authority","call_remote","reliable")
+func head_picked(at:Vector3) -> void:
+	AudioManager.head_pickup(at)
 func gesture(a:CharacterBody3D,what:String) -> void:
 	_set_gesture(a,what)
 	if Session.online and multiplayer.is_server():
@@ -549,7 +557,7 @@ func act(peer:int,action:String) -> bool:
 		if _near(a,row[3],2.6):
 			if not a.can_take(row[4]):
 				world.announce(Localization.t("NE PORTI GIÀ {0} · VAI DALLO SCERIFFO",[ItemInfo.MAX_STACK]) if a.items.has(row[4]) else Localization.t("TASCHE PIENE · Q LANCIA O X LASCIA QUELLO CHE HAI IN MANO"),4);return false
-			gesture(a,"pickup")
+			gesture(a,"pickup");_head_sound(row[3])
 			a.add_item(row[4]);heads.erase(row);_publish();return true
 	for row in thrown.duplicate():
 		if not is_instance_valid(row["node"]) or not _near(a,row["node"].global_position,2.6):continue
