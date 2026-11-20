@@ -114,22 +114,41 @@ func _run() -> void:
 	await wait(3)
 	rules.act(1, "quest:talk")
 	check(quest.stage == quest.KILL_TWO, "Lo sceriffo ti manda a uccidere")
-	check(mission.target_point().z < -50.0, "Senza teste il GPS porta nel prato")
+	var hunt: Vector3 = mission.target_point()
+	check(not Layout.safe(hunt), "Senza teste il GPS porta fuori dal recinto")
+	var on_infected := false
+	for e in world.targets:
+		if is_instance_valid(e) and not e.dead and e.global_position.distance_to(hunt) < 0.1: on_infected = true
+	check(on_infected, "Il primo obiettivo è un infetto vivo, non un punto fisso nel prato")
 	p.add_item("item_testa"); p.add_item("item_testa")
 	p.equip_id("item_testa")
 	check(mission.target_point().distance_to(Layout.SHERIFF_NPC) < 0.1, "Con le teste il GPS torna allo sceriffo")
 	var bank: int = p.credits
 	rules.act(1, "sell:item_testa"); rules.act(1, "sell:item_testa")
 	check(p.credits == bank + 50, "Teste normali pagate 25 l'una")
-	check(quest.stage == quest.MORE_AND_WEAPON, "Dopo 2 teste ne vuole di più e un'arma")
+	check(quest.stage == quest.WEAPON, "Dopo 2 teste ti manda da Big Earl")
+	check(mission.target_point().distance_to(Layout.SHOP_NPC) < 0.1, "Il GPS porta all'Emporio di Big Earl")
+	quest.arrive(p)
+	check(quest.stage == quest.WEAPON, "Da Big Earl senza arma non si va avanti")
+	p.owned.append("pistol")
+	p.reset_at(Layout.SHOP_NPC + Vector3(1.0, 0.3, 0))
+	await wait(3)
+	quest.arrive(p)
+	check(quest.stage == quest.NOISE and quest.weapon_bought, "Armato da Big Earl: si va alla fattoria")
+	check(mission.target_point().distance_to(Layout.FARM) < 0.1, "Senza teste il GPS porta alla fattoria")
+	check(" ".join(quest.lines()).contains("Accucciato") and " ".join(quest.lines()).contains("sparo"), "Il passo della fattoria insegna il rumore")
+	p.reset_at(Layout.FARM + Vector3(12, 0.5, 12))
+	await wait(3)
+	quest.arrive(p)
+	check(quest.farm_told, "Alla fattoria arriva la lezione sul rumore")
+	p.reset_at(Layout.SHERIFF_NPC + Vector3(-1.5, 0.3, 0))
+	await wait(3)
 	p.add_item("item_testa_bruto"); p.equip_id("item_testa_bruto")
 	bank = p.credits
 	rules.act(1, "sell:item_testa_bruto")
 	check(p.credits == bank + 100, "La testa di bruto vale di più")
 	p.add_item("item_testa"); p.add_item("item_testa"); p.equip_id("item_testa")
 	rules.act(1, "sell:item_testa"); rules.act(1, "sell:item_testa")
-	check(quest.stage == quest.MORE_AND_WEAPON, "Le teste non bastano senza arma")
-	quest.on_weapon_bought()
 	check(quest.stage == quest.GET_BAIT, "Con arma e 5 teste è pronto")
 	rules.act(1, "quest:talk")
 	check(quest.stage == quest.FOREST_BOSS and p.baits == 1, "Lo sceriffo dà l'esca")
@@ -166,11 +185,15 @@ func _run() -> void:
 	check(quest.stage == quest.BRING_FOREST and mission.collected[0], "Il boss morto dà il primo pezzo del 4×4")
 	check(p.items.has("item_testa_capomacello"), "Il boss morto dà la sua testa")
 	check(ItemInfo.head_price("item_testa_capomacello") > ItemInfo.head_price("item_testa_bruto"), "La testa del boss vale molto di più")
-	check(mission.target_point().distance_to(Layout.SHERIFF_NPC) < 0.1, "Il GPS riporta allo sceriffo")
+	check(mission.target_point().distance_to(Layout.SHOP_NPC) < 0.1, "Il GPS porta la batteria a Big Earl")
 	p.reset_at(Layout.SHERIFF_NPC + Vector3(-1.5, 0.3, 0))
 	await wait(3)
 	rules.act(1, "quest:talk")
-	check(quest.stage == quest.VILLAGE_BOSS and p.baits == 1, "Lo sceriffo manda al villaggio con una nuova esca")
+	check(quest.stage == quest.BRING_FOREST and p.baits == 0, "Lo sceriffo non ripete: la prossima esca ce l'ha Big Earl")
+	p.reset_at(Layout.SHOP_NPC + Vector3(1.0, 0.3, 0))
+	await wait(3)
+	quest.arrive(p)
+	check(quest.stage == quest.VILLAGE_BOSS and p.baits == 1, "Big Earl prende la batteria e dà la nuova esca")
 
 	# Borgo Cenere
 	const VL := preload("res://world/villaggio/villaggio_layout.gd")
@@ -243,10 +266,13 @@ func _run() -> void:
 		if is_instance_valid(e): e.set_physics_process(false)
 	village.set_process(false)
 	p.health = 100.0
-	p.reset_at(Layout.SHERIFF_NPC + Vector3(-1.5, 0.3, 0))
+	check(mission.target_point().distance_to(world.rocca.guide_pos) < 0.1, "Dopo il Macellaio il GPS porta al falò di Bruno")
+	world.terrain.ensure_near([world.rocca.guide_pos])
+	p.reset_at(world.rocca.guide_pos + Vector3(2.5, 0.5, 0))
 	await wait(3)
-	rules.act(1, "quest:talk")
-	check(quest.stage == quest.DUNGEON, "Lo sceriffo manda al dungeon")
+	p.health = 30.0
+	quest.arrive(p)
+	check(quest.stage == quest.DUNGEON and p.health == p.max_health(), "Al falò di Bruno si riprende fiato e si va alla Rocca")
 	# Rocca: si cammina su per la gradinata, oltre il portone e giù per la scala, e si entra senza premere niente.
 	p.inventory_slots = 8
 	var tower: Node3D = world.rocca.entrance_node
@@ -281,7 +307,8 @@ func _run() -> void:
 	world.rocca._boss_down()
 	quest.on_boss(2)
 	check(quest.stage == quest.BRING_DUNGEON and mission.collected[2] and p.items.has("item_testa_carceriere"), "Il Carceriere dà la testa e l'ultimo pezzo")
-	check(mission.stage == 0, "La riparazione aspetta la chiacchierata con lo sceriffo")
+	check(mission.stage == 0, "La riparazione aspetta i pezzi al 4×4")
+	check(mission.target_point().distance_to(mission.car.global_position) < 0.1, "Il GPS porta al 4×4")
 
 	# Salvataggio a metà
 	var snapshot: int = quest.stage
@@ -291,11 +318,29 @@ func _run() -> void:
 	check(quest.stage == snapshot, "Il salvataggio riprende dal punto della storia")
 	check(p.items.has("item_testa_carceriere"), "Il salvataggio tiene le teste per tipo")
 
-	# Fine
-	p.reset_at(Layout.SHERIFF_NPC + Vector3(-1.5, 0.3, 0))
+	# Salvataggi di prima dei passi nuovi (11 passi): ognuno riprende dal passo giusto.
+	var before: int = quest.stage
+	var kept := [quest.delivered, quest.weapon_bought, quest.carceriere_dead]
+	for row in [[{"stage": 1}, quest.KILL_TWO], [{"stage": 2}, quest.WEAPON], [{"stage": 2, "weapon": true}, quest.NOISE],
+			[{"stage": 3}, quest.GET_BAIT], [{"stage": 5}, quest.BRING_FOREST], [{"stage": 7}, quest.BRING_VILLAGE], [{"stage": 10}, quest.DONE],
+			[{"stage": quest.DONE}, quest.DONE], [{"v": 2, "stage": quest.NOISE}, quest.NOISE]]:
+		quest.load_data(row[0])
+		check(quest.stage == row[1], "Salvataggio %s → passo %d" % [row[0], row[1]])
+	quest.stage = before
+	quest.delivered = kept[0]; quest.weapon_bought = kept[1]; quest.carceriere_dead = kept[2]
+	# I passi: tutti diversi, e lo sceriffo non ti richiama più di due volte.
+	var sheriff_steps := 0
+	for text in quest.STEPS: sheriff_steps += int((text as String).contains("sceriffo"))
+	var unique := {}
+	for text in quest.STEPS: unique[text] = true
+	check(unique.size() == quest.STEPS.size() and sheriff_steps <= 2, "Passi tutti diversi, sceriffo solo in %d" % sheriff_steps)
+	check(quest.STEPS.size() == quest.DONE + 1, "Un passo scritto per ogni stato")
+
+	# Fine: si portano i pezzi al 4×4
+	p.reset_at(mission.car.global_position + Vector3(2.5, 0.3, 0))
 	await wait(3)
-	rules.act(1, "quest:talk")
-	check(quest.finished() and mission.stage == 1, "Con tre pezzi si ripara il 4×4")
+	quest.arrive(p)
+	check(quest.finished() and mission.stage == 1, "Con tre pezzi portati al 4×4 si ripara")
 	check(mission.title() == "RIPARA IL 4×4", "L'obiettivo diventa la riparazione")
 	check(world.rocca.GUIDE_INTRO[3].contains("scala") and not " ".join(world.rocca.GUIDE_INTRO).contains("miniera"), "Bruno non parla più della miniera")
 	check(world.village.get_node_or_null("BorgoNav/Borgo/Piazza") != null, "Borgo Cenere esiste")

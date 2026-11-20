@@ -49,8 +49,11 @@ func _run() -> void:
 	# Fine della Zona 1: tre pezzi, lo sceriffo, la riparazione.
 	for i in 3: quest.on_boss(i)
 	quest.stage = quest.BRING_DUNGEON
-	quest.talk(p)
-	check(quest.finished() and mission.stage == 1, "Con tre pezzi si passa alla riparazione")
+	screens("Pezzi da portare al 4×4")
+	p.reset_at(car.global_position + Vector3(2.5, 0.3, 0))
+	await wait(3)
+	quest.arrive(p)
+	check(quest.finished() and mission.stage == 1, "Con tre pezzi portati al 4×4 si passa alla riparazione")
 	screens("Riparazione")
 	p.reset_at(car.global_position + Vector3(2.0, 0.3, 0))
 	await wait(3)
