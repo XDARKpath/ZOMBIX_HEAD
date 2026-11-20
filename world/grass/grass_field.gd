@@ -299,7 +299,9 @@ static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
 	var p := Vector2(x, z)
 	# L'erba arriva al ciglio dell'asfalto: niente più spalle grigie o strisce
 	# verdi artificiali. La transizione è breve e irregolare grazie al rumore.
-	var road: float = minf(Route.road_distance(p) - 3.55, RoadNet.distance(p) - 3.4)
+	# Rami: mezzo nastro (2,2 m) più l'imbuto degli incroci, con la stessa formula dell'asfalto (terrain.gd).
+	var funnel := 1.0 + 0.55 * pow(1.0 - clampf(RoadNet.junction_distance(p) / 16.0, 0.0, 1.0), 2.0)
+	var road: float = minf(Route.road_distance(p) - 3.55, RoadNet.distance(p) - RoadNet.WIDTH * 0.5 * funnel - 0.1)
 	road = minf(road, _segment_distance(p, ROAD_END_A, ROAD_END_B) - 3.7)
 	var d := smoothstep(0.0, 0.45, road)
 	d *= smoothstep(5.0, 9.0, RoadNet.arena_distance(p))

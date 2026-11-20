@@ -26,7 +26,7 @@ func build() -> void:
 	for i in range(220):
 		var x := rng.randf_range(-125,130)
 		var z := rng.randf_range(-225,11)
-		if absf(x-6)<9.5: continue
+		if preload("res://world/campaign/route.gd").road_distance(Vector2(x,minf(z,-6.0)))<9.5: continue
 		# Posto auto del 4×4 accanto all'ufficio dello sceriffo.
 		if Vector2(x,z).distance_to(Vector2(19.5,3.6))<6.5: continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").distance(Vector2(x,z))<8.5: continue

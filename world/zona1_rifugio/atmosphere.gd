@@ -111,7 +111,7 @@ static func grass(parent: Node3D, count: int, width: float, depth: float, center
 		var z := rng.randf_range(-depth*0.5,depth*0.5)+center.z
 		if field:
 			if preload("res://world/zona1_rifugio/refuge_layout.gd").occupied(x,z): continue
-			if absf(x-6)<(10.5 if z>-74 else 4.2) or z>11: continue
+			if preload("res://world/campaign/route.gd").road_distance(Vector2(x,minf(z,-6.0)))<(10.5 if z>-74 else 4.2) or z>11: continue
 			if preload("res://world/zona1_rifugio/refuge_layout.gd").safe(Vector3(x,0,z)): continue
 			if preload("res://world/zona1_rifugio/roadnet.gd").distance(Vector2(x,z))<3.4: continue
 			if preload("res://world/zona1_rifugio/roadnet.gd").arena_distance(Vector2(x,z))<14.0: continue
@@ -147,7 +147,7 @@ func scatter_nature() -> void:
 		var x := rng.randf_range(-95,100)
 		var z := rng.randf_range(-215,10)
 		if layout.occupied(x,z) or layout.safe(Vector3(x,0,z)): continue
-		if absf(x-6)<(11.0 if z>-74 else 4.6): continue
+		if preload("res://world/campaign/route.gd").road_distance(Vector2(x,minf(z,-6.0)))<(11.0 if z>-74 else 4.6): continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").distance(Vector2(x,z))<4.0: continue
 		if preload("res://world/zona1_rifugio/roadnet.gd").arena_distance(Vector2(x,z))<15.0: continue
 		var at := Vector3(x,world.landscape.height(x,z),z)
@@ -166,7 +166,7 @@ func forest(id: String) -> Node3D:
 func _undergrowth_spot(layout, x: float, z: float) -> bool:
 	if layout.occupied(x,z) or layout.safe(Vector3(x,0,z)): return false
 	# Marciapiedi, asfalto e arene restano puliti: la vegetazione parte oltre il cordolo.
-	if absf(x-6.0)<5.4: return false
+	if preload("res://world/campaign/route.gd").road_distance(Vector2(x,minf(z,-6.0)))<5.4: return false
 	if preload("res://world/zona1_rifugio/roadnet.gd").distance(Vector2(x,z))<4.0: return false
 	if preload("res://world/zona1_rifugio/roadnet.gd").arena_distance(Vector2(x,z))<14.5: return false
 	return true
