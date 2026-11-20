@@ -185,11 +185,13 @@ func _process_modification() -> void:
 	if motion.is_gun() and not left_row.is_empty():
 		var shoulder: Vector3 = sk.get_bone_global_pose(_ids["upperarm_l"]).origin
 		var barrel: Vector3 = (w.basis * Vector3.UP).normalized()
-		for i in 3:
+		for i in 6:
 			var hand: Array = _fist(sk, "l", w, left_row, motion.left_shift, up, 99.0)
-			var over: float = ((hand[0] as Vector3) - shoulder).length() - (ARM_REACH - 0.01)
+			var off: Vector3 = (hand[0] as Vector3) - shoulder
+			var over: float = off.length() - (ARM_REACH - 0.01)
 			if over <= 0.0: break
-			w.origin -= barrel * over
+			# Prima arretra lungo la canna; se non basta (pose di ricarica di sbieco) va verso la spalla, che converge sempre.
+			w.origin -= (barrel if i < 3 else off.normalized()) * over
 	if _left_w < 1.0:
 		# Mano libera: lungo il fianco, segue il busto ma non vola via con la clip.
 		# Durante il colpo a una mano la sinistra si apre per bilanciare, dalla parte opposta all'ascia.
@@ -197,12 +199,6 @@ func _process_modification() -> void:
 		var free_at := RELAXED_LEFT.lerp(Vector3(0.40, 1.04, 0.26), balance)
 		var at := rest.origin + turn * (free_at - rest.origin) + (chest.origin - rest.origin)
 		_reach(sk, "l", at, turn * Vector3(0, -1, 0.15), turn * Vector3(-1, 0, 0), Vector3(0.6, -0.6, -0.5), 1.0)
-	var left_grip: Dictionary = motion.grip("l")
-	if not left_grip.is_empty():
-		var left: Array = _fist(sk, "l", w, left_grip, motion.left_shift, up)
-		# Col fucile il gomito sinistro sta in fuori e in basso, sotto il paramano: l'avambraccio non taglia il petto.
-		var pole := Vector3(1.0, -0.8, 0.35) if motion.is_gun() and kind != "pistol" else Vector3(0.45, -1.0, -0.1)
-		_reach(sk, "l", left[0], left[1], left[2], pole, _left_w)
 	var right: Array = _fist(sk, "r", w, motion.grip("r"), Vector3.ZERO, up)
 	_reach(sk, "r", right[0], right[1], right[2], Vector3(-0.45, -1.0, -0.1), 1.0)
 	_fingers(sk, "r", PISTOL if motion.is_gun() else POWER)
@@ -214,6 +210,14 @@ func _process_modification() -> void:
 	_hold = hold
 	_has_hold = true
 	var final := Transform3D(real.basis.orthonormalized(), real.origin) * hold
+	# La sinistra si chiude sull'arma VERA (quella appesa alla destra), non su quella voluta:
+	# se la destra non arriva fino in fondo l'arma si sposta e la sinistra la segue invece di restare in aria.
+	var left_grip: Dictionary = motion.grip("l")
+	if not left_grip.is_empty():
+		var left: Array = _fist(sk, "l", final, left_grip, motion.left_shift, up)
+		# Col fucile il gomito sinistro sta in fuori e in basso, sotto il paramano: l'avambraccio non taglia il petto.
+		var pole := Vector3(1.0, -0.8, 0.35) if motion.is_gun() and kind != "pistol" else Vector3(0.45, -1.0, -0.1)
+		_reach(sk, "l", left[0], left[1], left[2], pole, _left_w)
 	var parent := sk.get_bone_global_pose(sk.get_bone_parent(_anchor))
 	var inside := parent.affine_inverse() * final
 	sk.set_bone_pose_position(_anchor, inside.origin)

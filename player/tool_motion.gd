@@ -615,11 +615,18 @@ func tick(delta: float, swing: Array, charge: float, guard: bool, sprint: bool, 
 	rot = rot.slerp(goal_r, k)
 	# Nel colpo le nocche vanno dietro al filo, come in una vera accettata.
 	edge_w = move_toward(edge_w, 1.0 if not swing.is_empty() else 0.0, delta * 7.0)
-	# Molle: rapide ad assorbire, senza oscillazioni lunghe.
-	_spring_pv += (-_spring_p * 260.0 - _spring_pv * 22.0) * delta
-	_spring_p += _spring_pv * delta
-	_spring_rv += (-_spring_r * 200.0 - _spring_rv * 18.0) * delta
-	_spring_r += _spring_rv * delta
+	# Molle: rapide ad assorbire, senza oscillazioni lunghe. Integrate a sotto-passi da 1/60 s:
+	# con Eulero sul delta grezzo, sotto ~12 fps esplodevano in inf/NaN e mani e arma restavano rotte.
+	var left := minf(delta, 0.25)
+	while left > 0.0:
+		var dt := minf(left, 1.0 / 60.0)
+		left -= dt
+		_spring_pv += (-_spring_p * 260.0 - _spring_pv * 22.0) * dt
+		_spring_p += _spring_pv * dt
+		_spring_rv += (-_spring_r * 200.0 - _spring_rv * 18.0) * dt
+		_spring_r += _spring_rv * dt
+	if not (_spring_p.is_finite() and _spring_pv.is_finite() and _spring_r.is_finite() and _spring_rv.is_finite()):
+		_spring_p = Vector3.ZERO; _spring_pv = Vector3.ZERO; _spring_r = Vector3.ZERO; _spring_rv = Vector3.ZERO
 
 
 ## La sinistra durante la ricarica, sugli eventi di zx_arsenal.RELOAD_STEPS: il gesto cade dove salgono i colpi.
