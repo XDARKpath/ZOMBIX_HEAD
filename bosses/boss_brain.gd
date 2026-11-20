@@ -47,6 +47,9 @@ var move: Dictionary = {}
 var last_moves: Array = []
 var cooldowns: Dictionary = {}
 var gap_left := 1.0
+const STUN_GUARD := 2.0
+var _clock_now := 0.0
+var _stunned_at := {}              # giocatore -> quando questo boss lo ha stordito l'ultima volta
 var stun := 0.0
 var stun_len := 1.0
 var exposed := 0.0
@@ -200,6 +203,7 @@ func fx(kind: String, at: Vector3, data: Dictionary = {}) -> void:
 func tick(delta: float) -> void:
 	# L'ingresso ha già il suo ruggito: niente seconda pausa dopo.
 	if in_intro(): host.alert_time = 0.0
+	_clock_now += delta
 	_clocks(delta)
 	if stun > 0.0:
 		_stunned(delta)
@@ -589,6 +593,10 @@ func _hurt(a: CharacterBody3D, damage: float, from: Vector3, push: float, extra:
 	var data := {"knock": away * push + Vector3.UP * float(extra.get("up", 2.5)), "shake": float(extra.get("shake", 0.7)), "heavy": extra.get("heavy", true)}
 	for key in ["stun", "bleed", "slow", "poison", "fear"]:
 		if extra.has(key): data[key] = extra[key]
+	# Niente secondo stordimento entro STUN_GUARD s: un colpo dopo l'altro non deve tenerti a terra.
+	if data.has("stun"):
+		if _clock_now - float(_stunned_at.get(a, -INF)) < STUN_GUARD: data.erase("stun")
+		else: _stunned_at[a] = _clock_now
 	world.hit_player(a, damage * (1.0 + 0.12 * phase), data.merged({"env": true}) if extra.get("env", false) else data, from)
 
 
@@ -943,9 +951,10 @@ func _run_rush(delta: float) -> void:
 		return
 	if float(move.rush_left) <= 0.0:
 		var chain: Callable = move.get("rush_next", Callable())
+		var struck: bool = not (move.rush_hit as Array).is_empty()
 		move = {}
 		host.state = CHASE
-		if chain.is_valid():
+		if chain.is_valid() and not struck:   # se ti ha preso, la catena si ferma: niente colpi a terra
 			chain.call()
 			return
 		gap_left = GAP[style][phase]
@@ -1293,13 +1302,16 @@ func _options_signore(dist: float) -> Array:
 
 
 ## Tre scatti di seguito, ognuno con la sua linea: si legge il ritmo e ci si scansa ogni volta.
+## La linea resta a terra DASH_LEAD s in ogni fase (prima 0,13-0,16: sotto i riflessi umani).
+const DASH_LEAD := 0.42
 func _m_dash(left: int) -> void:
-	var windup: float = 0.46 - phase * 0.05
-	_start("dash", "Z_Attack_Lunge_Bite", windup, {"cooldown": 5.5, "aim_until": windup * 0.65, "steps": [[windup * 0.65, func() -> void:
-		var aim: Vector3 = _predict(windup * 0.35 + 0.3)
+	var windup: float = 0.62 - phase * 0.05
+	var mark: float = windup - DASH_LEAD
+	_start("dash", "Z_Attack_Lunge_Bite", windup, {"cooldown": 5.5, "aim_until": mark, "steps": [[mark, func() -> void:
+		var aim: Vector3 = _predict(DASH_LEAD + 0.3)
 		var way: Vector3 = (aim - host.global_position) * Vector3(1, 0, 1)
 		if way.length_squared() > 0.1: host.rotation.y = atan2(-way.x, -way.z)
-		fx("warn", host.global_position, {"shape": "line", "yaw": host.rotation.y, "len": 13.0, "width": 2.2, "t": windup * 0.35, "color": "danger"})],
+		fx("warn", host.global_position, {"shape": "line", "yaw": host.rotation.y, "len": 13.0, "width": 2.2, "t": DASH_LEAD, "color": "danger"})],
 		[windup, func() -> void:
 			move["rush"] = true
 			move["rush_left"] = 0.72

@@ -161,6 +161,8 @@ func _physics_process(delta: float) -> void:
 		exhausted = false
 	if local_control and controls_enabled and Input.is_action_just_pressed("jump"):
 		try_jump()
+	if local_control and controls_enabled and Input.is_action_just_pressed("dodge"):
+		try_dodge(direction)   # in rete il segnale dodge_started la manda all'host
 	sprinting = false
 	if knock_left > 0.0:
 		# Spinto da un colpo: per un attimo decide la spinta, non le gambe.
