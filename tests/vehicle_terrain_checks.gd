@@ -193,9 +193,12 @@ func grass() -> void:
 	var worst := 0.0
 	var worst_at := ""
 	var inside := 0
-	for key in field.holes:
-		var at: Transform3D = field.holes[key][0]
-		var box: AABB = field.holes[key][1]
+	field._update_holes(10.0)   # la buca del 4×4 fermo arriva in dissolvenza: qui la si porta subito al pieno
+	var all: Dictionary = field.holes.duplicate()
+	if not field._car_hole.is_empty(): all["ranger"] = field._car_hole
+	for key in all:
+		var at: Transform3D = all[key][0]
+		var box: AABB = all[key][1]
 		var c: Vector3 = at * box.get_center()
 		if c.x < Grass.ORIGIN.x or c.z < Grass.ORIGIN.y or c.x > Grass.ORIGIN.x + Grass.SIZE.x or c.z > Grass.ORIGIN.y + Grass.SIZE.y: continue
 		inside += 1
@@ -211,17 +214,19 @@ func grass() -> void:
 	field._dirty = true
 	field._update_holes()
 	var cost := (Time.get_ticks_usec() - t0) / 1000.0
-	print("  veicoli nel prato: %d (4×4 fermo: %s), densità massima negli abitacoli %.3f (%s), ridisegno maschera %.2f ms" % [inside, field.holes.has("ranger"), worst, worst_at, cost])
-	check(inside >= 5 and field.holes.has("ranger"), "Erba: buche sotto %d veicoli fermi, 4×4 parcheggiato compreso" % inside)
+	print("  veicoli nel prato: %d (4×4 fermo: %s), densità massima negli abitacoli %.3f (%s), ridisegno maschera %.2f ms" % [inside, all.has("ranger"), worst, worst_at, cost])
+	check(inside >= 5 and all.has("ranger"), "Erba: buche sotto %d veicoli fermi, 4×4 parcheggiato compreso" % inside)
 	check(worst < 0.05, "Erba: niente ciuffi negli abitacoli (densità massima %.3f)" % worst)
 	check(cost < 8.0, "Erba: ridisegno della maschera in %.2f ms" % cost)
-	# In moto il 4×4 non lascia la buca dove passa: sparisce e torna quando si ferma.
+	# In moto il 4×4 non lascia la buca dove passa: sfuma e torna quando si ferma.
 	car.speed = 6.0
-	field._update_holes()
-	var moving_gone: bool = not field.holes.has("ranger")
+	field._update_holes(0.1)
+	var fading: bool = field._car_fade > 0.0 and field._car_fade < 1.0
+	field._update_holes(10.0)
+	var moving_gone: bool = field._car_fade == 0.0
 	car.speed = 0.0
-	field._update_holes()
-	check(moving_gone and field.holes.has("ranger"), "Erba: la buca del 4×4 c'è solo da fermo")
+	field._update_holes(10.0)
+	check(fading and moving_gone and field._car_fade == 1.0, "Erba: la buca del 4×4 c'è solo da fermo e sfuma in marcia")
 
 
 func _run() -> void:

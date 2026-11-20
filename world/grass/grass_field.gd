@@ -15,8 +15,9 @@ const SPACING := 0.34
 const ROAD_END_A := Vector2(6.0, -6.5)
 const ROAD_END_B := Vector2(6.0, 2.6)
 const CELL := 8.0
-const ORIGIN := Vector2(-296, -560)    # multipli di 8: coincide con la griglia del terreno (a ovest arriva fino alla Rocca)
-const SIZE := Vector2(560, 600)
+# Tutta la Zona 1, multipli di 8 come la griglia del terreno: a ovest la Rocca, a est e a nord le pareti fra le zone.
+const ORIGIN := Vector2(-296, -1240)
+const SIZE := Vector2(896, 1280)
 const MASK_STEP := 2.0
 
 # Specie del prato, come un prato vero e non un tappeto: ogni strato ha la sua
@@ -50,14 +51,23 @@ const ZOMBIE_PUSH := 0.65
 # lette in lineare (ogni punto pesca le celle entro 2 m), quindi si spegne anche un bordo di VEHICLE_MARGIN attorno
 # (lì il terreno diventa terra battuta) e dentro, a 0,3 m dalla carrozzeria, non resta nemmeno un ciuffo.
 const VEHICLE_MARGIN := 1.7
+# Il fango sotto il 4×4 compare e sparisce in dissolvenza, non di colpo.
+const CAR_FADE_TIME := 1.5
 const VEHICLE_SCENES := ["res://art/zx_borgo/SM_Borgo_Car_Wreck", "res://art/zx_borgo/SM_Borgo_Police_Wreck", "res://art/zx_borgo/SM_Borgo_Truck_Wreck", "res://art/kaykit_city/car_"]
 
 var world: Node3D
 var layers: Array[GPUParticles3D] = []
 var density_texture: ImageTexture
 var process: ShaderMaterial
-var _base: Image                 # maschera senza veicoli
-var _mask: Image
+var _base: Image                 # maschera senza veicoli (null finché i thread la calcolano)
+var _static: Image               # con le buche dei relitti
+var _mask: Image                 # con anche il 4×4
+var heights_texture: ImageTexture
+var _task := -1
+var _rows: Array = []            # righe calcolate dai thread: prima la maschera, poi le altezze
+var _car_hole: Array = []        # [Transform3D, AABB] dell'ultimo parcheggio del 4×4
+var _car_fade := 0.0             # 0 = erba piena sotto il 4×4, 1 = buca piena
+var _car_rect := Rect2i()
 var _pending: Array[Node3D] = []
 var holes := {}                  # chiave di posizione -> [Transform3D, AABB locale]
 var _boxes := {}                 # scena -> AABB locale delle mesh
@@ -67,20 +77,19 @@ var _clock := 0.0
 func build(owner_world: Node3D) -> void:
 	world = owner_world
 	name = "GrassField"
-	var heights := _height_image()
-	var mask := _density_image()
-	_base = mask
-	_mask = mask.duplicate()
-	density_texture = ImageTexture.create_from_image(_mask)
+	# La maschera di tutta la Zona 1 la calcolano i thread mentre c'è il menu; fino ad allora niente erba.
+	density_texture = ImageTexture.create_from_image(Image.create(1, 1, false, Image.FORMAT_L8))
+	heights_texture = ImageTexture.create_from_image(Image.create(1, 1, false, Image.FORMAT_RF))
+	_start_mask()
 	world.get_tree().node_added.connect(_vehicle_added)
 	for n in world.get_tree().root.find_children("*", "Node3D", true, false): _vehicle_added(n)
 	add_to_group("grass_field")
 	process = ShaderMaterial.new()
 	process.shader = preload("res://world/grass/grass_particles.gdshader")
-	process.set_shader_parameter("heights", ImageTexture.create_from_image(heights))
+	process.set_shader_parameter("heights", heights_texture)
 	process.set_shader_parameter("height_origin", ORIGIN)
 	process.set_shader_parameter("height_cell", CELL)
-	process.set_shader_parameter("height_size", Vector2i(heights.get_width(), heights.get_height()))
+	process.set_shader_parameter("height_size", Vector2i(1, 1))
 	process.set_shader_parameter("density", density_texture)
 	process.set_shader_parameter("bounds", Vector4(ORIGIN.x, ORIGIN.y, SIZE.x, SIZE.y))
 	for spec in LAYERS:
@@ -101,10 +110,58 @@ func build(owner_world: Node3D) -> void:
 		layers.append(view)
 	var settings = world.get("settings_data")
 	set_quality(int(settings.get("vegetation", 2)) if settings is Dictionary else 2)
-	# Il terreno usa la stessa maschera: dove manca l'erba compare terra battuta.
-	var ground: ShaderMaterial = world.terrain.ground_material
-	ground.set_shader_parameter("grass_mask", density_texture)
-	ground.set_shader_parameter("mask_bounds", Vector4(ORIGIN.x, ORIGIN.y, SIZE.x, SIZE.y))
+	# Il terreno usa la stessa maschera: dove manca l'erba compare terra battuta (i limiti arrivano con la maschera).
+	world.terrain.ground_material.set_shader_parameter("grass_mask", density_texture)
+
+func _start_mask() -> void:
+	var clumps := _clumps()
+	# Le cache statiche (indici delle strade, luoghi, rumori) nascono qui: i thread poi leggono soltanto.
+	density_at(0.0, -300.0, clumps)
+	world.terrain.ground_height(0.0, -300.0)
+	Route.zone_wall(6.0, Route.WALL_Z)
+	_rows.resize(int(SIZE.y / MASK_STEP) + int(SIZE.y / CELL) + 1)
+	_task = WorkerThreadPool.add_group_task(_row.bind(clumps), _rows.size(), -1, false, "maschera dell'erba")
+
+func _row(i: int, clumps: FastNoiseLite) -> void:
+	var mask_rows := int(SIZE.y / MASK_STEP)
+	if i < mask_rows:
+		var bytes := PackedByteArray()
+		bytes.resize(int(SIZE.x / MASK_STEP))
+		var pz: float = ORIGIN.y + (i + 0.5) * MASK_STEP
+		for x in bytes.size(): bytes[x] = int(density_at(ORIGIN.x + (x + 0.5) * MASK_STEP, pz, clumps) * 255.0)
+		_rows[i] = bytes
+	else:
+		var floats := PackedFloat32Array()
+		floats.resize(int(SIZE.x / CELL) + 1)
+		var hz: float = ORIGIN.y + (i - mask_rows) * CELL
+		for x in floats.size(): floats[x] = world.terrain.ground_height(ORIGIN.x + x * CELL, hz)
+		_rows[i] = floats.to_byte_array()
+
+## Raccoglie le righe dei thread. A GIOCA, se il menu è durato poco, aspetta qui la fine del calcolo.
+func finish_mask() -> void:
+	if _task < 0: return
+	WorkerThreadPool.wait_for_group_task_completion(_task)
+	_task = -1
+	var mask_rows := int(SIZE.y / MASK_STEP)
+	var bytes := PackedByteArray()
+	for i in mask_rows: bytes.append_array(_rows[i])
+	_base = Image.create_from_data(int(SIZE.x / MASK_STEP), mask_rows, false, Image.FORMAT_L8, bytes)
+	var heights := PackedByteArray()
+	for i in range(mask_rows, _rows.size()): heights.append_array(_rows[i])
+	var size := Vector2i(int(SIZE.x / CELL) + 1, _rows.size() - mask_rows)
+	heights_texture.set_image(Image.create_from_data(size.x, size.y, false, Image.FORMAT_RF, heights))
+	_rows.clear()
+	_static = _base.duplicate()
+	_mask = _base.duplicate()
+	density_texture.set_image(_mask)
+	for view in layers: view.process_material.set_shader_parameter("height_size", size)
+	world.terrain.ground_material.set_shader_parameter("mask_bounds", Vector4(ORIGIN.x, ORIGIN.y, SIZE.x, SIZE.y))
+	_dirty = true
+
+func _exit_tree() -> void:
+	if _task >= 0:
+		WorkerThreadPool.wait_for_group_task_completion(_task)
+		_task = -1
 
 func _particles(p: ShaderMaterial, mesh: Mesh) -> GPUParticles3D:
 	var view := GPUParticles3D.new()
@@ -126,37 +183,56 @@ func _process(_delta: float) -> void:
 	if world and is_instance_valid(world.player):
 		global_position = world.player.global_position * Vector3(1, 0, 1)
 		_update_pushers()
+	if _task >= 0 and (world.get("started") or WorkerThreadPool.is_group_task_completed(_task)): finish_mask()
 	_clock -= _delta
-	if _clock <= 0.0:
-		_clock = 0.5
-		_update_holes()
+	if _clock <= 0.0 and _base:
+		_clock = 0.1
+		_update_holes(0.1)
 
 func _vehicle_added(node: Node) -> void:
 	if node is Node3D and node.scene_file_path != "":
 		for prefix in VEHICLE_SCENES:
 			if node.scene_file_path.begins_with(prefix): _pending.append(node)
 
-## Le posizioni arrivano dopo add_child: le buche si scavano al giro dopo. Il 4×4 conta solo da fermo.
-func _update_holes() -> void:
+## Le posizioni arrivano dopo add_child: le buche si scavano al giro dopo. La buca del 4×4 si apre da fermo e si
+## richiude in marcia in CAR_FADE_TIME; si ridisegna solo il suo rettangolo, non tutte le buche dei relitti.
+func _update_holes(step := 0.1) -> void:
 	for node in _pending:
 		if is_instance_valid(node) and node.is_inside_tree(): _hole(node, node.scene_file_path, node.global_transform)
 	_pending.clear()
 	var expedition = world.get("expedition")
 	var car = expedition.get("car") if expedition else null
-	if car and is_instance_valid(car) and car.visual:
-		var parked: bool = absf(car.speed) < 0.2
-		var old: Array = holes.get("ranger", [])
-		if not parked and not old.is_empty():
-			holes.erase("ranger"); _dirty = true
-		elif parked and (old.is_empty() or old[0].origin.distance_to(car.global_position) > 0.5 or old[0].basis.z.dot(car.global_basis.z) < 0.995):
-			_hole(car.visual.model, "ranger", car.global_transform, "ranger")
+	var target := 0.0
+	var moved := false
+	if car and is_instance_valid(car) and car.visual and absf(car.speed) < 0.2:
+		target = 1.0
+		if _car_hole.is_empty() or _car_hole[0].origin.distance_to(car.global_position) > 0.5 or _car_hole[0].basis.z.dot(car.global_basis.z) < 0.995:
+			_car_hole = [car.global_transform, _box(car.visual.model, "ranger")]
+			moved = true
+	var fade := move_toward(_car_fade, target, step / CAR_FADE_TIME)
+	var changed := _dirty
 	if _dirty:
 		_dirty = false
-		_mask.copy_from(_base)
-		for key in holes: _carve(holes[key][0], holes[key][1])
-		density_texture.update(_mask)
+		_static.copy_from(_base)
+		for key in holes: _carve(_static, holes[key][0], holes[key][1], 1.0)
+		_mask.copy_from(_static)
+		_car_rect = Rect2i()
+		moved = true
+	if moved or fade != _car_fade:
+		_car_fade = fade
+		if _car_rect.has_area(): _mask.blit_rect(_static, _car_rect, _car_rect.position)
+		_car_rect = _carve(_mask, _car_hole[0], _car_hole[1], _car_fade) if not _car_hole.is_empty() and _car_fade > 0.0 else Rect2i()
+		changed = true
+	if changed: density_texture.update(_mask)
 
-func _hole(node: Node3D, scene: String, at: Transform3D, key := "") -> void:
+func _hole(node: Node3D, scene: String, at: Transform3D) -> void:
+	var c := at * _box(node, scene).get_center()
+	# I relitti delle altre zone non toccano la maschera.
+	if not Rect2(ORIGIN, SIZE).grow(VEHICLE_MARGIN + 6.0).has_point(Vector2(c.x, c.z)): return
+	holes[str(at.origin.snapped(Vector3.ONE * 0.5))] = [at, _boxes[scene]]
+	_dirty = true
+
+func _box(node: Node3D, scene: String) -> AABB:
 	if not _boxes.has(scene):
 		var box := AABB()
 		var inv := node.global_transform.affine_inverse()
@@ -164,12 +240,11 @@ func _hole(node: Node3D, scene: String, at: Transform3D, key := "") -> void:
 			var b: AABB = (inv * (mi as MeshInstance3D).global_transform) * (mi as MeshInstance3D).mesh.get_aabb()
 			box = b if box.size == Vector3.ZERO else box.merge(b)
 		_boxes[scene] = box
-	if key == "": key = str(at.origin.snapped(Vector3.ONE * 0.5))
-	holes[key] = [at, _boxes[scene]]
-	_dirty = true
+	return _boxes[scene]
 
-## Celle della maschera a zero dove cade il veicolo (rettangolo ruotato, più il margine).
-func _carve(at: Transform3D, box: AABB) -> void:
+## Celle della maschera abbassate di "strength" dove cade il veicolo (rettangolo ruotato, più il margine).
+## Restituisce il rettangolo di celle toccato.
+func _carve(image: Image, at: Transform3D, box: AABB, strength: float) -> Rect2i:
 	var turn := at.basis.orthonormalized().inverse()
 	# Il margine è un quadrato allineato alla maschera: visto dal veicolo ruotato sporge di più (|cos| + |sin|).
 	var a := atan2(at.basis.x.z, at.basis.x.x)
@@ -178,11 +253,14 @@ func _carve(at: Transform3D, box: AABB) -> void:
 	var c := at * box.get_center()
 	var x0 := int(floor((c.x - reach - ORIGIN.x) / MASK_STEP)); var x1 := int(ceil((c.x + reach - ORIGIN.x) / MASK_STEP))
 	var z0 := int(floor((c.z - reach - ORIGIN.y) / MASK_STEP)); var z1 := int(ceil((c.z + reach - ORIGIN.y) / MASK_STEP))
-	for z in range(maxi(z0, 0), mini(z1, _mask.get_height() - 1) + 1):
-		for x in range(maxi(x0, 0), mini(x1, _mask.get_width() - 1) + 1):
+	var rect := Rect2i(Vector2i(maxi(x0, 0), maxi(z0, 0)), Vector2i.ZERO)
+	rect.end = Vector2i(mini(x1, image.get_width() - 1) + 1, mini(z1, image.get_height() - 1) + 1)
+	for z in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
 			var w := Vector3(ORIGIN.x + (x + 0.5) * MASK_STEP, c.y, ORIGIN.y + (z + 0.5) * MASK_STEP)
 			var l := turn * (w - c)
-			if absf(l.x) <= half.x and absf(l.z) <= half.y: _mask.set_pixel(x, z, Color(0, 0, 0))
+			if absf(l.x) <= half.x and absf(l.z) <= half.y: image.set_pixel(x, z, Color(image.get_pixel(x, z).r * (1.0 - strength), 0, 0))
+	return rect if rect.has_area() else Rect2i()
 
 ## Giocatori e zombie vicini piegano l'erba: solo grafica, ogni macchina usa le posizioni che già vede.
 func _update_pushers() -> void:
@@ -282,18 +360,13 @@ static func tuft_mesh() -> ArrayMesh:
 			st.add_vertex(quad[idx][0])
 	return st.commit()
 
-func _height_image() -> Image:
-	var cols := int(SIZE.x / CELL) + 1
-	var rows := int(SIZE.y / CELL) + 1
-	var image := Image.create(cols, rows, false, Image.FORMAT_RF)
-	for z in rows:
-		for x in cols:
-			var px: float = ORIGIN.x + x * CELL
-			var pz: float = ORIGIN.y + z * CELL
-			image.set_pixel(x, z, Color(world.terrain.height(px, pz), 0, 0))
-	return image
+static var _yards = null   # luoghi fuori strada dentro la maschera (nasce sul thread principale, nel primo density_at di _start_mask)
 
 static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
+	if _yards == null:
+		_yards = PackedVector2Array()
+		for place in Route.places():
+			if not place.kind in Route.ON_ROAD and Rect2(ORIGIN, SIZE).has_point(Vector2(place.at.x, place.at.z)): _yards.append(Vector2(place.at.x, place.at.z))
 	if z > 10.5: return 0.0
 	if Layout.occupied(x, z): return 0.0
 	var p := Vector2(x, z)
@@ -309,6 +382,10 @@ static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
 	if Village.corridor(x, z): return 0.0
 	# Attorno alla torre l'erba arriva fino ai muri.
 	d *= smoothstep(6.5, 8.0, p.distance_to(Vector2(RoadNet.SITES["dungeon"].x - 3.0, RoadNet.SITES["dungeon"].z)))
+	# Verso il valico del deserto il prato si dirada; sulle pareti di roccia non cresce.
+	d *= smoothstep(Route.WALL_Z, Route.WALL_Z + 60.0, z) * (1.0 - smoothstep(12.0, 30.0, Route.edge_rise(x, z)))
+	# Niente erba dentro gli edifici dei luoghi sulla statale (la fattoria isolata): un'aia di terra battuta.
+	for yard in _yards: d *= smoothstep(16.0, 24.0, p.distance_to(yard))
 	# Chiazze di terra e ciuffi più fitti: il prato non è un tappeto uniforme.
 	var n := clumps.get_noise_2d(x, z)
 	d *= smoothstep(-0.8, -0.55, n)
@@ -319,16 +396,8 @@ static func _segment_distance(p: Vector2, a: Vector2, b: Vector2) -> float:
 	var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
 	return p.distance_to(a + ab * t)
 
-func _density_image() -> Image:
+static func _clumps() -> FastNoiseLite:
 	var clumps := FastNoiseLite.new()
 	clumps.seed = 4417
 	clumps.frequency = 0.045
-	var w := int(SIZE.x / MASK_STEP)
-	var h := int(SIZE.y / MASK_STEP)
-	var image := Image.create(w, h, false, Image.FORMAT_L8)
-	for z in h:
-		for x in w:
-			var px: float = ORIGIN.x + (x + 0.5) * MASK_STEP
-			var pz: float = ORIGIN.y + (z + 0.5) * MASK_STEP
-			image.set_pixel(x, z, Color(density_at(px, pz, clumps), 0, 0))
-	return image
+	return clumps
