@@ -27,6 +27,15 @@ func _ready() -> void:
 	multiplayer.connection_failed.connect(func() -> void: leave(Localization.t("Connection failed. Check the address and port.")))
 	multiplayer.server_disconnected.connect(func() -> void: leave(Localization.t("The host closed the session.")))
 	multiplayer.peer_disconnected.connect(_disconnected)
+	multiplayer.peer_connected.connect(_tighten)
+
+## Timeout ENet 1–6 s (predefinito 5–30 s): un compagno caduto senza salutare esce entro ~7 s.
+## Non meno di 6 s: all'arrivo a un presidio l'host si blocca fino a 3 s (navmesh) e con 4 s un PC lento
+## butterebbe fuori tutti. Negli obiettivi il caduto non conta già dopo 1 s (campaign.present).
+## Vale su entrambi i lati: sul client il peer 1 è l'host.
+func _tighten(id: int) -> void:
+	var peer := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if peer and peer.get_peer(id): peer.get_peer(id).set_timeout(32, 1000, 6000)
 
 ## L'host manda un annuncio al secondo; chi cerca raccoglie gli annunci e scarta quelli vecchi.
 func _process(delta: float) -> void:

@@ -81,6 +81,8 @@ func use(peer:int) -> bool:
 	if car.seat_of(peer)>=0: return car.interact(peer)
 	if stage==1 and can_reach(actor,car.position,3.4):
 		if repairing_peer==0: repairing_peer=peer;hold=8
+		# Chi lavorava non risponde più: un compagno presente continua da dove era arrivato.
+		elif not world.actors.has(repairing_peer) or not present(world.actors[repairing_peer]): repairing_peer=peer
 		_publish();return true
 	if car.repaired and actor.position.distance_to(car.position)<3.4: return car.interact(peer)
 	if stage==3 and can_reach(actor,beacons[zone_index].position):
@@ -96,6 +98,7 @@ func repair_kind(actor:Node3D) -> String:
 func download_blocker() -> String:
 	for peer in world.actors:
 		var actor:CharacterBody3D=world.actors[peer]
+		if not present(actor): continue
 		var who:String=str(Session.roster[peer].name) if Session.roster.has(peer) else Localization.t("UN COMPAGNO")
 		var me:bool=actor==world.player
 		if actor.dead: return Localization.t("SEI A TERRA") if me else Localization.t("{0} È A TERRA",[who])
@@ -106,10 +109,18 @@ func download_blocker() -> String:
 	if n>1: return Localization.t("{0} INFETTI ENTRO 65 m DAL PRESIDIO",[n])
 	return ""
 
+## Un compagno remoto che non manda input da 1 s è caduto (o sta cadendo): negli obiettivi non conta,
+## né per completarli né per bloccarli. ENet lo chiude del tutto entro 4 s (session.gd).
+func present(actor:CharacterBody3D) -> bool:
+	return actor==world.player or not Session.online or float(actor.get("input_age"))<1.0
+
 func squad_near() -> bool:
+	var anyone:=false
 	for actor in world.actors.values():
+		if not present(actor): continue
 		if actor.dead or actor.position.distance_to(Route.POINTS[zone_index])>45: return false
-	return not world.actors.is_empty()
+		anyone=true
+	return anyone
 
 func remaining_enemies() -> int:
 	var count:=0
@@ -137,6 +148,7 @@ func _process(delta:float) -> void:
 		var actor:CharacterBody3D=world.actors.get(repairing_peer)
 		if not is_instance_valid(actor) or actor.dead or not can_reach(actor,car.position,3.4):
 			repairing_peer=0;hold=8
+		elif not present(actor): pass # in pausa: un intoppo di rete non azzera il lavoro, una caduta vera sì (attore liberato)
 		else:
 			hold=maxf(0,hold-delta)
 			actor.set_meta("repair_until",Time.get_ticks_msec()+200)
