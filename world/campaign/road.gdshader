@@ -33,12 +33,13 @@ void fragment() {
 	// Bordi più chiari dai vertex color (colonne esterne del nastro): polvere e terra.
 	float edge = smoothstep(0.30, 0.36, tint.r);
 	col = mix(col, dust, edge * smoothstep(0.35, 0.8, fbm(p * 0.7)) * 0.55);
-	// Rattoppi rettangolari scuri.
+	// Rattoppi: bordi sfrangiati e tono vicino all'asfalto. Prima erano rettangoli netti allineati agli assi
+	// del mondo e, sulle strade in diagonale, il bordo della strada sembrava seghettato.
 	vec2 cell = floor(p / vec2(3.4, 5.2));
 	float has_patch = step(0.80, hash(cell));
-	vec2 local = fract(p / vec2(3.4, 5.2));
-	float inside = step(0.12, local.x) * step(local.x, 0.88) * step(0.15, local.y) * step(local.y, 0.85);
-	col = mix(col, patch_color * (0.9 + grain * 0.2), has_patch * inside * 0.85);
+	vec2 local = fract(p / vec2(3.4, 5.2)) + (vec2(fbm(p * 1.7), fbm(p * 1.7 + 5.0)) - 0.5) * 0.12;
+	float inside = smoothstep(0.10, 0.20, local.x) * smoothstep(0.90, 0.80, local.x) * smoothstep(0.12, 0.24, local.y) * smoothstep(0.88, 0.76, local.y);
+	col = mix(col, patch_color * (0.9 + grain * 0.2), has_patch * inside * 0.4);
 	// Crepe: linee sottili dove il rumore attraversa la metà.
 	float crack = 1.0 - smoothstep(0.0, 0.018, abs(fbm(p * 0.55 + 4.0) - 0.5));
 	crack *= smoothstep(0.45, 0.7, fbm(p * 0.13 + 9.0));

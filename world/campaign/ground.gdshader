@@ -48,7 +48,8 @@ void fragment() {
 	if (mask_bounds.z > 0.0) {
 		vec2 muv = (world_pos.xz - mask_bounds.xy) / mask_bounds.zw;
 		if (muv.x > 0.0 && muv.y > 0.0 && muv.x < 1.0 && muv.y < 1.0) {
-			float bare = 1.0 - texture(grass_mask, muv).r;
+			// Canale G: il prato dipinto arriva fin sotto il bordo dell'asfalto (R è solo per i ciuffi).
+			float bare = 1.0 - texture(grass_mask, muv).g;
 			// Sotto il prato il suolo ha i colori dell'erba (fresca nelle conche, secca a chiazze): da lontano il prato continua.
 			vec3 meadow = mix(vec3(0.085, 0.115, 0.036), vec3(0.150, 0.165, 0.055), broad);
 			meadow = mix(meadow, vec3(0.215, 0.195, 0.085), smoothstep(0.50, 0.80, medium) * 0.4);

@@ -1,7 +1,7 @@
 extends SceneTree
 # Ciglio della Zona 1: niente piante sull'asfalto, niente cactus nel bosco, erba fino al bordo dei rami,
 # prato su tutta la statale della zona, buca del 4×4 in dissolvenza, ciglio rado con un solo posto di blocco
-# voluto, imbocchi netti.
+# voluto, imbocchi netti, niente banchina di sabbia, accessi in terra battuta a edifici e radure.
 # godot --path . -s res://tests/zone1_verge_checks.gd
 const Route := preload("res://world/campaign/route.gd")
 const RoadNet := preload("res://world/zona1_rifugio/roadnet.gd")
@@ -37,6 +37,8 @@ func _run() -> void:
 	_car_hole_fades(field)
 	_sparse_verge()
 	_clean_junctions()
+	_no_sand_shoulder(field)
+	_accesses(field)
 	print("RIEPILOGO zone1_verge: %d errori" % fails.size())
 	for f in fails: print("  - ", f)
 	quit(0 if fails.is_empty() else 1)
@@ -238,3 +240,57 @@ func _along(pts: Array, want: float) -> Vector2:
 		if walked + seg >= want: return a.lerp(b, (want - walked) / maxf(seg, 0.001))
 		walked += seg
 	return Vector2(pts[-1].x, pts[-1].z)
+
+
+## Maschera letta come la legge lo shader del suolo: lineare, celle da 2 m (canale G = prato dipinto).
+func _bilinear(image: Image, x: float, z: float) -> Color:
+	var fx: float = (x - Grass.ORIGIN.x) / Grass.MASK_STEP - 0.5
+	var fz: float = (z - Grass.ORIGIN.y) / Grass.MASK_STEP - 0.5
+	var x0 := floori(fx)
+	var z0 := floori(fz)
+	var px := func(cx: int, cz: int) -> Color: return image.get_pixel(clampi(cx, 0, image.get_width() - 1), clampi(cz, 0, image.get_height() - 1))
+	return px.call(x0, z0).lerp(px.call(x0 + 1, z0), fx - x0).lerp(px.call(x0, z0 + 1).lerp(px.call(x0 + 1, z0 + 1), fx - x0), fz - z0)
+
+
+## Banchina: a 0,3 m dal bordo dell'asfalto il suolo è già prato (dove a 6 m lo è), lungo statale e rami.
+func _no_sand_shoulder(field: Node) -> void:
+	var lines: Array = [[Route.road_points(), 3.45]]
+	for path in RoadNet.paths(): lines.append([path, RoadNet.WIDTH * 0.5])
+	var tried := 0
+	var green := 0
+	for line in lines:
+		var pts: Array = line[0]
+		var half: float = line[1]
+		var walked := 0.0
+		var next := 10.0
+		for i in range(pts.size() - 1):
+			var a := Vector2(pts[i].x, pts[i].z)
+			var b := Vector2(pts[i + 1].x, pts[i + 1].z)
+			var seg := a.distance_to(b)
+			walked += seg
+			while next <= walked:
+				var at := b.lerp(a, (walked - next) / maxf(seg, 0.001))
+				next += 20.0
+				if not ZONE.has_point(at) or RoadNet.junction_distance(at) < 12.0: continue
+				var side := (b - a).normalized().orthogonal()
+				for s: float in [-1.0, 1.0]:
+					var far := at + side * s * (half + 6.0)
+					var near := at + side * s * (half + 0.3)
+					if _bilinear(field._base, far.x, far.y).g < 0.5 or Route.road_distance(far) < 3.45 or RoadNet.distance(far) < 2.2: continue
+					tried += 1
+					if _bilinear(field._base, near.x, near.y).g >= 0.5: green += 1
+	print("  prato dipinto a 0,3 m dall'asfalto: %d/%d" % [green, tried])
+	check(tried >= 100 and green >= tried * 0.9, "Niente banchina di sabbia lungo le strade (%d/%d)" % [green, tried])
+
+
+## Accessi: rudere della fattoria, Casa del Vecchio, fattorie isolate e rami ciechi hanno una pista di terra
+## battuta (niente erba nel mezzo) che tocca una strada, un portone o una radura.
+func _accesses(field: Node) -> void:
+	var tracks: Array = Grass._tracks
+	var bad: Array = []
+	for t in tracks:
+		var mid: Vector2 = (t[0] + t[1]) * 0.5
+		if _mask_at(field, field._base, mid.x, mid.y) > 0.1: bad.append("pista %s→%s con erba nel mezzo" % [t[0].snapped(Vector2.ONE), t[1].snapped(Vector2.ONE)])
+	print("  piste di terra: %d" % tracks.size())
+	for b in bad: print("  accesso: ", b)
+	check(tracks.size() >= 4 and bad.is_empty(), "Accessi in terra battuta a edifici e radure: %d piste, %d con erba" % [tracks.size(), bad.size()])
