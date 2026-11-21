@@ -152,7 +152,7 @@ func build(visual: Node3D, a: Node3D) -> void:
 		var b := RigidBody3D.new()
 		b.mass = float(row[3])
 		b.collision_layer = LAYER
-		b.collision_mask = 1 | LAYER
+		b.collision_mask = 1 | 8 | LAYER   # 8: il 4×4 (expedition_car.gd), altrimenti il corpo gli passa dentro
 		b.linear_damp = 0.25
 		b.angular_damp = 3.0 if bone.contains("arm") else 1.6     # avambracci leggeri: senza frenarli frustano a 20 m/s
 		b.continuous_cd = true
