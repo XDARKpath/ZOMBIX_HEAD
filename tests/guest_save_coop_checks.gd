@@ -4,10 +4,10 @@ extends SceneTree
 # stabile. Poi si riapre il campo con CONTINUA, l'ospite rientra e ritrova tutto.
 # godot --path . --headless -s res://tests/guest_save_coop_checks.gd -- --gsave-host
 # godot --path . --headless -s res://tests/guest_save_coop_checks.gd -- --gsave-client
-# Il salvataggio vero del giocatore viene messo da parte all'inizio e rimesso a posto alla fine (solo l'host scrive).
+# L'host salva in uno slot suo (SLOT_PATH cambiato): la campagna del giocatore e i test delle altre sessioni non si toccano.
 const PORT := 27871
 const GUEST_ID := "test-guest-7f3a"
-const SAVES := ["user://save_slot_1.json", "user://save_slot_1.bak.json", "user://save_slot_1.old.json"]
+const SAVES := ["user://test_gsave_%d.json", "user://test_gsave_%d.bak.json", "user://test_gsave_%d.old.json"]
 var world: Node3D
 var fails := 0
 var tag := ""
@@ -97,9 +97,11 @@ func run() -> void:
 
 
 func host_side() -> void:
-	# Il salvataggio del giocatore va da parte, la prova parte da una campagna vuota.
-	for path in SAVES:
-		if FileAccess.file_exists(path): DirAccess.rename_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(path + ".gsave_test"))
+	# Slot di prova tutto suo, nome diverso a ogni esecuzione: si parte da una campagna vuota.
+	var stamp := Time.get_ticks_usec() + OS.get_process_id()
+	saves.SLOT_PATH = SAVES[0] % stamp
+	saves.BACKUP_PATH = SAVES[1] % stamp
+	saves.OLD_PATH = SAVES[2] % stamp
 	session.profile("HOST", 0)
 	if await open_camp(false):
 		await first_session()
@@ -116,9 +118,8 @@ func host_side() -> void:
 			check(g != null and heads(g) == 3, "Al rientro l'ospite ha le sue teste (%d)" % [heads(g) if g else -1])
 			check(world.player.credits == 77, "L'host ha i suoi crediti, non quelli dell'ospite (%d)" % world.player.credits)
 			await create_timer(5.0, true).timeout
-	for path in SAVES:
+	for path in [saves.SLOT_PATH, saves.BACKUP_PATH, saves.OLD_PATH]:
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
-		if FileAccess.file_exists(path + ".gsave_test"): DirAccess.rename_absolute(ProjectSettings.globalize_path(path + ".gsave_test"), ProjectSettings.globalize_path(path))
 
 
 func first_session() -> void:

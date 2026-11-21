@@ -7,11 +7,12 @@ extends Node
 signal save_completed(slot: int)
 signal save_failed(reason: String)
 
-const SLOT_PATH: String = "user://save_slot_1.json"
+## Variabili e non costanti: i test a più processi usano uno slot loro e non toccano la campagna del giocatore.
+var SLOT_PATH: String = "user://save_slot_1.json"
 ## Copia dell'ultimo salvataggio buono: se il file principale è rotto (gioco chiuso mentre scriveva) si riparte da qui.
-const BACKUP_PATH: String = "user://save_slot_1.bak.json"
+var BACKUP_PATH: String = "user://save_slot_1.bak.json"
 ## La campagna sostituita da una nuova partita, finché non se ne inizia un'altra.
-const OLD_PATH: String = "user://save_slot_1.old.json"
+var OLD_PATH: String = "user://save_slot_1.old.json"
 const REMOVED := ["spade", "fire_axe"]
 var pending_resume: bool = false
 const ID_PATH: String = "user://player_id.cfg"
