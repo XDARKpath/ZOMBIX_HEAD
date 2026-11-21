@@ -14,7 +14,7 @@ const HOOD_OPEN := 58.0
 const TAILGATE_OPEN := 85.0
 const WHEEL_RADIUS := 0.42
 const SUSPENSION := 0.25                                             # corsa grafica delle ruote verso il basso (m)
-const BUMP := 0.1                                                    # e verso l'alto, dentro il passaruota (m)
+const BUMP := 0.14                                                   # e verso l'alto, dentro il passaruota (m)
 const FIX_NODES := ["Fix_Battery", "Fix_Belt", "Fix_FuelCap"]       # campaign.PART_NAMES order
 
 var model: Node3D
