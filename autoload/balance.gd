@@ -18,10 +18,12 @@ const DECELERATION: float = 28.0
 const TURN_SPEED: float = 12.0
 const GRAVITY: float = 22.0
 const FLOOR_SNAP: float = 0.4
-const SPRINT_DRAIN: float = 22.0
+# Corsa piena ~9 s (prima 4,6): sui tragitti lunghi della Zona 1 deve rendere.
+const SPRINT_DRAIN: float = 11.0
 const STAMINA_REGEN: float = 27.0
 const STAMINA_REGEN_DELAY: float = 0.7
-const EXHAUSTION_RECOVERY: float = 20.0
+# Da sfinito si riparte dopo ~1 s di camminata (prima 1,4 s fino a 20).
+const EXHAUSTION_RECOVERY: float = 10.0
 const DODGE_COST: float = 25.0
 const DODGE_SPEED: float = 9.0
 const DODGE_SECONDS: float = 0.55
