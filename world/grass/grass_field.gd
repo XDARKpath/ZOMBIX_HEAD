@@ -19,6 +19,8 @@ const CELL := 8.0
 const ORIGIN := Vector2(-296, -1240)
 const SIZE := Vector2(896, 1280)
 const MASK_STEP := 2.0
+# Imbuto degli incroci: in quanti metri il ramo torna largo come di norma (lo stesso in terrain.gd).
+const FUNNEL := 8.0
 
 # Specie del prato, come un prato vero e non un tappeto: ogni strato ha la sua
 # pianta CC0 (art/nature), il suo colore, la sua altezza e le sue macchie (band =
@@ -78,7 +80,7 @@ func build(owner_world: Node3D) -> void:
 	world = owner_world
 	name = "GrassField"
 	# La maschera di tutta la Zona 1 la calcolano i thread mentre c'è il menu; fino ad allora niente erba.
-	density_texture = ImageTexture.create_from_image(Image.create(1, 1, false, Image.FORMAT_L8))
+	density_texture = ImageTexture.create_from_image(Image.create(1, 1, false, Image.FORMAT_RG8))
 	heights_texture = ImageTexture.create_from_image(Image.create(1, 1, false, Image.FORMAT_RF))
 	_start_mask()
 	world.get_tree().node_added.connect(_vehicle_added)
@@ -133,9 +135,12 @@ func _row(i: int, clumps: FastNoiseLite) -> void:
 	var mask_rows := int(SIZE.y / MASK_STEP)
 	if i < mask_rows:
 		var bytes := PackedByteArray()
-		bytes.resize(int(SIZE.x / MASK_STEP))
+		bytes.resize(int(SIZE.x / MASK_STEP) * 2)
 		var pz: float = ORIGIN.y + (i + 0.5) * MASK_STEP
-		for x in bytes.size(): bytes[x] = int(density_at(ORIGIN.x + (x + 0.5) * MASK_STEP, pz, clumps) * 255.0)
+		for x in int(SIZE.x / MASK_STEP):
+			var pair := density_pair(ORIGIN.x + (x + 0.5) * MASK_STEP, pz, clumps)
+			bytes[x * 2] = int(pair.x * 255.0)
+			bytes[x * 2 + 1] = int(pair.y * 255.0)
 		_rows[i] = bytes
 	else:
 		var floats := PackedFloat32Array()
@@ -152,7 +157,7 @@ func finish_mask() -> void:
 	var mask_rows := int(SIZE.y / MASK_STEP)
 	var bytes := PackedByteArray()
 	for i in mask_rows: bytes.append_array(_rows[i])
-	_base = Image.create_from_data(int(SIZE.x / MASK_STEP), mask_rows, false, Image.FORMAT_L8, bytes)
+	_base = Image.create_from_data(int(SIZE.x / MASK_STEP), mask_rows, false, Image.FORMAT_RG8, bytes)
 	var heights := PackedByteArray()
 	for i in range(mask_rows, _rows.size()): heights.append_array(_rows[i])
 	var size := Vector2i(int(SIZE.x / CELL) + 1, _rows.size() - mask_rows)
@@ -266,7 +271,7 @@ func _carve(image: Image, at: Transform3D, box: AABB, strength: float) -> Rect2i
 		for x in range(rect.position.x, rect.end.x):
 			var w := Vector3(ORIGIN.x + (x + 0.5) * MASK_STEP, c.y, ORIGIN.y + (z + 0.5) * MASK_STEP)
 			var l := turn * (w - c)
-			if absf(l.x) <= half.x and absf(l.z) <= half.y: image.set_pixel(x, z, Color(image.get_pixel(x, z).r * (1.0 - strength), 0, 0))
+			if absf(l.x) <= half.x and absf(l.z) <= half.y: image.set_pixel(x, z, image.get_pixel(x, z) * (1.0 - strength))
 	return rect if rect.has_area() else Rect2i()
 
 ## Giocatori e zombie vicini piegano l'erba: solo grafica, ogni macchina usa le posizioni che già vede.
@@ -367,36 +372,75 @@ static func tuft_mesh() -> ArrayMesh:
 			st.add_vertex(quad[idx][0])
 	return st.commit()
 
-static var _yards = null   # luoghi fuori strada dentro la maschera (nasce sul thread principale, nel primo density_at di _start_mask)
+static var _yards = null   # luoghi fuori strada dentro la maschera (nascono sul thread principale, nel primo density_pair di _start_mask)
+static var _tracks: Array = []   # piste di terra [da, a, mezza larghezza]: vialetti e raccordi con le strade
 
-static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
-	if _yards == null:
-		_yards = PackedVector2Array()
-		for place in Route.places():
-			if not place.kind in Route.ON_ROAD and Rect2(ORIGIN, SIZE).has_point(Vector2(place.at.x, place.at.z)): _yards.append(Vector2(place.at.x, place.at.z))
-	if z > 10.5: return 0.0
-	if Layout.occupied(x, z): return 0.0
+## Erba (x) per le particelle e prato dipinto sul suolo (y). Il suolo verde arriva fin sotto il bordo
+## dell'asfalto: con celle da 2 m lette in lineare, altrimenti lungo ogni strada restava una banchina di sabbia.
+static func density_pair(x: float, z: float, clumps: FastNoiseLite) -> Vector2:
+	if _yards == null: _build_tracks()
+	if z > 10.5: return Vector2.ZERO
+	if Layout.occupied(x, z): return Vector2.ZERO
+	if Village.corridor(x, z): return Vector2.ZERO
 	var p := Vector2(x, z)
-	# L'erba arriva al ciglio dell'asfalto: niente più spalle grigie o strisce
-	# verdi artificiali. La transizione è breve e irregolare grazie al rumore.
 	# Rami: mezzo nastro (2,2 m) più l'imbuto degli incroci, con la stessa formula dell'asfalto (terrain.gd).
-	var funnel := 1.0 + 0.55 * pow(1.0 - clampf(RoadNet.junction_distance(p) / 16.0, 0.0, 1.0), 2.0)
+	var funnel := 1.0 + 0.55 * pow(1.0 - clampf(RoadNet.junction_distance(p) / FUNNEL, 0.0, 1.0), 2.0)
 	var road: float = minf(Route.road_distance(p) - 3.55, RoadNet.distance(p) - RoadNet.WIDTH * 0.5 * funnel - 0.1)
 	road = minf(road, _segment_distance(p, ROAD_END_A, ROAD_END_B) - 3.7)
-	var d := smoothstep(0.0, 0.45, road)
-	d *= smoothstep(5.0, 9.0, RoadNet.arena_distance(p))
+	var d := smoothstep(5.0, 9.0, RoadNet.arena_distance(p))
 	if Layout.yard(Vector3(x, 0, z)): d *= 0.25
-	if Village.corridor(x, z): return 0.0
 	# Attorno alla torre l'erba arriva fino ai muri.
 	d *= smoothstep(6.5, 8.0, p.distance_to(Vector2(RoadNet.SITES["dungeon"].x - 3.0, RoadNet.SITES["dungeon"].z)))
 	# Verso il valico del deserto il prato si dirada; sulle pareti di roccia non cresce.
 	d *= smoothstep(Route.WALL_Z, Route.WALL_Z + 60.0, z) * (1.0 - smoothstep(12.0, 30.0, Route.edge_rise(x, z)))
 	# Niente erba dentro gli edifici dei luoghi sulla statale (la fattoria isolata): un'aia di terra battuta.
 	for yard in _yards: d *= smoothstep(16.0, 24.0, p.distance_to(yard))
+	# Vialetti e raccordi: terra battuta larga quanto un carro, dal bordo morbido.
+	for t in _tracks: d *= smoothstep(t[2], t[2] + 0.9, _segment_distance(p, t[0], t[1]))
 	# Chiazze di terra e ciuffi più fitti: il prato non è un tappeto uniforme.
 	var n := clumps.get_noise_2d(x, z)
 	d *= smoothstep(-0.8, -0.55, n)
-	return clampf(d * (0.75 + 0.25 * smoothstep(0.1, 0.5, n)), 0.0, 1.0)
+	d = clampf(d * (0.75 + 0.25 * smoothstep(0.1, 0.5, n)), 0.0, 1.0)
+	# I ciuffi partono mezzo metro dentro il bordo: qualche filo invade l'asfalto, come su una strada abbandonata.
+	return Vector2(d * smoothstep(-0.5, 0.0, road), d * smoothstep(-1.6, -1.0, road))
+
+static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
+	return density_pair(x, z, clumps).x
+
+## Ogni costruzione vicino a una strada ha il suo accesso, ogni ramo cieco arriva alla sua radura.
+static func _build_tracks() -> void:
+	_yards = PackedVector2Array()
+	_tracks = []
+	for place in Route.places():
+		var at := Vector2(place.at.x, place.at.z)
+		if place.kind in Route.ON_ROAD or not Rect2(ORIGIN, SIZE).has_point(at): continue
+		_yards.append(at)
+		var road: Vector3 = Route.nearest_road(place.at)
+		_tracks.append([at, Vector2(road.x, road.z), 1.4])
+	# Fattoria diroccata: dalla porta (lato nord, primo modulo) al ramo più vicino.
+	var door := Vector2(Layout.FARM.x + 2.0, Layout.FARM.z - 1.0)
+	_tracks.append([door, _nearest_on_paths(door), 1.2])
+	# Casa del Vecchio: dalla porta est al portone ovest del recinto (town_fence.gd, WEST_GATE_Z = -9).
+	_tracks.append([Vector2(Layout.CABIN.x + Layout.RUIN_SIZE + 1.0, Layout.CABIN.z + 2.0), Vector2(Layout.FENCE_MIN.x - 1.5, -9.0), 1.1])
+	# Rami ciechi: l'asfalto finisce, una pista di terra porta fino alla radura dell'arena.
+	for path in RoadNet.paths():
+		for end in [path[0], path[path.size() - 1]]:
+			var tip := Vector2(end.x, end.z)
+			if RoadNet.junction_distance(tip) < 1.0 or Route.road_distance(tip) < 4.0 or Village.inside(end.x, end.z): continue
+			for arena in RoadNet.arenas():
+				var center := Vector2(arena.x, arena.z)
+				if tip.distance_to(center) < 45.0 and tip.distance_to(center) > 6.0: _tracks.append([tip, center, 1.5])
+
+static func _nearest_on_paths(p: Vector2) -> Vector2:
+	var best := p
+	var distance := INF
+	for path in RoadNet.paths():
+		for i in range(path.size() - 1):
+			var a := Vector2(path[i].x, path[i].z)
+			var ab := Vector2(path[i + 1].x, path[i + 1].z) - a
+			var on := a + ab * clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+			if p.distance_to(on) < distance: distance = p.distance_to(on); best = on
+	return best
 
 static func _segment_distance(p: Vector2, a: Vector2, b: Vector2) -> float:
 	var ab := b - a

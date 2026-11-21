@@ -469,8 +469,9 @@ func _side_roads() -> void:
 	for index in paths.size():
 		# Il ramo parte dal bordo della statale, non dal centro: niente triangolo
 		# scuro che taglia l'erba allo sbocco.
-		var points:Array=_sample_path(_trim_to_road_edge(paths[index]),4.0)
-		# Incroci: la strada si allarga a imbuto negli ultimi 10 m, come un raccordo vero.
+		# Passo di 2 m: con l'imbuto corto i bordi restano lisci, senza gradini.
+		var points:Array=_sample_path(_trim_to_road_edge(paths[index]),2.0)
+		# Incroci: la strada si allarga a imbuto negli ultimi 8 m, come un raccordo vero (stesso valore nella maschera dell'erba).
 		# Ogni ramo sta qualche millimetro più in basso del precedente: dove due rami si
 		# sovrappongono all'incrocio non sfarfallano.
 		var widths:Array=[]
@@ -479,7 +480,7 @@ func _side_roads() -> void:
 		var dead_end:bool=RoadNet.junction_distance(Vector2(last.x,last.z))>1.0 and not Village.inside(last.x,last.z)
 		for p in points:
 			# Allo sbocco il raccordo si apre piano, senza spuntoni.
-			var w:float=1.0+0.55*pow(1.0-clampf(RoadNet.junction_distance(Vector2(p.x,p.z))/16.0,0.0,1.0),2.0)
+			var w:float=1.0+0.55*pow(1.0-clampf(RoadNet.junction_distance(Vector2(p.x,p.z))/8.0,0.0,1.0),2.0)
 			# Dove la strada finisce: punta arrotondata, non un triangolo.
 			if dead_end:w*=lerpf(0.12,1.0,sqrt(clampf(p.distance_to(last)/5.0,0.0,1.0)))
 			widths.append(w)
