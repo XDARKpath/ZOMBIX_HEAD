@@ -18,6 +18,8 @@ const C_TEAL = Color(0.55,0.81,0.75)
 const C_HP = Color(0.56,0.82,0.52)
 const C_STAMINA = Color(0.93,0.74,0.42)
 const C_TRACK = Color(0.02,0.05,0.05,0.55)
+const C_GLASS = Color(0.04,0.08,0.08,0.62)
+const C_GLASS_EDGE = Color(1,1,1,0.07)
 const WEAPON_NAMES = {"axe":"ASCIA","knife":"COLTELLO","pistol":"PISTOLA"}
 const Arsenal = preload("res://weapons/zx_arsenal.gd")
 var reload_total := 1.6
@@ -267,6 +269,11 @@ func _text(at: Vector2, value: String, size_value: int, color: Color, align := H
 	draw_string(use,at+Vector2(0,1),value,align,width,size_value,Color(0,0,0,0.45*color.a))
 	draw_string(use,at,value,align,width,size_value,color)
 
+func _num(at: Vector2, value: String, size_value: int, color: Color, f: Font = null) -> void:
+	var use: Font = f if f else font
+	draw_string_outline(use,at,value,HORIZONTAL_ALIGNMENT_LEFT,-1,size_value,4,Color(0.02,0.03,0.03,0.85*color.a))
+	draw_string(use,at,value,HORIZONTAL_ALIGNMENT_LEFT,-1,size_value,color)
+
 func _center_text(center: Vector2, value: String, size_value: int, color: Color, f: Font = null) -> void:
 	var use: Font = f if f else font
 	var s := use.get_string_size(value,HORIZONTAL_ALIGNMENT_LEFT,-1,size_value)
@@ -281,7 +288,7 @@ func _draw_vitals(now: float) -> void:
 	if hp < 0.30 and fmod(now,0.8) < 0.4: hp_color = hp_color.lerp(Color("ffa184"),0.45)
 	_heart(Vector2(52,48),hp_color)
 	_bar(Rect2(72,41,206,14),hp,clampf(display_health/p.max_health(),0,1),hp_color,C_RUST,true)
-	_text(Vector2(286,53),"%d" % ceili(p.health),15,C_RUST if hp < 0.3 else C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
+	_num(Vector2(286,53),"%d" % ceili(p.health),15,C_RUST if hp < 0.3 else C_BONE,bold)
 	_bolt(Vector2(52,74),C_RUST if p.exhausted else C_STAMINA)
 	var sp_color: Color = Color("e08a62") if p.exhausted else C_STAMINA
 	_bar(Rect2(72,70,206,8),sp,clampf(display_stamina/p.max_stamina(),0,1),sp_color,Color(0.55,0.42,0.22),true)
@@ -296,11 +303,12 @@ func _draw_noise() -> void:
 	var level: float = clampf(life.noise_level,0,1)
 	var base := Vector2(44,112)
 	var color: Color = C_SAGE.lerp(C_RUST,smoothstep(0.4,0.9,level))
+	_pill(Rect2(base.x-14,base.y-12,92.0 if life.fed > 0.0 else 70.0,24),C_GLASS,C_GLASS_EDGE,12.0)
 	draw_colored_polygon(PackedVector2Array([base+Vector2(-6,-3),base+Vector2(-2,-3),base+Vector2(3,-7),base+Vector2(3,7),base+Vector2(-2,3),base+Vector2(-6,3)]),color)
 	for i in 5:
 		var on: bool = level > (i+0.5)/5.0
 		var h := 4.0+i*2.2
-		_pill(Rect2(base.x+12+i*8,base.y-h*0.5,4,h),color if on else Color(1,1,1,0.15),Color(0,0,0,0),2.0)
+		_pill(Rect2(base.x+12+i*8,base.y-h*0.5,4,h),color if on else Color(1,1,1,0.28),Color(0,0,0,0),2.0)
 	if life.fed > 0.0:
 		var leaf := base+Vector2(64,0)
 		draw_colored_polygon(PackedVector2Array([leaf+Vector2(-6,4),leaf+Vector2(-2,-5),leaf+Vector2(6,-6),leaf+Vector2(3,3)]),C_HP)
@@ -510,24 +518,25 @@ func _draw_resources() -> void:
 	var p = world.player
 	var y := 210.0
 	var x := size.x-228.0
+	_pill(Rect2(x-16,y-15,(176.0 if world.get("zone_life") else 136.0)+30.0,30),C_GLASS,C_GLASS_EDGE,15.0)
 	draw_circle(Vector2(x,y),7,C_BRASS)
 	draw_circle(Vector2(x,y),4,Color(0.55,0.40,0.18))
-	_text(Vector2(x+12,y+5),str(p.credits),14,C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
+	_num(Vector2(x+12,y+5),str(p.credits),14,C_BONE,bold)
 	x += 52.0
 	_skull(Vector2(x,y),C_BONE)
-	_text(Vector2(x+12,y+5),str(p.carried_heads),14,C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
+	_num(Vector2(x+12,y+5),str(p.carried_heads),14,C_BONE,bold)
 	x += 44.0
 	# Esche dello sceriffo: fiammella e numero.
 	var flame := Vector2(x,y)
 	draw_colored_polygon(PackedVector2Array([flame+Vector2(0,-8),flame+Vector2(5,0),flame+Vector2(3,6),flame+Vector2(-3,6),flame+Vector2(-5,0)]),C_BRASS if p.baits>0 else Color(1,1,1,0.25))
 	draw_colored_polygon(PackedVector2Array([flame+Vector2(0,-2),flame+Vector2(2,3),flame+Vector2(-2,3)]),Color("ffe2a8") if p.baits>0 else Color(1,1,1,0.15))
-	_text(Vector2(x+10,y+5),str(p.baits),14,C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
+	_num(Vector2(x+10,y+5),str(p.baits),14,C_BONE,bold)
 	x += 40.0
 	if world.get("zone_life"):
 		# Scatoletta: cibo totale (Q per mangiare).
 		draw_rect(Rect2(Vector2(x-5,y-7),Vector2(10,14)),Color("b23a2e"))
 		draw_rect(Rect2(Vector2(x-5,y-7),Vector2(10,3)),Color("c9ccc8"))
-		_text(Vector2(x+10,y+5),str(world.zone_life.food_count()),14,C_BONE,HORIZONTAL_ALIGNMENT_LEFT,-1,bold)
+		_num(Vector2(x+10,y+5),str(world.zone_life.food_count()),14,C_BONE,bold)
 		x += 40.0
 	if Session.online:
 		_text(Vector2(size.x-190,y+26),Localization.t("SQUADRA {0}/4", [world.actors.size()]),11,C_TEAL)
