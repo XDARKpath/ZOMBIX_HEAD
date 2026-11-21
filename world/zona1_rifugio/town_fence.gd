@@ -264,6 +264,53 @@ func _gate(at: Vector2, dir: Vector2) -> void:
 	body.rotation.y = yaw
 	gates.append({"left": left, "right": right, "shape": shape, "at": center, "yaw": yaw, "open": false,
 		"inward": _inside_sign(at, dir)})
+	if absf(at.y - Layout.FENCE_MIN.y) < 0.5: _watchtower(center + side * (half + 2.4), yaw)
+
+
+## Torretta di guardia accanto al portone nord: sporge sopra i pini con lanterna e bandiera, così il paese
+## si ritrova dal bosco senza GPS (si vede da oltre 60 m).
+func _watchtower(base: Vector3, yaw: float) -> void:
+	var tower := Node3D.new()
+	tower.name = "TorrettaPortone"
+	add_child(tower)
+	tower.position = base
+	tower.rotation.y = yaw
+	var parts: Array = []
+	for x in [-1.3, 1.3]:
+		for z in [-1.3, 1.3]:
+			parts.append([Vector3(0.32, 11.0, 0.32), Vector3(x, 5.5, z), C_DARK])
+	for y in [3.6, 7.2]:
+		parts.append([Vector3(2.9, 0.16, 0.16), Vector3(0, y, 1.3), C_WOOD])
+		parts.append([Vector3(2.9, 0.16, 0.16), Vector3(0, y, -1.3), C_WOOD])
+		parts.append([Vector3(0.16, 0.16, 2.9), Vector3(1.3, y, 0), C_WOOD])
+		parts.append([Vector3(0.16, 0.16, 2.9), Vector3(-1.3, y, 0), C_WOOD])
+	parts.append([Vector3(3.6, 0.25, 3.6), Vector3(0, 9.0, 0), C_WOOD])
+	for s in [-1.0, 1.0]:
+		parts.append([Vector3(3.6, 0.9, 0.12), Vector3(0, 9.55, 1.75 * s), C_WOOD])
+		parts.append([Vector3(0.12, 0.9, 3.6), Vector3(1.75 * s, 9.55, 0), C_WOOD])
+	parts.append([Vector3(4.2, 0.3, 4.2), Vector3(0, 11.2, 0), C_DARK])
+	parts.append([Vector3(2.6, 0.5, 2.6), Vector3(0, 11.6, 0), C_DARK])
+	parts.append([Vector3(0.12, 3.6, 0.12), Vector3(0, 13.6, 0), C_DARK])
+	parts.append([Vector3(1.8, 0.9, 0.05), Vector3(0.95, 14.8, 0), Color("a3352a")])
+	for p in parts:
+		var piece := _box(p[0], p[2])
+		remove_child(piece)
+		tower.add_child(piece)
+		piece.position = p[1]
+	var glass := _box(Vector3(0.45, 0.6, 0.45), Color("ffcf7a"))
+	remove_child(glass)
+	tower.add_child(glass)
+	glass.position = Vector3(0, 10.25, 0)
+	var gm := glass.mesh.material as StandardMaterial3D
+	gm.emission_enabled = true
+	gm.emission = Color("ffb35c")
+	gm.emission_energy_multiplier = 4.0
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color("ffc070")
+	lamp.light_energy = 2.0
+	lamp.omni_range = 16.0
+	tower.add_child(lamp)
+	lamp.position = Vector3(0, 10.3, 0)
 
 
 func _leaf(hinge: Vector3, side: Vector3, yaw: float, sgn: float) -> Node3D:
