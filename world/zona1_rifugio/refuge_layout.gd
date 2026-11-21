@@ -17,8 +17,8 @@ const SHOP_NPC:=SHOP+Vector3(1.65,0,1.9)
 # Ricambi sparsi sui rami della rete stradale: bisogna girare per trovarli.
 const PART_POINTS:=[Vector3(-40.0,0.05,-58.0),Vector3(60.0,0.05,-52.0),Vector3(10.0,0.05,-160.0)]
 const PART_PLACES:=["BIVIO OVEST","BIVIO EST","VECCHIA PISTA"]
-# Primi infetti, fuori dal recinto: i due più vicini aspettano nel prato appena oltre il portone nord.
-const ENEMIES:=[Vector3(2,0,-58),Vector3(14,0,-62),Vector3(28,0,-66),Vector3(-16,0,-68),Vector3(-40,0,-72),Vector3(6,0,-186)]
+# Primi infetti, fuori dal recinto: i due più vicini aspettano appena oltre il portone nord, già visibili da dentro.
+const ENEMIES:=[Vector3(1,0,-54),Vector3(12,0,-56),Vector3(28,0,-66),Vector3(-16,0,-68),Vector3(-40,0,-72),Vector3(6,0,-186)]
 # Recinto del paese: dentro ci sono sceriffo, Big Earl e il 4×4 ed è zona sicura (town_fence.gd). Il lato sud è il lago.
 const FENCE_MIN:=Vector2(-22,-46)
 const FENCE_MAX:=Vector2(32,16)

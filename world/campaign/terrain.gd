@@ -31,6 +31,8 @@ const RANGE_ROCK := 600.0
 ## Lavoro massimo per frame sulle tessere in coda (microsecondi): il caricamento non deve far scattare la guida.
 const WORK_BUDGET := 2500
 const CACTUS := ["SM_Cactus_A", "SM_Cactus_B", "SM_Cactus_C"]
+# Posto di blocco abbandonato all'imbocco della pista: l'unico gruppo voluto sul ciglio della Zona 1.
+const CHECKPOINT := Vector3(6, 0, -108)
 ## Distanza della camera: all'aperto si vedono montagne e borgo; dentro il recinto, il borgo e sottoterra la vista e' chiusa e costa di meno.
 var far_open := 340.0
 var far_closed := 160.0
@@ -679,8 +681,9 @@ func _road_damage(points:Array, half:float, rng:RandomNumberGenerator) -> void:
 			_stain(at,rng.randf_range(2.4,3.8),yaw+rng.randf_range(-0.6,0.6),Color.BLACK,"drag")
 			_stain(at-dir*1.4,rng.randf_range(0.9,1.4),rng.randf_range(0,TAU),Color.BLACK,"blood")
 
-func _zombie_road(points:Array, from_index:int, count:int, rng:RandomNumberGenerator) -> void:
+func _zombie_road(points:Array, from_index:int, count:int, rng:RandomNumberGenerator, forest:=false) -> void:
 	# Ogni ~26 m qualcosa racconta la fuga: auto ferme sul ciglio, detriti, sangue.
+	# Sui rami del bosco (forest) niente sacchi né barriere a caso: qualche relitto raro, macchie e alberi secchi.
 	# I relitti restano fuori da una corsia (|offset| >= 3.9 m): il 4×4 passa sempre.
 	var travelled:=0.0
 	var next:=rng.randf_range(10,24)
@@ -697,9 +700,18 @@ func _zombie_road(points:Array, from_index:int, count:int, rng:RandomNumberGener
 			# Il paese e le arene restano sgombri.
 			if (at.z>-48.0 and absf(at.x-6.0)<45.0) or RoadNet.arena_distance(Vector2(at.x,at.z))<20.0:continue
 			if Village.inside(at.x,at.z) or RoadNet.site_distance(Vector2(at.x,at.z))<RoadNet.SITE_RADIUS or RoadNet.junction_distance(Vector2(at.x,at.z))<12.0:continue
+			if at.distance_to(CHECKPOINT)<30.0:continue
 			var yaw:=atan2(-dir.x,-dir.z)
-			if roll<0.38:
-				_wreck_car(WRECKS[rng.randi_range(0,WRECKS.size()-1)],at+side*flip*rng.randf_range(4.6,6.2),yaw+rng.randf_range(-0.6,0.6))
+			if forest:
+				# Vicino al posto di blocco il bosco resta quieto: la scena è una sola.
+				if roll<0.15 and at.distance_to(CHECKPOINT)>120.0:
+					var wreck:=_wreck_car(WRECKS[rng.randi_range(0,WRECKS.size()-1)],at+side*flip*rng.randf_range(4.6,6.2),yaw+rng.randf_range(-0.6,0.6))
+					wreck.name="RelittoCiglio"
+				elif roll<0.55:
+					_stain(at+side*rng.randf_range(-1.5,1.5),rng.randf_range(0.8,1.8),rng.randf_range(0,TAU),Color(0.20,0.03,0.02,0.7))
+			elif roll<0.38:
+				var wreck:=_wreck_car(WRECKS[rng.randi_range(0,WRECKS.size()-1)],at+side*flip*rng.randf_range(4.6,6.2),yaw+rng.randf_range(-0.6,0.6))
+				wreck.name="RelittoCiglio"
 				_stain(at+side*flip*rng.randf_range(1.0,2.6),rng.randf_range(0.8,1.6),rng.randf_range(0,TAU),Color(0.22,0.03,0.02,0.75))
 			elif roll<0.70:
 				for k in rng.randi_range(2,4):
@@ -720,7 +732,7 @@ func _zombie_road(points:Array, from_index:int, count:int, rng:RandomNumberGener
 				_place(dead,at+side*flip*rng.randf_range(9.0,13.0),rng.randf_range(0,TAU))
 		travelled+=length-s
 
-func _wreck_car(id:String,at:Vector3,yaw:float) -> void:
+func _wreck_car(id:String,at:Vector3,yaw:float) -> Node3D:
 	# Relitto appoggiato sulle quattro ruote (quota e pendenza dal terreno sotto le ruote) e due scatole
 	# che seguono la sagoma: scocca fino alla cintura e abitacolo, niente muro sopra cofano e baule.
 	var car:=_place(_scene("res://art/zx_borgo/%s.glb"%id),at,yaw)
@@ -735,6 +747,7 @@ func _wreck_car(id:String,at:Vector3,yaw:float) -> void:
 	for part in [[Vector3(1.84,0.85,front+2.4),Vector3(0,0.475,(front-2.4)*0.5)],[Vector3(1.56,0.52,2.3),Vector3(0,1.16,-0.33)]]:
 		var shape:=CollisionShape3D.new();var cube:=BoxShape3D.new();cube.size=part[0]
 		shape.shape=cube;shape.position=part[1];body.add_child(shape)
+	return car
 
 func _roadside() -> void:
 	# Palo della luce spento, relitti e detriti: la strada deve raccontare l'abbandono.
@@ -746,16 +759,30 @@ func _roadside() -> void:
 	for path in RoadNet.paths():
 		var side_rng:=RandomNumberGenerator.new();side_rng.seed=int(absf(path[0].x*31+path[0].z*17))+9
 		var samples:=_sample_path(path,4.0)
-		_zombie_road(samples,3,400,side_rng)
+		_zombie_road(samples,3,400,side_rng,true)
 		_road_damage(samples,RoadNet.WIDTH*0.5,side_rng)
-	for i in range(1,7):
-		var a:Vector3=points[i]
-		var b:Vector3=points[i+1]
-		var dir:Vector3=(b-a).normalized()
-		var side:Vector3=dir.cross(Vector3.UP).normalized()
+	_poles(main,rng)
+	_curve_rails(main,rng)
+	_checkpoint()
+
+## Pali della luce spenti a distanza regolare (45–60 m) sulla destra della statale, da fuori il recinto al valico.
+func _poles(main:Array, rng:RandomNumberGenerator) -> void:
+	var walked:=0.0
+	var next:=60.0
+	for i in range(main.size()-1):
+		var a:Vector3=main[i];var b:Vector3=main[i+1]
+		walked+=a.distance_to(b)
+		if walked<next:continue
+		if b.z<Route.WALL_Z:break
+		var dir:=(b-a).normalized();var side:=dir.cross(Vector3.UP).normalized()
+		var at:=b+side*8.5
+		var flat:=Vector2(at.x,at.z)
+		# Dove il palo cadrebbe su un incrocio, sull'interno di una curva o in un luogo, si salta al punto dopo.
+		if Route.road_distance(flat)<7.5 or RoadNet.distance(flat)<5.0 or RoadNet.arena_distance(flat)<20.0 or Village.inside(at.x,at.z) or Route.site_distance(flat)<40.0 or at.distance_to(CHECKPOINT)<25.0:continue
+		next=walked+rng.randf_range(45.0,60.0)
 		var pole:=Node3D.new()
-		var pole_at:Vector3=a+side*8.5
-		_place(pole,pole_at,atan2(-dir.x,-dir.z))
+		_place(pole,at,atan2(-dir.x,-dir.z))
+		pole.name="PaloSpento"
 		# Pali piegati dal tempo, non tutti dritti.
 		pole.rotation.z=rng.randf_range(-0.18,0.18)
 		var shaft:=CylinderMesh.new();shaft.top_radius=0.10;shaft.bottom_radius=0.16;shaft.height=6.4
@@ -767,23 +794,56 @@ func _roadside() -> void:
 		var head:=MeshInstance3D.new();var shade:=BoxMesh.new();shade.size=Vector3(0.5,0.14,0.3)
 		head.mesh=shade;head.position=Vector3(-1.4,6.2,0);head.material_override=_metal(Color("2c322e"))
 		pole.add_child(head)
-		if i%2==0:
-			_wreck_car("SM_Borgo_Police_Wreck",a-side*7.2+dir*20,atan2(-dir.x,-dir.z)+0.5)
-		if i==2 or i==5:
-			var barricade:=Node3D.new()
-			for k in range(3): _box(barricade,Vector3(1.6,0.8,0.5),Vector3(k*1.7-1.7,0.4,0),Color("6a6555"))
-			_place(barricade,a+side*5.6,atan2(-dir.x,-dir.z))
-		# Guardrail solo dove resta fuori dall'asfalto: prima un tratto tagliava la curva.
-		if i<4:
-			for k in range(6):
-				var post:Vector3=a+dir*(k*4.0)+side*5.2
-				var tail:Vector3=post+dir*4.0
-				if Route.road_distance(Vector2(post.x,post.z))<4.9 or Route.road_distance(Vector2(tail.x,tail.z))<4.9:continue
-				var rail:=Node3D.new()
-				_place(rail,post,atan2(-dir.x,-dir.z))
-				rail.rotation.z=rng.randf_range(-0.12,0.12)
-				_box(rail,Vector3(0.10,1.0,0.10),Vector3(0,0.5,0),Color("4d5148"))
-				if k<5:_box(rail,Vector3(0.07,0.16,4.0),Vector3(0,0.78,2.0),Color("77796c"))
+
+## Guardrail solo all'esterno delle curve strette (raggio < 90 m) della statale in Zona 1: lì serve.
+func _curve_rails(main:Array, rng:RandomNumberGenerator) -> void:
+	for i in range(1,main.size()-1):
+		var a:Vector3=main[i-1];var b:Vector3=main[i];var c:Vector3=main[i+1]
+		if b.z<Route.WALL_Z:break
+		var d1:=(b-a);var d2:=(c-b)
+		if d1.length()<0.5 or d2.length()<0.5:continue
+		var turn:=Vector2(d1.x,d1.z).angle_to(Vector2(d2.x,d2.z))
+		if absf(turn)/d2.length()<1.0/90.0:continue
+		var dir:=d2.normalized();var side:=dir.cross(Vector3.UP).normalized()
+		# angle_to > 0: la strada piega verso +side; il guardrail va sul lato opposto, all'esterno.
+		var outer:=-side if turn>0.0 else side
+		var post:=b+outer*5.4
+		var tail:=c+outer*5.4
+		var flat:=Vector2(post.x,post.z)
+		if Route.road_distance(flat)<5.0 or Route.road_distance(Vector2(tail.x,tail.z))<5.0:continue
+		if RoadNet.distance(flat)<6.0 or RoadNet.junction_distance(flat)<16.0 or Village.inside(post.x,post.z) or Route.site_distance(flat)<40.0:continue
+		var rail:=Node3D.new()
+		var run:=Vector3(tail.x-post.x,0,tail.z-post.z)
+		_place(rail,post,atan2(-run.x,-run.z))
+		rail.name="Guardrail"
+		rail.rotation.z=rng.randf_range(-0.05,0.05)
+		_box(rail,Vector3(0.10,1.0,0.10),Vector3(0,0.5,0),Color("4d5148"))
+		_box(rail,Vector3(0.07,0.16,run.length()),Vector3(0,0.78,-run.length()*0.5),Color("77796c"))
+
+## Posto di blocco abbandonato all'imbocco della pista: la polizia chiudeva la statale verso il Borgo e
+## mandava tutti sulla pista. Auto di traverso sulle banchine, barriere a imbuto verso la pista e un cartello.
+## Tutto fuori dall'asfalto: il 4×4 passa sempre. Stesse posizioni su ogni macchina (niente caso).
+func _checkpoint() -> void:
+	# Riferimento sulla statale vera (lì sta già iniziando la curva): avanti = verso il Borgo, destra = lato est.
+	var o:Vector3=Route.nearest_road(CHECKPOINT)
+	var dir:Vector3=Route.road_direction(o)
+	var right:=dir.cross(Vector3.UP).normalized()
+	var yaw:=atan2(-dir.x,-dir.z)
+	var at:=func(lateral:float,ahead:float) -> Vector3: return o+right*lateral+dir*ahead
+	# Auto di traverso: le due a destra chiudevano la statale, quella a sinistra stava alla bocca della pista.
+	for car in [[7.6,-3.0,PI*0.5+0.15],[8.2,6.5,PI*0.5-0.45],[-8.5,-5.5,0.75]]:
+		var police:=_wreck_car("SM_Borgo_Police_Wreck",at.call(car[0],car[1]),yaw+car[2])
+		police.name="PostoDiBlocco"
+	# Barriere oblique sulla banchina destra: puntano verso la pista, a sinistra.
+	for row in [[7.0,1.0,-0.55],[7.4,12.0,-0.35]]:
+		var barricade:=Node3D.new()
+		for k in range(3):_box(barricade,Vector3(1.6,0.8,0.5),Vector3(k*1.7-1.7,0.4,0),Color("6a6555"))
+		_place(barricade,at.call(row[0],row[1]),yaw+row[2])
+		barricade.name="PostoDiBlocco"   # dopo add_child: un nome doppio dato prima diventerebbe @Node3D@
+	_stain(at.call(-1.5,-2.0),2.2,yaw+0.4,Color.BLACK,"drag")
+	var sign_at:Vector3=at.call(9.0,-14.0)
+	var board:Node3D=poi.build_sign(chunk(sign_at),{"at":sign_at,"yaw":yaw,"lines":["POSTO DI BLOCCO","<  DEVIAZIONE PISTA"]},height(sign_at.x,sign_at.z))
+	board.name="PostoDiBlocco"
 
 func _off_style(asset: String) -> bool:
 	# I cactus crescono solo nel deserto (ramo apposito sopra), mai estratti a caso nel bosco.

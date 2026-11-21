@@ -23,8 +23,9 @@ static func data() -> Dictionary:
 	rng.seed = SEED
 	var paths: Array = []
 	var arenas: Array = []
-	# Pista: nasce dalla statale dove questa piega a est e prosegue dritta nel bosco. Prima correva sopra la statale.
-	var trunk: Array = [Vector3(6, 0, -118), Vector3(8, 0, -158)]
+	# Pista: si stacca dalla statale prima della curva quasi ad angolo retto (bivio leggibile, imbuto corto),
+	# poi piega a sud nel bosco. Prima partiva a 16° e i due asfalti restavano incollati per 22 m.
+	var trunk: Array = [Vector3(6, 0, -112), Vector3(-4, 0, -122), Vector3(8, 0, -158)]
 	paths.append(trunk)
 	# Ramo ovest: si perde tra i pini e FINISCE PRIMA della radura del Capomacello, all'imbocco tra le rocce.
 	var west := _branch(rng, Vector3(6, 0, -58), Vector3(-58, 0, -86), 3)

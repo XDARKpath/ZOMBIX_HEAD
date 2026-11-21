@@ -1,6 +1,7 @@
 extends SceneTree
 # Ciglio della Zona 1: niente piante sull'asfalto, niente cactus nel bosco, erba fino al bordo dei rami,
-# prato su tutta la statale della zona, buca del 4×4 in dissolvenza.
+# prato su tutta la statale della zona, buca del 4×4 in dissolvenza, ciglio rado con un solo posto di blocco
+# voluto, imbocchi netti.
 # godot --path . -s res://tests/zone1_verge_checks.gd
 const Route := preload("res://world/campaign/route.gd")
 const RoadNet := preload("res://world/zona1_rifugio/roadnet.gd")
@@ -34,6 +35,8 @@ func _run() -> void:
 	if field.has_method("finish_mask"): field.finish_mask()
 	_meadow_along_road(field)
 	_car_hole_fades(field)
+	_sparse_verge()
+	_clean_junctions()
 	print("RIEPILOGO zone1_verge: %d errori" % fails.size())
 	for f in fails: print("  - ", f)
 	quit(0 if fails.is_empty() else 1)
@@ -166,3 +169,72 @@ func _car_hole_fades(field: Node) -> void:
 	car.speed = 0.0
 	print("  4×4 in %s: maschera %.2f -> %.2f in %.1f s, salto massimo %.2f per 0,1 s" % [spot.snapped(Vector3.ONE * 0.1), values[0], values[-1], reach * 0.1, jump])
 	check(values[0] < 0.05 and monotone and reach >= 10 and jump < full * 0.2, "Buca del 4×4 in dissolvenza (%.1f s, salto massimo %.2f)" % [reach * 0.1, jump])
+
+## 5. Ciglio rado: pali ad almeno 30 m l'uno dall'altro, posto di blocco intero e fuori dall'asfalto,
+## e attorno a lui (120 m) al massimo un relitto casuale ogni 100 m di ramo.
+func _sparse_verge() -> void:
+	var poles: Array = []
+	var block: Array = []
+	var wrecks: Array = []
+	for n in world.terrain.find_children("*", "Node3D", true, false):
+		if n.name.contains("PaloSpento"): poles.append(n.global_position)
+		elif n.name.contains("PostoDiBlocco"): block.append(n.global_position)
+		elif n.name.contains("RelittoCiglio"): wrecks.append(n.global_position)
+	var closest := INF
+	for i in poles.size():
+		for j in range(i + 1, poles.size()): closest = minf(closest, Vector2(poles[i].x, poles[i].z).distance_to(Vector2(poles[j].x, poles[j].z)))
+	check(poles.size() >= 10 and closest >= 30.0, "Pali spenti distribuiti: %d, i più vicini a %.0f m" % [poles.size(), closest])
+	var on_road := 0
+	for at in block:
+		if _on_asphalt(at.x, at.z) or Route.road_distance(Vector2(at.x, at.z)) < 5.0: on_road += 1
+	check(block.size() >= 6 and on_road == 0, "Posto di blocco all'imbocco della pista: %d pezzi, %d sull'asfalto" % [block.size(), on_road])
+	var center := Vector2(6, -108)
+	var branch := 0.0
+	for path in RoadNet.paths():
+		for i in range(path.size() - 1):
+			var a := Vector2(path[i].x, path[i].z)
+			var b := Vector2(path[i + 1].x, path[i + 1].z)
+			var steps := ceili(a.distance_to(b) / 2.0)
+			for k in steps:
+				if a.lerp(b, (k + 0.5) / steps).distance_to(center) < 120.0: branch += a.distance_to(b) / steps
+	var near := 0
+	for at in wrecks:
+		if Vector2(at.x, at.z).distance_to(center) < 120.0 and RoadNet.distance(Vector2(at.x, at.z)) < 8.0: near += 1
+	check(near <= branch / 100.0, "Ciglio quieto attorno al posto di blocco: %d relitti su %.0f m di rami" % [near, branch])
+
+
+## Imbocchi netti: ogni ramo si stacca con almeno 45° e a 10 m il suo asfalto è già separato da quello da cui parte.
+func _clean_junctions() -> void:
+	var paths: Array = RoadNet.paths()
+	var bad: Array = []
+	for index in paths.size():
+		for e in [0, 1]:
+			var pts: Array = paths[index].duplicate()
+			if e == 1: pts.reverse()
+			var start := Vector2(pts[0].x, pts[0].z)
+			if _other_road(paths, index, start) > 1.0: continue
+			var at2 := _along(pts, 2.0)
+			var at10 := _along(pts, 10.0)
+			var d2 := _other_road(paths, index, at2)
+			var d10 := _other_road(paths, index, at10)
+			if d2 < 2.0 * sin(deg_to_rad(45.0)) or d10 < 6.2: bad.append("ramo %d da %s: %.1f m a 2 m, %.1f m a 10 m" % [index, start.snapped(Vector2.ONE), d2, d10])
+	for b in bad: print("  imbocco: ", b)
+	check(bad.is_empty(), "Imbocchi a 45° o più e asfalti separati entro 10 m (%d da rifare)" % bad.size())
+
+
+func _other_road(paths: Array, index: int, p: Vector2) -> float:
+	var best := Route.road_distance(p)
+	for o in paths.size():
+		if o != index: best = minf(best, RoadNet._path_distance(paths[o], p))
+	return best
+
+
+func _along(pts: Array, want: float) -> Vector2:
+	var walked := 0.0
+	for i in range(pts.size() - 1):
+		var a := Vector2(pts[i].x, pts[i].z)
+		var b := Vector2(pts[i + 1].x, pts[i + 1].z)
+		var seg := a.distance_to(b)
+		if walked + seg >= want: return a.lerp(b, (want - walked) / maxf(seg, 0.001))
+		walked += seg
+	return Vector2(pts[-1].x, pts[-1].z)
