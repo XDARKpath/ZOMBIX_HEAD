@@ -11,13 +11,16 @@ const Layout := preload("res://world/zona1_rifugio/refuge_layout.gd")
 const Arsenal := preload("res://weapons/zx_arsenal.gd")
 const DISTANCE := 3.6
 const REACH := 3.2                 # da quanto lontano si compra un oggetto esposto
-const AIM := 0.955                 # quanto bisogna guardarlo (coseno dell'angolo dal centro dello schermo)
 ## Dal punto d'arrivo: lontano dal faro della tappa (+8, 0, -6), sul lato opposto della strada.
 const OFFSET := Vector3(-10, 0, 8)
 const C_TAG := Color("ffe9a8")
 const C_TAG_OWNED := Color("9fb59a")
 const C_TAG_POOR := Color("e08a6a")
 const C_TAG_AIM := Color("fff4c2")
+## Cartellini: grandezza fissa sullo schermo (non più 4 cm da lontano e 30 cm da vicino), visibili solo dentro il negozio.
+const TAG_PIXEL := 0.0011
+const TAG_RANGE := 7.0
+const PICK := 0.2                  # quanto può mancare il mirino dal centro di un oggetto esposto (m)
 var world: Node3D
 var survival: Node3D
 var shops: Array[ZXShop] = []
@@ -64,6 +67,7 @@ func add_upgrades(parent: Node3D, start: Vector3, step: Vector3, shop: Node3D = 
 		var up := make_upgrade(kind)
 		parent.add_child(up)
 		up.position = start + step * i
+		up.get_node("Tag").position.y += 0.16 * i
 		register_display(up, "up_" + kind, -1, up.get_node("Tag"), shop)
 		i += 1
 
@@ -115,14 +119,21 @@ func add_counter_items(parent: Node3D, start: Vector3, step: Vector3, shop: Node
 		tag.outline_size = 8
 		tag.modulate = C_TAG
 		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		tag.position = Vector3(0, 0.28 + 0.1 * (i % 2), 0)
+		tag.position = Vector3(0, 0.28 + 0.18 * (i % 2), 0)      # sfalsati: i vicini non si coprono
 		holder.add_child(tag)
 		register_display(holder, id, int(ItemInfo.ITEMS[id].price), tag, shop)
 		i += 1
 
 ## Registra un oggetto in vendita (lo chiama anche zone1_kit per il pannello di Big Earl).
 func register_display(node: Node3D, id: String, price: int, tag: Label3D, shop: Node3D = null) -> void:
-	displays.append({"node": node, "id": id, "price": price, "tag": tag, "text": tag.text if tag else "", "shop": shop})
+	if tag:
+		tag.fixed_size = true
+		tag.font_size = 30
+		tag.outline_size = 10
+		tag.pixel_size = TAG_PIXEL
+		tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		tag.rotation = Vector3.ZERO
+	displays.append({"node": node, "id": id, "price": price, "tag": tag, "shop": shop})
 
 ## Zaino da bancone: tela verde, due tasche, cinghie, cartellino col prezzo del prossimo slot.
 static func make_pack() -> Node3D:
@@ -183,24 +194,40 @@ func price_of(d: Dictionary) -> int:
 	if String(d.id).begins_with("up_"): return survival.upgrade_price(String(d.id).substr(3))
 	return survival.slot_price() if d.id == "pack" else int(d.price)
 
-## Oggetto esposto che il giocatore sta guardando, entro REACH: {} se nessuno.
+## Oggetto esposto sotto il mirino, entro REACH: {} se nessuno.
+## Vince quello che il raggio del mirino sfiora di meno; il negoziante davanti all'oggetto lo copre.
 func target(actor: CharacterBody3D) -> Dictionary:
 	var cam: Camera3D = actor.rig.camera
 	var origin := cam.global_position
 	var forward := -cam.global_basis.z
+	var npc_at := _npc_along(origin, forward)
 	var best := {}
-	var best_dot := AIM
+	var best_miss := PICK
 	for d in displays:
 		if not is_instance_valid(d.node) or not d.node.is_visible_in_tree(): continue
 		var to: Vector3 = _center(d.node) - origin
-		var dist := to.length()
-		if dist > REACH or dist < 0.05: continue
-		# Gli oggetti vicini sono grandi sullo schermo: la tolleranza cresce man mano che ti avvicini.
-		var dot := forward.dot(to / dist) + clampf(0.25 / dist, 0.0, 0.25) * 0.12
-		if dot > best_dot:
-			best_dot = dot
+		var along := forward.dot(to)
+		if along > REACH or along < 0.05 or along > npc_at: continue
+		var miss := (to - forward * along).length()
+		if miss < best_miss:
+			best_miss = miss
 			best = d
 	return best
+
+## Distanza lungo il mirino a cui c'è un negoziante (INF se il mirino non lo prende): testa e busto, 1,1-1,9 m.
+func _npc_along(origin: Vector3, forward: Vector3) -> float:
+	var npcs: Array = [survival.shop_npc] if survival and survival.get("shop_npc") else []
+	for shop in shops:
+		if shop.npc: npcs.append(shop.npc)
+	var nearest := INF
+	for npc in npcs:
+		if not is_instance_valid(npc): continue
+		var base: Vector3 = (npc as Node3D).global_position
+		for h in [1.15, 1.4, 1.65, 1.85]:
+			var to: Vector3 = base + Vector3(0, h, 0) - origin
+			var along := forward.dot(to)
+			if along > 0.0 and (to - forward * along).length() < (0.16 if h > 1.5 else 0.22): nearest = minf(nearest, along)
+	return nearest
 
 func _center(node: Node3D) -> Vector3:
 	# Le armi appese hanno l'origine sul gancio: il centro visivo sta un po' sotto.
@@ -224,7 +251,7 @@ func status(actor: CharacterBody3D, d: Dictionary) -> String:
 func context(actor: Node3D) -> String:
 	var d := target(actor)
 	if not d.is_empty():
-		var label: String = "ZAINO +1 SLOT" if d.id == "pack" else ItemInfo.title(d.id).to_upper()
+		var label: String = Localization.t("ZAINO +1 SLOT") if d.id == "pack" else ItemInfo.title(d.id).to_upper()
 		if d.id == "up_health": label = Localization.t("VITA MASSIMA +15")
 		elif d.id == "up_stamina": label = Localization.t("FIATO MASSIMO +15")
 		match status(actor, d):
@@ -268,7 +295,7 @@ func on_bought() -> void:
 	if shop and is_instance_valid(shop) and shop.npc: shop.npc.show_item()
 	elif survival.shop_npc: survival.shop_npc.show_item()
 	if not aimed.is_empty():
-		var label: String = "Zaino più grande" if aimed.id == "pack" else ItemInfo.title(aimed.id)
+		var label: String = Localization.t("Zaino più grande") if aimed.id == "pack" else ItemInfo.title(aimed.id)
 		world.announce(Localization.t("COMPRATO · {0}", [label.to_upper()]), 3)
 	aimed = {}
 
@@ -279,17 +306,28 @@ func _process(_delta: float) -> void:
 	for d in displays:
 		var tag: Label3D = d.tag
 		if tag == null or not is_instance_valid(tag): continue
-		if tag.global_position.distance_to(a.global_position) > 9.0: continue
+		tag.visible = tag.global_position.distance_to(a.global_position) <= TAG_RANGE
+		if not tag.visible: continue
 		var st := status(a, d)
-		var base: String = d.text
-		if d.id == "pack":
-			base = Localization.t("Zaino +1 slot\n{0} CR", [price_of(d)]) if st != "max" else Localization.t("Zaino\nal massimo")
-		elif String(d.id).begins_with("up_"):
-			var what: String = Localization.t("Vita +15") if d.id == "up_health" else Localization.t("Fiato +15")
-			base = what + "\n" + (Localization.t("{0} CR", [price_of(d)]) if st != "max" else Localization.t("finiti in questa zona"))
-		tag.text = base + ("\n" + Localization.t("GIÀ TUA") if st == "owned" else "")
-		var c: Color = C_TAG_OWNED if st == "owned" or st == "max" else (C_TAG_POOR if st == "poor" else C_TAG)
+		var lines := _tag_lines(d, st)
 		var on: bool = not aim.is_empty() and aim.node == d.node
+		# Sul pannello resta solo il prezzo (o "già tua"): il nome compare, più grande, sull'oggetto sotto il mirino.
+		tag.text = "\n".join(lines) if on else lines[-1]
+		var c: Color = C_TAG_OWNED if st == "owned" or st == "max" else (C_TAG_POOR if st == "poor" else C_TAG)
 		tag.modulate = C_TAG_AIM if on else c
 		tag.outline_modulate = Color(0.55, 0.32, 0.05) if on else Color(0, 0, 0)
-		tag.scale = Vector3.ONE * (1.25 if on else 1.0)
+		tag.scale = Vector3.ONE * (1.3 if on else 0.8)
+		tag.render_priority = 1 if on else 0
+		tag.outline_render_priority = 0 if on else -1
+
+## Righe del cartellino nella lingua del momento (prima il testo restava quello dell'avvio): nome, prezzo, stato.
+func _tag_lines(d: Dictionary, st: String) -> Array:
+	if d.id == "pack":
+		return [Localization.t("Zaino +1 slot"), Localization.t("{0} CR", [price_of(d)])] if st != "max" else Array(Localization.t("Zaino\nal massimo").split("\n"))
+	if String(d.id).begins_with("up_"):
+		var what: String = Localization.t("Vita +15") if d.id == "up_health" else Localization.t("Fiato +15")
+		return [what, Localization.t("{0} CR", [price_of(d)]) if st != "max" else Localization.t("finiti in questa zona")]
+	var title: String = ItemInfo.title(d.id) if ItemInfo.is_item(d.id) else ZXWeapons.display_name(d.id)
+	var lines := [title, Localization.t("{0} CR", [price_of(d)])]
+	if st == "owned": lines.append(Localization.t("GIÀ TUA"))
+	return lines

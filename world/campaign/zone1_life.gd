@@ -204,8 +204,13 @@ func _make_sack(id: int, at: Vector3, heads: int, owner_name: String) -> Diction
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.font_size = 40
-	label.pixel_size = 0.006
-	label.position.y = 1.2
+	label.pixel_size = 0.0035
+	label.outline_size = 10
+	label.position.y = 1.0
+	# Da lontano si vede attraverso i muri; da vicino sparisce piano (c'è già la scritta [E] in basso).
+	label.visibility_range_begin = 2.2
+	label.visibility_range_begin_margin = 2.0
+	label.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 	label.modulate = Color("ffd591")
 	node.add_child(label)
 	var sack := {"id": id, "node": node, "label": label, "heads": heads, "items": {}, "eaten": 0.0, "name": owner_name}
