@@ -5,6 +5,14 @@ const Route=preload("res://world/campaign/route.gd")
 # Ordine: guidatore, passeggero, dietro sinistra, dietro destra.
 const SEATS:=[Vector3(-0.46,0.53,0.32),Vector3(0.46,0.53,0.32),Vector3(-0.46,0.56,0.96),Vector3(0.46,0.56,0.96)]
 const RangerVisual=preload("res://vehicle/ranger_visual.gd")
+## Guida "pesante ma agile": sterzo a bicicletta con angolo massimo che cala con la velocità
+## (raggio ~4,3 m a passo d'uomo, ~10,5 m a 24 m/s: sottosterzo leggero, niente testacoda),
+## freno vero su S e gradini fino a STEP superabili.
+const WHEELBASE:=2.7
+const MAX_STEER:=deg_to_rad(32.0)
+const STEER_FADE:=0.55
+const BRAKE:=16.0
+const STEP:=0.3
 var campaign:Node3D
 var seats:Array=[0,0,0,0]
 var repaired:bool=false
@@ -25,12 +33,18 @@ func build(owner_campaign:Node3D) -> void:
 	campaign=owner_campaign
 	collision_layer=8;collision_mask=1
 	floor_snap_length=1.5
+	# Scatola alzata a 0,32 m da terra: sotto, quattro raggi alle ruote fanno da "piedi" e scavalcano
+	# cordoli, assi e macerie fino a ~0,3 m. Prima la scatola toccava terra e ogni gradino da 1 cm era un muro.
 	var collider:=CollisionShape3D.new()
-	var shape:=BoxShape3D.new();shape.size=Vector3(1.92,1.95,3.6)
-	collider.shape=shape;collider.position.y=0.98;add_child(collider)
+	var shape:=BoxShape3D.new();shape.size=Vector3(1.92,1.955-STEP,3.6)
+	collider.shape=shape;collider.position.y=(1.955+STEP)*0.5;add_child(collider)
 	# 04 / RANGER: modelled 4x4 with opening doors and three repair phases (ranger_visual.gd).
 	visual=RangerVisual.new();visual.name="Ranger";add_child(visual)
 	wheels=visual.wheels
+	for w in wheels:
+		var foot:=CollisionShape3D.new();var ray:=SeparationRayShape3D.new();ray.length=STEP+0.03
+		var hub:=to_local(w.global_position)
+		foot.shape=ray;foot.position=Vector3(hub.x,STEP+0.03,hub.z);foot.rotation.x=PI/2;add_child(foot)
 	exhaust=preload("res://ui/camp/camp_props.gd").smoke(self,Vector3(0.32,0.42,1.74),0.5,0.35,10)
 	exhaust.emitting=false
 	if DisplayServer.get_name()!="headless":
@@ -120,7 +134,7 @@ func _physics_process(delta:float) -> void:
 	if not campaign or not campaign.world.started: return
 	visual.roll(speed*delta)
 	visual.settle(delta)
-	visual.steer(steer_amount)
+	visual.steer(steer_amount*steer_angle()/MAX_STEER)
 	visual.update_state(campaign.collected,campaign.stage,repaired,campaign.repairing_peer!=0)
 	for i in range(seats.size()):
 		if seats[i]!=last_seats[i]: visual.pulse_door(i)
@@ -145,10 +159,12 @@ func _physics_process(delta:float) -> void:
 		input_age+=delta
 		var input:=drive_input if input_age<0.3 and seats[0]!=0 and repaired else Vector2.ZERO
 		var target:float=-input.y*(24.0 if input.y<0 else 8.0)
-		speed=move_toward(speed,target,delta*(7 if input.y!=0 else 12))
+		# S mentre si va avanti (o W in retromarcia) frena davvero, poi fa partire la retro.
+		var braking:=input.y!=0 and absf(speed)>0.3 and signf(target)!=signf(speed)
+		speed=move_toward(speed,target,delta*(BRAKE if braking else 7.0 if input.y!=0 else 12.0))
 		var previous_yaw:=rotation.y
 		steer_amount=lerpf(steer_amount,-input.x,delta*8)
-		rotation.y-=input.x*clampf(speed/7,-1,1)*delta*0.85
+		rotation.y+=speed/WHEELBASE*tan(steer_amount*steer_angle())*delta
 		var forward:Vector3=-global_basis.z
 		velocity.x=forward.x*speed;velocity.z=forward.z*speed
 		velocity.y=-1 if is_on_floor() else velocity.y-delta*24
@@ -171,6 +187,10 @@ func _physics_process(delta:float) -> void:
 		position=position.lerp(server_position,1-exp(-delta*14))
 		rotation.y=lerp_angle(rotation.y,server_yaw,1-exp(-delta*14))
 		_follow_turn(wrapf(rotation.y-previous_yaw,-PI,PI));_place_occupants()
+
+## Angolo massimo delle ruote anteriori: 32° da fermi, il 45 % in meno a 24 m/s.
+func steer_angle() -> float:
+	return MAX_STEER*(1.0-STEER_FADE*clampf(absf(speed)/24.0,0.0,1.0))
 
 func _follow_turn(amount:float) -> void:
 	if seat_of(multiplayer.get_unique_id())>=0: campaign.world.player.rig.yaw+=amount
