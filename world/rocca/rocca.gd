@@ -411,6 +411,7 @@ func set_gate(gname: String, open: bool) -> void:
 	g.open = open
 	if not open and host:
 		_clear_gate(g)
+	AudioManager.gate(open, g.node.global_position + Vector3.UP * 1.5)
 	var tw := create_tween()
 	tw.tween_property(g.node, "position:y", g.open_y if open else g.closed_y, 1.6 if open else 0.55).set_trans(Tween.TRANS_QUAD if open else Tween.TRANS_BOUNCE)
 	for s in g.node.find_children("*", "CollisionShape3D", true, false):
@@ -1625,6 +1626,7 @@ func open_door() -> void:
 	has_key = true
 	door.find_child("Door_Key").visible = true
 	door_ap.play("Door_Key_Unlock")
+	AudioManager.door(true, door.global_position + Vector3.UP * 1.2)
 	door_ap.queue("Door_Swing_Open")
 	get_tree().create_timer(1.7).timeout.connect(func(): door_body.process_mode = Node.PROCESS_MODE_DISABLED)
 	world.announce("La chiave gira, il lucchetto cade. La porta della torre si apre.", 4)
@@ -2143,6 +2145,7 @@ func _surface_ruins(tower: Node3D) -> void:
 	flame.position = Vector3(fire.x, Terrain.ground_height(fg.x, fg.z) - tower.global_position.y + 0.6, fire.z)
 	flame.set_meta("base", 2.0)
 	torches.append(flame)
+	AudioManager.fire_loop(ruins, flame.position - Vector3(0, 0.4, 0), -6.0)
 	var sparks := CPUParticles3D.new()
 	sparks.amount = 28; sparks.lifetime = 0.9; sparks.direction = Vector3.UP; sparks.spread = 18
 	sparks.initial_velocity_min = 0.6; sparks.initial_velocity_max = 1.4; sparks.gravity = Vector3(0, 0.6, 0)

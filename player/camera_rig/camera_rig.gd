@@ -12,6 +12,8 @@ var yaw: float = 0.0
 var pitch: float = Balance.CAMERA_PITCH_DEFAULT
 var controls_enabled: bool = true
 var bob_clock: float = 0.0
+const STEP_WALK := 1.3            # metri per passo camminando (4 m/s: ~3 passi al secondo)
+const STEP_RUN := 1.8             # correndo (7 m/s: ~3,9 passi al secondo)
 var dip: float = 0.0
 var lean: float = 0.0
 var was_airborne: bool = false
@@ -50,7 +52,11 @@ func _physics_process(delta: float) -> void:
 	# Follow the collision body without horizontal lag or third-person orbit.
 	var speed: float = Vector2(subject.velocity.x, subject.velocity.z).length()
 	var walking: float = clampf(speed / 3.2, 0.0, 1.0)
-	bob_clock += delta * (8.6 if subject.sprinting else 7.0) * walking
+	# Un passo ogni PI di bob_clock, lungo quanto la falcata: la cadenza segue la velocità vera
+	# (accucciato, azzoppato, contro un muro o in accelerazione i passi rallentano). I passi sonori
+	# partono da qui (step_index), così suono e ondeggio cadono insieme.
+	var stride: float = lerpf(STEP_WALK, STEP_RUN, clampf((speed - Balance.WALK_SPEED) / (Balance.SPRINT_SPEED - Balance.WALK_SPEED), 0.0, 1.0))
+	if subject.is_on_floor(): bob_clock += delta * PI * speed / stride
 	var bob := Vector3(cos(bob_clock) * 0.012, absf(sin(bob_clock)) * 0.020, 0.0) * walking
 	if subject.crouching: bob *= 0.55
 	# Atterraggio: piccolo cedimento elastico invece di uno scatto secco.

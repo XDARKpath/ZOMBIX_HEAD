@@ -71,3 +71,24 @@ Tagli a mano (secondi nel file sorgente), tutti da raccolte CC0. "Sostituto" = n
 | audio/sfx/reload_lever.wav | gun-reload-sounds | shotguncock_0.wav | 0.040-0.470 s | 1.15 | CC0 (https://opengameart.org/content/gun-reload-sounds) | sostituto: pompa del fucile a tono 1.15, nessuna leva CC0 |
 | audio/sfx/reload_crossbow_string.wav | medieval-sound-effects-weapon-textures | Crossbow Set Nut Against Sear.wav | 1.860-2.080 s | 1.0 | CC0 (https://opengameart.org/content/medieval-sound-effects-weapon-textures) | noce che aggancia la corda; non c'è la corda che si tende |
 | audio/sfx/reload_crossbow_bolt.wav | medieval-sound-effects-weapon-textures | Crossbow Place Bolt.wav | 0.385-0.750 s | 1.0 | CC0 (https://opengameart.org/content/medieval-sound-effects-weapon-textures) |  |
+
+## Mondo e avvisi
+
+Porte, cancelli, botola, testa raccolta, infetto che ti sente. Pezzo = tratto rumoroso del file ("intero" = dal primo all'ultimo).
+
+| File | Raccolta | Sorgente | Pezzo | Tono | Licenza |
+|---|---|---|---|---|---|
+| audio/sfx/world_door_open.wav | 50-rpg-sound-effects | doorOpen_1.ogg | intero | 0.9 | CC0 (https://opengameart.org/content/50-rpg-sound-effects) |
+| audio/sfx/world_door_open_2.wav | 50-rpg-sound-effects | doorOpen_2.ogg | intero | 0.9 | CC0 (https://opengameart.org/content/50-rpg-sound-effects) |
+| audio/sfx/world_door_close.wav | 50-rpg-sound-effects | doorClose_1.ogg | intero | 0.9 | CC0 (https://opengameart.org/content/50-rpg-sound-effects) |
+| audio/sfx/world_door_close_2.wav | 50-rpg-sound-effects | doorClose_2.ogg | intero | 0.9 | CC0 (https://opengameart.org/content/50-rpg-sound-effects) |
+| audio/sfx/world_gate_open.wav | 100-cc0-metal-and-wood-sfx | metal_open_01.ogg | intero | 0.62 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) |
+| audio/sfx/world_gate_open_2.wav | 100-cc0-metal-and-wood-sfx | metal_spring_01.ogg | intero | 0.6 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) |
+| audio/sfx/world_gate_close.wav | 100-cc0-metal-and-wood-sfx | metal_slam_01.ogg | intero | 0.75 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) |
+| audio/sfx/world_hatch.wav | 50-rpg-sound-effects | creak1.ogg | intero | 0.8 | CC0 (https://opengameart.org/content/50-rpg-sound-effects) |
+| audio/sfx/world_hatch_2.wav | 100-cc0-metal-and-wood-sfx | wood_squeak_01.ogg | intero | 0.8 | CC0 (https://opengameart.org/content/100-cc0-metal-and-wood-sfx) |
+| audio/sfx/world_head_pickup.wav | 40-cc0-water-splash-slime-sfx | slime_03.ogg | intero | 0.85 | CC0 (https://opengameart.org/content/40-cc0-water-splash-slime-sfx) |
+| audio/sfx/world_head_pickup_2.wav | 40-cc0-water-splash-slime-sfx | slime_07.ogg | intero | 0.85 | CC0 (https://opengameart.org/content/40-cc0-water-splash-slime-sfx) |
+| audio/sfx/world_head_pickup_3.wav | 50-rpg-sound-effects | dropLeather.ogg | intero | 0.9 | CC0 (https://opengameart.org/content/50-rpg-sound-effects) |
+| audio/sfx/world_notice.wav | monster-snarls | monster-snarls_0.ogg | 0 | 1.15 | CC0 (https://opengameart.org/content/monster-snarls) |
+| audio/sfx/world_notice_2.wav | monster-snarls | monster-snarls-2_0.ogg | 0 | 1.1 | CC0 (https://opengameart.org/content/monster-snarls) |

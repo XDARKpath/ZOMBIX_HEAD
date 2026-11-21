@@ -344,6 +344,7 @@ func _fire(parent: Node3D, at: Vector3, big := false) -> void:
 	light.light_energy = 2.2
 	light.set_meta("base", 2.2)
 	fires.append(light)
+	AudioManager.fire_loop(parent, at + Vector3(0, 1.1, 0))
 	var smoke := Props.smoke(parent, at + Vector3(0, 1.5, 0), 0.9, 0.35, 16)
 	smoke.lifetime = 4.0
 	smoke.initial_velocity_min = 0.6

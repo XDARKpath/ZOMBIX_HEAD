@@ -3,7 +3,7 @@ extends "res://world/zona1_rifugio/fase3.gd"
 var expedition: Node3D
 var presentation: Node3D
 var overlay: Control
-var footstep_clock: float = 0
+var footstep_clock: int = 0          # ultimo passo suonato (indice da camera_rig.bob_clock)
 var footsteps: AudioStreamPlayer
 var survival:Node3D
 var zone_life:Node3D
@@ -195,11 +195,12 @@ func _process(delta: float) -> void:
 				danger = true
 				break
 		AudioManager.set_combat(danger)
-	if footsteps and player.is_on_floor() and player.velocity.length()>1 and not player.dodging:
-		footstep_clock -= delta
-		if footstep_clock<=0:
-			footstep_clock = 0.28 if player.sprinting else 0.43
-			AudioManager.footstep(randf_range(0.9,1.1))
+	# Un passo sonoro per ogni passo dell'ondeggio della camera (player/camera_rig/camera_rig.gd).
+	var step := int(player.rig.bob_clock / PI)
+	if step != footstep_clock:
+		footstep_clock = step
+		if footsteps and player.is_on_floor() and player.velocity.length()>1 and not player.dodging:
+			AudioManager.footstep(randf_range(0.9,1.1) * (0.92 if player.crouching else 1.0), -20.0 if player.crouching else -14.0)
 
 func _unhandled_input(event: InputEvent) -> void:
 	super._unhandled_input(event)
