@@ -740,6 +740,16 @@ const EXTRA_MESSAGES := {
 	"La batteria portala a Big Earl, all'Emporio: la mette in carica, e gli ho lasciato la prossima esca.": {"en": "Take the battery to Big Earl, at the Store: he'll charge it, and I left the next bait with him."},
 	"Attento ai tetti: lassù sputano, e quando esce lui le vie si chiudono.": {"en": "Watch the rooftops: they spit from up there, and when he comes out the streets close."},
 	"Prima riprendi fiato. Bruno ha un falò davanti alla torre, nel bosco a ovest oltre la fattoria: lì gli infetti non vengono.": {"en": "Catch your breath first. Bruno has a campfire outside the tower, in the western woods past the farm: the infected don't go there."},
+	# GPS: direzione e quota dell'obiettivo (ui/route_gps.gd).
+	"NORD": {"en": "NORTH"}, "NORD-EST": {"en": "NORTH-EAST"}, "EST": {"en": "EAST"}, "SUD-EST": {"en": "SOUTH-EAST"},
+	"SUD": {"en": "SOUTH"}, "SUD-OVEST": {"en": "SOUTH-WEST"}, "OVEST": {"en": "WEST"}, "NORD-OVEST": {"en": "NORTH-WEST"},
+	"davanti": {"en": "ahead"}, "avanti a destra": {"en": "ahead right"}, "a destra": {"en": "to your right"}, "dietro a destra": {"en": "behind right"},
+	"dietro": {"en": "behind"}, "dietro a sinistra": {"en": "behind left"}, "a sinistra": {"en": "to your left"}, "avanti a sinistra": {"en": "ahead left"},
+	"QUOTA  stessa altezza": {"en": "HEIGHT  same level"},
+	"QUOTA  +{0} m · sali": {"en": "HEIGHT  +{0} m · climb"},
+	"QUOTA  {0} m · scendi": {"en": "HEIGHT  {0} m · go down"},
+	"SEI A  {0}": {"en": "YOU ARE IN  {0}"},
+	"{0}  ·  {1} m  {2}": {"en": "{0}  ·  {1} m  {2}"},
 }
 
 var current: String = DEFAULT_LANGUAGE

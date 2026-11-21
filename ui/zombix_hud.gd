@@ -506,6 +506,7 @@ func _draw_radar(now: float) -> void:
 	if world.get("zone_life"):
 		for sack in world.zone_life.sacks:
 			_map_blip(c,sack["node"].global_position,C_BRASS,3.6)
+	_draw_goal_pin(c)
 	var dir := forward.normalized()
 	draw_colored_polygon(PackedVector2Array([c+dir*8,c+dir.rotated(2.5)*6,c+dir.rotated(-2.5)*6]),C_BONE)
 	# Nord sul bordo: unica scritta della mappa.
@@ -639,6 +640,19 @@ func _player_map_forward() -> Vector2:
 	var f := Vector2(-sin(yaw),-cos(yaw))
 	if f.length_squared() < 0.01: f = Vector2.UP
 	return f.normalized()
+
+## Obiettivo sul radar: rombo come quello a schermo; oltre i 32 m resta sul bordo, nella sua direzione.
+func _draw_goal_pin(center: Vector2) -> void:
+	var p = world.player
+	if p.global_position.y > 150.0 or not world.get("expedition"): return
+	var goal: Vector3 = world.expedition.target_point()
+	var rel := Vector2(goal.x-p.position.x,goal.z-p.position.z)*2.0
+	if rel.length() < 4.0: return
+	var pos := center+(rel if rel.length() <= 64.0 else rel.normalized()*66.0)
+	var pts := PackedVector2Array([pos+Vector2(0,-6),pos+Vector2(5,0),pos+Vector2(0,6),pos+Vector2(-5,0)])
+	draw_colored_polygon(pts,C_BRASS)
+	pts.append(pts[0])
+	draw_polyline(pts,Color(0.05,0.06,0.05,0.9),1.2,true)
 
 func _map_blip(center: Vector2, point: Vector3, color: Color, radius: float) -> void:
 	var p := Vector2(point.x-world.player.position.x,point.z-world.player.position.z)*2.0
