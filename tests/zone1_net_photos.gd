@@ -56,7 +56,7 @@ func _run() -> void:
 		return
 	await _top("A_rete_intera", Vector3(10, 0, -230), 560.0)
 	await _top("B_rifugio_e_bivi", Vector3(10, 0, -110), 200.0)
-	await _top("C_borgo_e_bretella", Vector3(150, 0, -385), 190.0)
+	await _top("C_borgo_e_bretella", Vector3(120, 0, -385), 220.0)
 	await _top("D_radura_boss", boss, 110.0)
 	await _top("E_posto_di_blocco", Terrain.get_script_constant_map()["CHECKPOINT"] + Vector3(0, 0, -6), 60.0)
 	for j in RoadNet.junctions().size():
@@ -66,7 +66,8 @@ func _run() -> void:
 	await _eye("G_posto_di_blocco_da_nord", cp + Vector3(1.5, 1.7, 30), cp + Vector3(0, 0.8, -6))
 	await _eye("H_posto_di_blocco_da_sud", cp + Vector3(-6, 1.7, -30), cp + Vector3(0, 0.8, 0))
 	await _eye("I_ingresso_borgo", Vector3(214, 1.7, -378), Vector3(150, 1.5, -385))
-	await _eye("J_via_est_borgo", Vector3(178, 1.7, -383), Vector3(110, 1.5, -385))
+	await _eye("J_via_est_borgo", Vector3(150, 1.7, -383), Vector3(70, 1.5, -385))
+	await _eye("M_dallo_scatto_utente", Vector3(112, 1.7, -258), Vector3(106, 0.8, -285))
 	var paths: Array = RoadNet.paths()
 	for p in paths.size():
 		var line: Array = paths[p]

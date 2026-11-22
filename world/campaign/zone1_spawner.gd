@@ -26,7 +26,7 @@ const ZONES := [
 	["LA GOLA", Vector2(108, -96), 30.0, [1, 3, 4, 1], 2, 9, 3.0],
 	["LA STRADA DEL BORGO", Vector2(150, -285), 42.0, [0, 1, 0, 3], 1, 8, 3.5],
 	# Nel borgo gli infetti e gli sputatori li mette villaggio.gd: qui solo il nome e il pericolo.
-	["BORGO CENERE", Vector2(95, -385), 105.0, [0], 2, 0, 9.0],
+	["BORGO CENERE", Vector2(50, -385), 105.0, [0], 2, 0, 9.0],
 	["LA PISTA DELLA ROCCA", Vector2(-125, -208), 42.0, [0, 1, 0, 3], 1, 9, 3.5],
 	["IL BOSCO DELLA ROCCA", Vector2(-230, -245), 46.0, [2, 3, 4, 1], 2, 9, 3.0],
 	["IL BOSCO DEL CAPOMACELLO", Vector2(-56, -290), 44.0, [0, 1, 0, 3], 1, 8, 4.0],

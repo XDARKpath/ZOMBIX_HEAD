@@ -129,11 +129,7 @@ func _ground() -> void:
 		for side in [-1.3, 1.3]:
 			var off = Vector3(d.y, 0, d.x) * side
 			box(geo, mid + off + Vector3(0, 0.03, 0), Vector3(size.x if d.x != 0 else 0.5, 0.01, size.z if d.y != 0 else 0.5), Color("4f4d40"), false)
-	# viottolo dalla fine della via S alla strada asfaltata
-	var a := Vector3(0, 0, PLAZA + STREET_LEN)
-	var b := Vector3(44, 0, 122)
-	var lane := box(geo, (a + b) * 0.5 + (b - a).normalized() + Vector3(0, 0.004, 0), Vector3(6, 0.05, a.distance_to(b) + 2), Color("5b5a4b"), false)
-	lane.rotation.y = atan2((b - a).x, (b - a).z)
+	# niente viottolo dalla fine della via S: la statale ora passa lontana, dalla via S si esce sulla vecchia pista
 
 
 func _plaza() -> void:
