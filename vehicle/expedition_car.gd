@@ -5,13 +5,17 @@ const Route=preload("res://world/campaign/route.gd")
 # Ordine: guidatore, passeggero, dietro sinistra, dietro destra.
 const SEATS:=[Vector3(-0.46,0.53,0.32),Vector3(0.46,0.53,0.32),Vector3(-0.46,0.56,0.96),Vector3(0.46,0.56,0.96)]
 const RangerVisual=preload("res://vehicle/ranger_visual.gd")
-## Guida "pesante ma agile": sterzo a bicicletta con angolo massimo che cala con la velocità
-## (raggio ~4,3 m a passo d'uomo, ~10,5 m a 24 m/s: sottosterzo leggero, niente testacoda),
-## freno vero su S e gradini fino a STEP superabili.
-const WHEELBASE:=2.7
-const MAX_STEER:=deg_to_rad(32.0)
-const STEER_FADE:=0.55
+## Guida "pesante ma agile": sterzo a bicicletta (angolo delle ruote, non velocità di rotazione), sottosterzo
+## leggero, niente testacoda. Ogni numero nasce dai nostri obiettivi e dal nostro modello, non da altri giochi:
+## passo misurato sul Ranger (ruote a z = ±1,02 m in ranger_visual.gd).
+const WHEELBASE:=2.04
+## Obiettivo raggio ~4,3 m a passo d'uomo: atan(2,04 / 4,3) = 25,4°.
+const MAX_STEER:=deg_to_rad(25.4)
+## Obiettivo raggio ~11 m a 24 m/s: atan(2,04 / 11) = 10,5° = 25,4° × (1 − 0,59).
+const STEER_FADE:=0.59
+## Obiettivo frenata: S a 16 m/s² (da 24 m/s ~18 m), più forte del rilascio (12 m/s²).
 const BRAKE:=16.0
+## Obiettivo gradini: cordoli, assi e soglie fino a 0,3 m si scavalcano (resta sotto il raggio ruota 0,42 m).
 const STEP:=0.3
 var campaign:Node3D
 var seats:Array=[0,0,0,0]
@@ -134,7 +138,7 @@ func _physics_process(delta:float) -> void:
 	if not campaign or not campaign.world.started: return
 	visual.roll(speed*delta)
 	visual.settle(delta)
-	visual.steer(steer_amount*steer_angle()/MAX_STEER)
+	visual.steer(steer_amount*steer_angle()/0.55) # ranger_visual gira le ruote di amount × 0,55 rad: così mostrano l'angolo vero
 	visual.update_state(campaign.collected,campaign.stage,repaired,campaign.repairing_peer!=0)
 	for i in range(seats.size()):
 		if seats[i]!=last_seats[i]: visual.pulse_door(i)
@@ -188,7 +192,7 @@ func _physics_process(delta:float) -> void:
 		rotation.y=lerp_angle(rotation.y,server_yaw,1-exp(-delta*14))
 		_follow_turn(wrapf(rotation.y-previous_yaw,-PI,PI));_place_occupants()
 
-## Angolo massimo delle ruote anteriori: 32° da fermi, il 45 % in meno a 24 m/s.
+## Angolo massimo delle ruote anteriori: 25,4° da fermi, il 59 % in meno a 24 m/s.
 func steer_angle() -> float:
 	return MAX_STEER*(1.0-STEER_FADE*clampf(absf(speed)/24.0,0.0,1.0))
 
