@@ -26,7 +26,7 @@ func build(owner_world: Node3D) -> void:
 	reset()
 
 func reset() -> void:
-	# Il Capomacello sta in fondo al ramo ovest del bosco.
+	# Il Capomacello sta nella radura in fondo al suo sentiero, oltre la vecchia pista (roadnet.gd BOSS_ARENA).
 	var spots := [RoadNet.arenas()[0]]
 	for i in range(rows.size()):
 		var at: Vector3 = spots[i]

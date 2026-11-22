@@ -86,6 +86,18 @@ func _run() -> void:
 	var forest_road: float = RoadNetTest.distance(Vector2(forest_center.x, forest_center.z))
 	print("  il sentiero più vicino alla radura è a %.1f m dal centro" % forest_road)
 	check(forest_road > 22.0, "Il sentiero si ferma prima della zona del boss")
+	# Il primo boss arriva dopo un po' di esplorazione, non dietro il recinto.
+	print("  radura del Capomacello a %.0f m dal rifugio" % forest_center.distance_to(Layout.SHERIFF))
+	check(forest_center.distance_to(Layout.SHERIFF) > 250.0, "Il Capomacello è lontano dalla partenza")
+	# Ogni strada parte e arriva in un posto: incrocio, Borgo, radura, Rocca o portone del recinto.
+	var loose: Array = []
+	for line in RoadNetTest.paths():
+		for end in [line[0], line[line.size() - 1]]:
+			var flat := Vector2(end.x, end.z)
+			var placed: bool = RoadNetTest.junction_distance(flat) < 1.0 or preload("res://world/villaggio/villaggio_layout.gd").inside(end.x, end.z)
+			placed = placed or RoadNetTest.arena_distance(flat) <= RoadNetTest.FOREST_STOP + 1.0 or RoadNetTest.site_distance(flat) < RoadNetTest.SITE_RADIUS or Rect2(Layout.FENCE_MIN, Layout.FENCE_MAX - Layout.FENCE_MIN).grow(8.0).has_point(flat)
+			if not placed: loose.append(flat.snapped(Vector2.ONE))
+	check(loose.is_empty(), "Nessuna strada finisce nel nulla %s" % [loose])
 
 	# Spawn per zona
 	check(Spawner.zone_at(Vector2(6, -78)) == 0 and Spawner.ZONES[0][3] == [0], "Nel prato solo infetti normali")

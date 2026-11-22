@@ -15,7 +15,7 @@ const SHERIFF_NPC:=SHERIFF+Vector3(-2.05,0,1.15)
 const SHOP_NPC:=SHOP+Vector3(1.65,0,1.9)
 # I tre ricambi stanno all'aperto, dove prima c'erano casa, officina e deposito.
 # Ricambi sparsi sui rami della rete stradale: bisogna girare per trovarli.
-const PART_POINTS:=[Vector3(-40.0,0.05,-58.0),Vector3(60.0,0.05,-52.0),Vector3(10.0,0.05,-160.0)]
+const PART_POINTS:=[Vector3(-40.0,0.05,-58.0),Vector3(60.0,0.05,-52.0),Vector3(-3.0,0.05,-162.0)]
 const PART_PLACES:=["BIVIO OVEST","BIVIO EST","VECCHIA PISTA"]
 # Primi infetti, fuori dal recinto: i due più vicini aspettano appena oltre il portone nord, già visibili da dentro.
 const ENEMIES:=[Vector3(1,0,-54),Vector3(12,0,-56),Vector3(28,0,-66),Vector3(-16,0,-68),Vector3(-40,0,-72),Vector3(6,0,-186)]

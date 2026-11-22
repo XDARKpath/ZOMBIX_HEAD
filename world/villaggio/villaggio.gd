@@ -767,8 +767,10 @@ func _checkpoint() -> void:
 		var bar := _glb(cp, BK + "SM_Borgo_Road_Barrier.glb", Vector3(0, 0, z), PI / 2, 1.0, true)
 		bar.name = "Barriera"
 	_glb(cp, BK + "SM_Borgo_Police_Wreck.glb", Vector3(-7, 0, 9.5), 0.4)
+	# coni in due file ai lati della corsia: l'ingresso del paese resta libero e si legge da lontano
 	for i in 6:
-		asset(cp, "Prop_Cone_01", Vector3(rng.randf_range(-3, 3), 0.2, rng.randf_range(-3, 3)), 0, false, Vector3.ONE * 1.8)
+		var side := -1.0 if i % 2 == 0 else 1.0
+		asset(cp, "Prop_Cone_01", Vector3(-8.0 + float(i / 2) * 3.2, 0.2, side * rng.randf_range(3.4, 3.9)), 0, false, Vector3.ONE * 1.8)
 	_sandbags(cp, Vector3(-3, 0, -11), 6, PI / 2)
 	_sandbags(cp, Vector3(-3, 0, 11), 6, PI / 2)
 	_fire(cp, Vector3(-6, 0, -8))
@@ -855,9 +857,9 @@ func _busy(at: Vector3) -> bool:
 		return true
 	if at.distance_to(FARM) < 40:
 		return true
-	# la strada asfaltata che taglia l'angolo sud-est
+	# la strada asfaltata che taglia l'angolo sud-est e la vecchia pista che arriva al campo profughi
 	var world_p := Vector2(at.x + L.CENTER.x, at.z + L.CENTER.z)
-	return preload("res://world/campaign/route.gd").road_distance(world_p) < 12
+	return preload("res://world/campaign/route.gd").road_distance(world_p) < 12 or preload("res://world/zona1_rifugio/roadnet.gd").distance(world_p) < 6
 
 
 func _road_signs() -> void:

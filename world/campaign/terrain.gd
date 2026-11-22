@@ -483,6 +483,9 @@ func _side_roads() -> void:
 			var w:float=1.0+0.55*pow(1.0-clampf(RoadNet.junction_distance(Vector2(p.x,p.z))/8.0,0.0,1.0),2.0)
 			# Dove la strada finisce: punta arrotondata, non un triangolo.
 			if dead_end:w*=lerpf(0.12,1.0,sqrt(clampf(p.distance_to(last)/5.0,0.0,1.0)))
+			# Dalla statale alla piazza del Borgo l'asfalto è largo come la statale: si entra in paese senza cambiare strada.
+			var l:=Village.local(p.x,p.z)
+			if absf(l.y)<6.0 and l.x>10.0:w*=RoadNet.VILLAGE_STREET_WIDTH
 			widths.append(w)
 		var drop:=0.004*float(index%4)
 		_road_strip(asphalt,points,RoadNet.WIDTH*0.5,0.060-drop,Color("41413a"),Color("545249"),0.0,widths)
@@ -765,6 +768,7 @@ func _roadside() -> void:
 	_poles(main,rng)
 	_curve_rails(main,rng)
 	_checkpoint()
+	_village_sign()
 
 ## Pali della luce spenti a distanza regolare (45–60 m) sulla destra della statale, da fuori il recinto al valico.
 func _poles(main:Array, rng:RandomNumberGenerator) -> void:
@@ -821,9 +825,11 @@ func _curve_rails(main:Array, rng:RandomNumberGenerator) -> void:
 		_box(rail,Vector3(0.10,1.0,0.10),Vector3(0,0.5,0),Color("4d5148"))
 		_box(rail,Vector3(0.07,0.16,run.length()),Vector3(0,0.78,-run.length()*0.5),Color("77796c"))
 
-## Posto di blocco abbandonato all'imbocco della pista: la polizia chiudeva la statale verso il Borgo e
-## mandava tutti sulla pista. Auto di traverso sulle banchine, barriere a imbuto verso la pista e un cartello.
-## Tutto fuori dall'asfalto: il 4×4 passa sempre. Stesse posizioni su ogni macchina (niente caso).
+## Posto di blocco abbandonato all'imbocco della pista: la polizia chiudeva la statale verso il Borgo e mandava tutti
+## sulla pista, a sinistra. Una volante di traverso sulla banchina destra col muso verso la corsia, una ferma di sbieco
+## sulla punta fra statale e pista, la terza finita all'indietro nel fosso più avanti. Transenne spinte sul ciglio
+## da chi è passato lo stesso, coni in diagonale che piegano verso la pista, segni di frenata e vetri.
+## Tutto il solido sta fuori dall'asfalto: il 4×4 passa sempre. Stesse posizioni su ogni macchina (niente caso).
 func _checkpoint() -> void:
 	# Riferimento sulla statale vera (lì sta già iniziando la curva): avanti = verso il Borgo, destra = lato est.
 	var o:Vector3=Route.nearest_road(CHECKPOINT)
@@ -831,20 +837,54 @@ func _checkpoint() -> void:
 	var right:=dir.cross(Vector3.UP).normalized()
 	var yaw:=atan2(-dir.x,-dir.z)
 	var at:=func(lateral:float,ahead:float) -> Vector3: return o+right*lateral+dir*ahead
-	# Auto di traverso: le due a destra chiudevano la statale, quella a sinistra stava alla bocca della pista.
-	for car in [[7.6,-3.0,PI*0.5+0.15],[8.2,6.5,PI*0.5-0.45],[-8.5,-5.5,0.75]]:
+	# [destra, avanti, rotazione sulla strada, rollio]: di traverso, di sbieco, all'indietro nel fosso.
+	for car in [[6.7,3.5,PI*0.5-0.22,0.0],[-7.4,9.5,0.32,0.0],[8.6,17.0,PI-0.62,0.07]]:
 		var police:=_wreck_car("SM_Borgo_Police_Wreck",at.call(car[0],car[1]),yaw+car[2])
-		police.name="PostoDiBlocco"
-	# Barriere oblique sulla banchina destra: puntano verso la pista, a sinistra.
-	for row in [[7.0,1.0,-0.55],[7.4,12.0,-0.35]]:
-		var barricade:=Node3D.new()
-		for k in range(3):_box(barricade,Vector3(1.6,0.8,0.5),Vector3(k*1.7-1.7,0.4,0),Color("6a6555"))
-		_place(barricade,at.call(row[0],row[1]),yaw+row[2])
-		barricade.name="PostoDiBlocco"   # dopo add_child: un nome doppio dato prima diventerebbe @Node3D@
+		police.rotation.z+=car[3]
+		police.name="PostoDiBlocco"   # dopo add_child: un nome doppio dato prima diventerebbe @Node3D@
+	# Transenne a strisce: due spinte di sbieco sulle banchine, una rovesciata nell'erba.
+	for row in [[5.6,-0.5,0.55,false],[-5.4,14.5,-0.7,false],[-6.2,19.0,1.3,true]]:
+		var bar:=_place(_scene("res://art/zx_borgo/SM_Borgo_Road_Barrier.glb"),at.call(row[0],row[1]),yaw+row[2])
+		if row[3]:
+			bar.rotation.x=-PI*0.5
+			bar.position.y+=0.25
+		else:_collide_box(bar)
+		bar.name="PostoDiBlocco"
+	# Transenne piccole sulla punta fra statale e pista: indicano la deviazione a sinistra.
+	for row in [[-5.5,1.0,-0.9],[-6.6,3.4,-1.0]]:
+		var small:=_place(_scene("res://art/zx_borgo/SM_Prop_RoadBarrier_Small.glb"),at.call(row[0],row[1]),yaw+row[2])
+		small.name="PostoDiBlocco"
+	var danger:=_place(_scene("res://art/zx_borgo/SM_Prop_Sign_Danger_01.glb"),at.call(5.4,-6.0),yaw+0.25)
+	danger.name="PostoDiBlocco"
+	for row in [[-9.6,12.0],[-10.3,10.8]]:
+		var drum:=_place(_scene("res://art/zx_borgo/SM_Prop_Barrel_Metal_01.glb"),at.call(row[0],row[1]),yaw+row[0])
+		drum.name="PostoDiBlocco"
+	# Coni in diagonale sulla corsia verso nord: da destra piegano verso la pista. Piccoli e senza collisione.
+	for k in 6:
+		var cone:=_place(_scene("res://art/zx_borgo/SM_Prop_Cone_01.glb"),at.call(3.0-float(k)*0.75,-3.5+float(k)*1.6),yaw+float(k))
+		cone.scale=Vector3.ONE*1.8
+		if k==2 or k==5:
+			cone.rotation.x=PI*0.5
+			cone.position.y+=0.2
+		cone.name="Cono"
+	# Frenata lunga verso la volante nel fosso, vetri e sangue accanto a quella sulla punta.
+	_stain(at.call(3.2,9.0),5.5,yaw+0.35,Color.BLACK,"drag")
+	_stain(at.call(5.6,14.5),3.0,yaw+0.6,Color.BLACK,"drag")
 	_stain(at.call(-1.5,-2.0),2.2,yaw+0.4,Color.BLACK,"drag")
+	_stain(at.call(-4.8,7.0),1.4,yaw,Color.BLACK,"blood")
+	_stain(at.call(1.0,4.5),1.2,yaw,Color.BLACK,"crack")
 	var sign_at:Vector3=at.call(9.0,-14.0)
 	var board:Node3D=poi.build_sign(chunk(sign_at),{"at":sign_at,"yaw":yaw,"lines":["POSTO DI BLOCCO","<  DEVIAZIONE PISTA"]},height(sign_at.x,sign_at.z))
 	board.name="PostoDiBlocco"
+
+## Cartello sulla statale prima dell'ingresso del Borgo: la via est è la strada per il paese, non un vicolo.
+func _village_sign() -> void:
+	var paths:Array=RoadNet.paths()
+	var mouth:Vector3=paths[paths.size()-1][0]
+	var dir:Vector3=Route.road_direction(mouth)
+	var at:Vector3=Route.nearest_road(mouth-dir*26.0)+dir.cross(Vector3.UP).normalized()*7.5
+	var board:Node3D=poi.build_sign(chunk(at),{"at":at,"yaw":atan2(-dir.x,-dir.z),"lines":["<  BORGO CENERE","CENTRO  120 m"]},height(at.x,at.z))
+	board.name="CartelloBorgo"
 
 func _off_style(asset: String) -> bool:
 	# I cactus crescono solo nel deserto (ramo apposito sopra), mai estratti a caso nel bosco.
