@@ -29,6 +29,7 @@ const ZONES := [
 	["BORGO CENERE", Vector2(95, -385), 105.0, [0], 2, 0, 9.0],
 	["LA PISTA DELLA ROCCA", Vector2(-125, -208), 42.0, [0, 1, 0, 3], 1, 9, 3.5],
 	["IL BOSCO DELLA ROCCA", Vector2(-230, -245), 46.0, [2, 3, 4, 1], 2, 9, 3.0],
+	["IL BOSCO DEL CAPOMACELLO", Vector2(-56, -290), 44.0, [0, 1, 0, 3], 1, 8, 4.0],
 ]
 const DANGER := ["TRANQUILLA", "PERICOLOSA", "MOLTO PERICOLOSA"]
 

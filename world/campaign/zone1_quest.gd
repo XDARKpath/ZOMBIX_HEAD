@@ -224,10 +224,10 @@ func lines() -> Array:
 				Localization.t("Accucciato non ti sentono, l'ascia si sente poco. Uno sparo li chiama tutti da lontano: decidi tu quando.")]
 		GET_BAIT:
 			return [Localization.t("Adesso ragioniamo. Tre bestie tengono i pezzi del tuo mezzo, ognuna ha fatto il nido dove è morto chi li portava."),
-				Localization.t("La prima è il Capomacello. Sta in una radura nel bosco a ovest, ma esce solo se sente l'odore giusto."),
+				Localization.t("La prima è il Capomacello. Sta in una radura nel bosco a nord-ovest, lungo la vecchia pista oltre il posto di blocco, ma esce solo se sente l'odore giusto."),
 				Localization.t("Questa è l'esca. Accendila sull'altare di pietra e stai pronto. Il GPS ti porta lì.")]
 		FOREST_BOSS:
-			return [Localization.t("Il Capomacello è ancora vivo. L'altare è nella radura a ovest: segui il GPS.")]
+			return [Localization.t("Il Capomacello è ancora vivo. L'altare è nella radura lungo la vecchia pista: segui il GPS.")]
 		BRING_FOREST:
 			return [Localization.t("L'hai fatto davvero. Quella testa te la pago bene, quando vuoi: V, come le altre."),
 				Localization.t("La batteria portala a Big Earl, all'Emporio: la mette in carica, e gli ho lasciato la prossima esca.")]
