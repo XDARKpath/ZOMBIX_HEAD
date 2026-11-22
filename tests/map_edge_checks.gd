@@ -239,7 +239,7 @@ func _drive_to_edges() -> void:
 		var at: Vector3 = side.at
 		world.terrain.ensure_near([at], [at])
 		car.position = Vector3(at.x, Terrain.ground_height(at.x, at.z) + 0.6, at.z)
-		car.server_position = car.position
+		car.server_position = car.position; car.safe_position = car.position
 		car.rotation.y = atan2(-side.dir.x, -side.dir.z)
 		car.speed = 0.0
 		car.seats = [1, 0, 0, 0]
@@ -265,7 +265,7 @@ func _drive_to_edges() -> void:
 	car.speed = 0.0
 	car._release(1)
 	car.position = Vector3(19.5, 0.2, 3.6)
-	car.server_position = car.position
+	car.server_position = car.position; car.safe_position = car.position
 
 
 func _places_and_lane() -> void:

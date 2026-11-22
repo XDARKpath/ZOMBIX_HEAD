@@ -52,7 +52,7 @@ func run() -> void:
 		session.set_ready(true)
 		good=await wait_for(func(): return world.started) and good
 		# A non-driver attempts steering and a distant player requests pickup.
-		car.steer.rpc_id(1,Vector2(1,-1));mission.request_use()
+		car.drive_state.rpc_id(1,Time.get_ticks_msec(),car.position+Vector3(40,0,0),0.0,24.0);mission.request_use()
 		var attack_synced:bool=await wait_for(func(): return not world.targets.is_empty() and world.targets[0].attack_clock>0.4 and str(world.targets[0].avatar.get_meta("zm",{}).get("clip","")).begins_with("Z_Attack"),8)
 		good=good and attack_synced
 		print("NET zombie skeletal attack synchronized=",attack_synced)
@@ -67,8 +67,8 @@ func run() -> void:
 		if rank==0:
 			Input.action_press("move_forward");await create_timer(2.5,true).timeout;Input.action_release("move_forward")
 		else:
-			# Passenger packets cannot overwrite the legitimate driver's controls.
-			car.steer.rpc_id(1,Vector2(1,1))
+			# Passenger packets cannot move the car the legitimate driver is simulating.
+			car.drive_state.rpc_id(1,Time.get_ticks_msec(),car.position+Vector3(40,0,0),0.0,24.0)
 		good=await wait_for(func(): return mission.zone_index==1,25) and good
 		good=good and mission.unlocked==1 and mission.stage==3 and world.player.seated
 		await create_timer(0.4+rank*0.3,true).timeout;mission.request_use()
