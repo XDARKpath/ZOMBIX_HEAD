@@ -640,6 +640,8 @@ const EXTRA_MESSAGES := {
 	"{0} CR": {"en": "{0} CR"},
 	"finiti in questa zona": {"en": "sold out in this zone"},
 	"PARTITA RIPRESA · TAPPA {0}": {"en": "GAME RESUMED · STAGE {0}"},
+	"PRESA DA {0}": {"en": "TAKEN BY {0}"},
+	"UN COMPAGNO L'HA GIÀ PRESA": {"en": "A TEAMMATE ALREADY TOOK IT"},
 	"ESCA ACCESA · {0}, {1}": {"en": "BAIT LIT · {0}, {1}"},
 	"TI SERVE UN'ESCA · CHIEDILA ALLO SCERIFFO": {"en": "YOU NEED BAIT · ASK THE SHERIFF"},
 	"IL VALICO È LIBERO · La strada verso {0} è aperta": {"en": "THE PASS IS CLEAR · The road to {0} is open"},

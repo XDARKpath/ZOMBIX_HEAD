@@ -39,6 +39,8 @@ var _vm_cache:Node3D
 var world:Node3D
 var threat:int=0
 var heads:Array=[]
+## Host: teste raccolte da poco [punto, chi, ms]. Chi preme E un attimo dopo su quella testa sa chi l'ha presa.
+var taken:Array=[]
 var head_nodes:Dictionary={}
 var next_head:int=1
 var shop_ui:Control
@@ -430,11 +432,30 @@ func _pickup_near(a:CharacterBody3D) -> bool:
 		if is_instance_valid(row["node"]) and _near(a,row["node"].global_position,2.6):return true
 	return false
 func request(action:String) -> void:
-	if authority():_answer(multiplayer.get_unique_id(),action,act(multiplayer.get_unique_id(),action))
+	if authority():_settle(multiplayer.get_unique_id(),action)
 	else:command.rpc_id(1,action)
 @rpc("any_peer","call_remote","reliable")
 func command(action:String) -> void:
-	if authority():_answer(multiplayer.get_remote_sender_id(),action,act(multiplayer.get_remote_sender_id(),action))
+	if authority():_settle(multiplayer.get_remote_sender_id(),action)
+func _settle(peer:int,action:String) -> void:
+	var ok:=act(peer,action)
+	_answer(peer,action,ok)
+	if not ok and action=="use":_contested(peer)
+## Raccolta persa per un soffio (l'host decide chi arriva prima): solo chi ha perso legge chi l'ha presa.
+func _contested(peer:int) -> void:
+	var a:CharacterBody3D=world.actors.get(peer)
+	if not a:return
+	var now:=Time.get_ticks_msec()
+	taken=taken.filter(func(row:Array) -> bool: return now-int(row[2])<1500)
+	for row in taken:
+		if row[1]==peer or not _near(a,row[0],2.6):continue
+		var who:String=str(Session.roster[row[1]].name) if Session.roster.has(row[1]) else (Session.nickname if row[1]==multiplayer.get_unique_id() else "")
+		if peer==multiplayer.get_unique_id():taken_by(who)
+		else:taken_by.rpc_id(peer,who)
+		return
+@rpc("authority","call_remote","reliable")
+func taken_by(who:String) -> void:
+	world.announce(Localization.t("PRESA DA {0}",[who]) if who!="" else Localization.t("UN COMPAGNO L'HA GIÀ PRESA"),2)
 ## L'host risponde a ogni "sell:id:n", accettata o no. Parte dopo il sync dello stesso _publish: il client ha già l'inventario giusto.
 func _answer(peer:int,action:String,ok:bool) -> void:
 	if not action.begins_with("sell:"):return
@@ -558,7 +579,7 @@ func act(peer:int,action:String) -> bool:
 			if not a.can_take(row[4]):
 				world.announce(Localization.t("NE PORTI GIÀ {0} · VAI DALLO SCERIFFO",[ItemInfo.MAX_STACK]) if a.items.has(row[4]) else Localization.t("TASCHE PIENE · Q LANCIA O X LASCIA QUELLO CHE HAI IN MANO"),4);return false
 			gesture(a,"pickup");_head_sound(row[3])
-			a.add_item(row[4]);heads.erase(row);_publish();return true
+			a.add_item(row[4]);heads.erase(row);taken.append([row[3],peer,Time.get_ticks_msec()]);_publish();return true
 	for row in thrown.duplicate():
 		if not is_instance_valid(row["node"]) or not _near(a,row["node"].global_position,2.6):continue
 		var picked:String=row["item"]
