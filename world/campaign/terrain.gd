@@ -779,6 +779,7 @@ func _roadside() -> void:
 	_curve_rails(main,rng)
 	_checkpoint()
 	_village_sign()
+	_road_details(main)
 
 ## Pali della luce spenti a distanza regolare (45–60 m) sulla destra della statale, da fuori il recinto al valico.
 func _poles(main:Array, rng:RandomNumberGenerator) -> void:
@@ -895,6 +896,119 @@ func _village_sign() -> void:
 	var at:Vector3=Route.nearest_road(mouth-dir*26.0)+dir.cross(Vector3.UP).normalized()*7.5
 	var board:Node3D=poi.build_sign(chunk(at),{"at":at,"yaw":atan2(-dir.x,-dir.z),"lines":["<  BORGO CENERE","CENTRO  160 m"]},height(at.x,at.z))
 	board.name="CartelloBorgo"
+
+## Dettagli della statale (riferimento visivo: le strade di SurrounDead, niente dei suoi file): paletti segnavia
+## bianchi ai due cigli, cippi chilometrici, cartelloni pubblicitari sbiaditi, la fermata del bus all'imbocco del Borgo.
+## Generatore suo: relitti, pali e guardrail restano dove sono.
+const ADS:=[["MOTEL ORIZZONTE","CAMERE LIBERE  2 km"],["PANIFICIO CENERE","IL PANE DI UNA VOLTA"],["ZONA ROSSA","NON PROSEGUIRE"]]
+func _road_details(main:Array) -> void:
+	var rng:=RandomNumberGenerator.new();rng.seed=20261122
+	var post:=_delineator_mesh()
+	var walked:=0.0;var next_post:=0.0;var next_km:=120.0;var km:=0;var ads:=0;var next_ad:=260.0
+	for i in range(main.size()-1):
+		var a:Vector3=main[i];var b:Vector3=main[i+1]
+		if b.z<Route.WALL_Z:break
+		walked+=a.distance_to(b)
+		var dir:=(b-a).normalized();var side:=dir.cross(Vector3.UP).normalized()
+		var yaw:=atan2(-dir.x,-dir.z)
+		if walked>=next_post:
+			next_post=walked+24.0
+			for s in [-1.0,1.0]:
+				var at:Vector3=b+side*s*4.4
+				if not _road_spot_ok(at,4.0):continue
+				var view:=MeshInstance3D.new();view.mesh=post
+				_place(view,at,yaw+(PI if s<0.0 else 0.0)).rotation.z=rng.randf_range(-0.12,0.12)
+				view.name="Segnavia"
+		if walked>=next_km:
+			next_km=walked+200.0;km+=1
+			var at:=b+side*5.0
+			if _road_spot_ok(at,4.5):
+				var stone:=Node3D.new()
+				_place(stone,at,yaw+PI*0.5).name="Cippo"
+				_box(stone,Vector3(0.34,0.62,0.2),Vector3(0,0.31,0),Color("e4e0d2"))
+				_box(stone,Vector3(0.36,0.16,0.22),Vector3(0,0.66,0),Color("a3332a"))
+				for f in [1.0,-1.0]:
+					var label:=Label3D.new();stone.add_child(label)
+					label.text="SP 7
+%d" % km;label.font_size=28;label.pixel_size=0.005;label.outline_size=0;label.double_sided=false
+					label.modulate=Color("222222");label.position=Vector3(0,0.36,0.105*f);label.rotation.y=0.0 if f>0 else PI
+		if walked>=next_ad and ads<ADS.size():
+			var at:Vector3=b+side*(-1.0 if ads%2 else 1.0)*13.0
+			if _road_spot_ok(at,11.0) and absf(height(at.x,at.z)-height(b.x,b.z))<1.5:
+				next_ad=walked+rng.randf_range(380.0,520.0)
+				_billboard(at,yaw+(0.0 if ads%2 else PI)+rng.randf_range(-0.25,0.25),ADS[ads],rng)
+				ads+=1
+	_bus_stop()
+
+## Un posto sul ciglio libero da incroci, Borgo, luoghi, posto di blocco e altre strade.
+func _road_spot_ok(at:Vector3,clear:float) -> bool:
+	var flat:=Vector2(at.x,at.z)
+	if Route.road_distance(flat)<clear-0.4 or RoadNet.distance(flat)<clear or RoadNet.junction_distance(flat)<14.0:return false
+	if Village.inside(at.x,at.z,135.0) or Route.site_distance(flat)<40.0 or at.distance_to(CHECKPOINT)<35.0:return false
+	if RoadNet.arena_distance(flat)<22.0 or (at.z>-48.0 and absf(at.x-6.0)<45.0):return false
+	return true
+
+## Paletto segnavia: bianco, fascia nera, catarifrangente arancio. Una mesh sola per tutti; si piega, non blocca.
+func _delineator_mesh() -> Mesh:
+	var st:=SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for part in [[Vector3(0.11,0.82,0.09),Vector3(0,0.41,0),Color("dcdad0")],[Vector3(0.115,0.2,0.095),Vector3(0,0.82,0),Color("1e1e1c")],[Vector3(0.05,0.1,0.1),Vector3(0,0.84,0.0),Color("e07a1c")]]:
+		var cube:=BoxMesh.new();cube.size=part[0]
+		var arrays:=cube.get_mesh_arrays()
+		var verts:PackedVector3Array=arrays[Mesh.ARRAY_VERTEX];var normals:PackedVector3Array=arrays[Mesh.ARRAY_NORMAL]
+		var index:PackedInt32Array=arrays[Mesh.ARRAY_INDEX]
+		for k in index:
+			st.set_color(part[2]);st.set_normal(normals[k]);st.add_vertex(verts[k]+part[1])
+	var mat:=StandardMaterial3D.new();mat.vertex_color_use_as_albedo=true;mat.roughness=0.8
+	st.set_material(mat)
+	return st.commit()
+
+## Cartellone pubblicitario sbiadito su due pali, con un pezzo di manifesto strappato.
+func _billboard(at:Vector3,yaw:float,lines:Array,rng:RandomNumberGenerator) -> void:
+	var g:=Node3D.new()
+	_place(g,at,yaw).name="Cartellone"
+	for x in [-2.4,2.4]:
+		var leg:=_box(g,Vector3(0.22,4.6,0.22),Vector3(x,2.3,0),Color("3c3f3a"))
+		leg.create_trimesh_collision()
+	_box(g,Vector3(6.4,3.2,0.16),Vector3(0,4.4,0),Color("2e302c"))
+	_box(g,Vector3(6.1,2.9,0.04),Vector3(0,4.4,0.1),Color("c9bfa4").darkened(rng.randf_range(0.0,0.2)))
+	var torn:=_box(g,Vector3(rng.randf_range(1.2,2.2),rng.randf_range(0.8,1.4),0.03),Vector3(rng.randf_range(-2.0,2.0),rng.randf_range(3.6,5.2),0.13),Color("8f8a78"))
+	torn.rotation.z=rng.randf_range(-0.3,0.3)
+	for k in lines.size():
+		var label:=Label3D.new();g.add_child(label)
+		label.text=lines[k];label.font_size=66 if k==0 else 44;label.pixel_size=0.009;label.outline_size=0;label.double_sided=false
+		label.font=load("res://art/fonts/BarlowCondensed-SemiBold.ttf")
+		label.modulate=Color("7a2b22") if k==0 else Color("2f3a44");label.modulate.a=0.8
+		label.position=Vector3(0,4.85-k*0.95,0.135)
+
+## Fermata del bus sulla statale, dopo l'imbocco del Borgo, dal lato del paese: pensilina, panchina, palina.
+func _bus_stop() -> void:
+	var paths:Array=RoadNet.paths()
+	var mouth:Vector3=paths[RoadNet.VILLAGE_ROADS][0]
+	var dir:Vector3=Route.road_direction(mouth)
+	var side:Vector3=dir.cross(Vector3.UP).normalized()
+	if side.dot(Village.CENTER-mouth)<0.0:side=-side
+	var at:Vector3=Route.nearest_road(mouth+dir*24.0)+side*7.2
+	if RoadNet.distance(Vector2(at.x,at.z))<6.0:at=Route.nearest_road(mouth+dir*34.0)+side*7.2
+	var g:=Node3D.new()
+	_place(g,at,atan2(side.x,side.z)).name="FermataBus"   # +Z verso il paese: la pensilina è aperta verso la strada (-Z)
+	for x in [-1.6,1.6]:
+		_box(g,Vector3(0.1,2.5,0.1),Vector3(x,1.25,0.55),Color("3d4542")).create_trimesh_collision()
+		_box(g,Vector3(0.1,2.5,0.1),Vector3(x,1.25,-0.6),Color("3d4542")).create_trimesh_collision()
+	_box(g,Vector3(3.5,0.08,1.6),Vector3(0,2.52,0),Color("4a524f"))
+	_box(g,Vector3(3.3,1.7,0.04),Vector3(0,1.35,0.58),Color("9fb3b0")).create_trimesh_collision()
+	_box(g,Vector3(2.4,0.07,0.42),Vector3(0,0.46,0.3),Color("6e5435")).create_trimesh_collision()
+	_box(g,Vector3(3.8,0.12,2.0),Vector3(0,0.0,0),Color("6f6e66"))
+	var pole:=Node3D.new();g.add_child(pole);pole.position=Vector3(2.4,0,-0.6)
+	_box(pole,Vector3(0.07,2.6,0.07),Vector3(0,1.3,0),Color("3d4542")).create_trimesh_collision()
+	_box(pole,Vector3(0.55,0.4,0.04),Vector3(0,2.4,0),Color("e0c341"))
+	for f in [1.0,-1.0]:
+		var label:=Label3D.new();pole.add_child(label)
+		label.text="FERMATA";label.font_size=36;label.pixel_size=0.005;label.outline_size=0;label.double_sided=false
+		label.modulate=Color("1e2a38");label.position=Vector3(0,2.42,0.025*f);label.rotation.y=0.0 if f>0 else PI
+	var paper:=Label3D.new();g.add_child(paper)
+	paper.text="ULTIMA CORSA
+SOSPESA";paper.font_size=26;paper.pixel_size=0.005;paper.outline_size=0;paper.double_sided=false
+	paper.modulate=Color("2a2a2a");paper.position=Vector3(-0.9,1.5,0.555);paper.rotation.y=PI
 
 func _off_style(asset: String) -> bool:
 	# I cactus crescono solo nel deserto (ramo apposito sopra), mai estratti a caso nel bosco.

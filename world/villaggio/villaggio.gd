@@ -17,6 +17,7 @@ extends "res://world/villaggio/borgo_build.gd"
 
 const L := preload("res://world/villaggio/villaggio_layout.gd")
 const LootChest := preload("res://world/campaign/loot_chest.gd")
+const Dettagli := preload("res://world/villaggio/borgo_dettagli.gd")
 ## alberi: pini Quaternius, come il resto del bosco
 const FOREST := ["Pine_1", "Pine_2", "Pine_3", "Pine_4", "Pine_5", "Pine_1"]
 const BOSS_MUSIC := "mago"
@@ -85,6 +86,7 @@ func build_village(owner_world: Node3D) -> void:
 	_farm()
 	_checkpoint()
 	_woods()
+	Dettagli.dress(self)          # scritte, bidoni, cassonetti, auto parcheggiate, cartacce, targhe, luci
 	_flush_multimesh()
 	_road_signs()
 	fit_ranges(geo)

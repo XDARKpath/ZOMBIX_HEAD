@@ -62,6 +62,7 @@ I file `.gltf`/`.glb` nuovi riprendono del vecchio pezzo **solo nome e ingombro*
 | `weapons/` (script, `pistol.tscn`) | pistola procedurale e attacchi | codice del progetto | originale | ✅ | `art/survivor_visual.gd`, `ui/camp/` |
 | `zombie_motion/` | clip degli infetti | pacchetto del gioco più clip Mixamo (vedi in fondo) | originale + Mixamo | ✅ | `art/infected_motion.gd`, `bosses/boss.gd` |
 | `zx_borgo/` | kit di Borgo Cenere, transenna piccola | `tools/borgo_kit/borgo_kit.py`, `tools/castle_kit` | originale | ✅ | `world/villaggio/villaggio.gd`, `terrain.gd`, `roadblocks.gd` |
+| (procedurale, nessun file) | dettagli di Borgo Cenere e della statale: scritte sui muri, bidoni, cassonetti, targhe delle vie, lampade, paletti segnavia, cippi, cartelloni, fermata del bus. SurrounDead solo come riferimento di densità, nessun suo file | scatole e testi fatti nel codice, più pezzi di `zx_borgo/` | originale | ✅ | `world/villaggio/borgo_dettagli.gd`, `world/campaign/terrain.gd` (`_road_details`) |
 | `zx_dungeon/` | moduli della Cripta | `tools/castle_kit` | originale | ✅ | `world/dungeon/dungeon.gd` |
 | `zx_fp/` | braccia, ascia, pala, coltello, arco, gamba, oggetti | pacchetti `ZOMBIX_Braccia_FPS`, `tools/build_fp_knife.py`, `tools/castle_kit` | originale | ✅ | `player/viewmodel/`, `player/item_info.gd` |
 | `zx_infected/` | infetti, boss, NPC | `tools/zx_characters/build_characters.py` | originale | ✅ | `art/survivor_visual.gd`, `enemies/zombie_target.gd`, `bosses/` |
