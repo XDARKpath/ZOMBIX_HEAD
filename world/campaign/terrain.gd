@@ -465,12 +465,14 @@ func _side_roads() -> void:
 	# Strade locali: nastro unico con lati raccordati, non una serie di strisce
 	# staccate. Niente sponde di ghiaia: il prato arriva al ciglio.
 	var asphalt := {}
+	var main_like := {}
 	var paths:Array=RoadNet.paths()
 	for index in paths.size():
 		# Il ramo parte dal bordo della statale, non dal centro: niente triangolo
 		# scuro che taglia l'erba allo sbocco.
 		# Passo di 2 m: con l'imbuto corto i bordi restano lisci, senza gradini.
-		var points:Array=_sample_path(_trim_to_road_edge(paths[index]),2.0)
+		# Le strade larghe del Borgo partono dal centro della statale (che sta più in alto e le copre): l'imbocco segue il ciglio, senza cuneo.
+		var points:Array=_sample_path(paths[index] if index>=RoadNet.VILLAGE_ROADS else _trim_to_road_edge(paths[index]),2.0)
 		# Incroci: la strada si allarga a imbuto negli ultimi 8 m, come un raccordo vero (stesso valore nella maschera dell'erba).
 		# Ogni ramo sta qualche millimetro più in basso del precedente: dove due rami si
 		# sovrappongono all'incrocio non sfarfallano.
@@ -480,20 +482,28 @@ func _side_roads() -> void:
 		var dead_end:bool=RoadNet.junction_distance(Vector2(last.x,last.z))>1.0 and not Village.inside(last.x,last.z)
 		for p in points:
 			# Allo sbocco il raccordo si apre piano, senza spuntoni.
+			var wide:float=RoadNet.width_factor(index,p)
+			# Raccordo: sulle strade larghe del Borgo l'imbocco si apre di più e più a lungo, niente taglio netto sulla statale.
 			var w:float=1.0+0.55*pow(1.0-clampf(RoadNet.junction_distance(Vector2(p.x,p.z))/8.0,0.0,1.0),2.0)
+			if wide>1.0:w=wide*(1.0+0.9*pow(1.0-clampf(Route.road_distance(Vector2(p.x,p.z))/14.0,0.0,1.0),2.0))
 			# Dove la strada finisce: punta arrotondata, non un triangolo.
 			if dead_end:w*=lerpf(0.12,1.0,sqrt(clampf(p.distance_to(last)/5.0,0.0,1.0)))
-			# Dalla statale alla piazza del Borgo l'asfalto è largo come la statale: si entra in paese senza cambiare strada.
-			var l:=Village.local(p.x,p.z)
-			if absf(l.y)<6.0 and l.x>10.0:w*=RoadNet.VILLAGE_STREET_WIDTH
 			widths.append(w)
 		var drop:=0.004*float(index%4)
+		if index>=RoadNet.VILLAGE_ROADS:
+			# Vie del Borgo: stesso asfalto, stessi colori e stessa mezzeria della statale (da dopo il suo ciglio).
+			_road_strip(main_like,points,RoadNet.WIDTH*0.5,0.060-drop,Color("3b3b35"),Color("4e4c44"),0.0,widths)
+			var first:=0
+			while first<points.size()-2 and Route.road_distance(Vector2(points[first].x,points[first].z))<5.0:first+=1
+			_distances(_sample_path(points.slice(first),6.0))
+			continue
 		_road_strip(asphalt,points,RoadNet.WIDTH*0.5,0.060-drop,Color("41413a"),Color("545249"),0.0,widths)
 	_reserved_sites()
 	# Strade del bosco: stesso asfalto rovinato, con più crepe.
 	var side_material:=road_material.duplicate() as ShaderMaterial
 	side_material.set_shader_parameter("crack_amount",1.4)
 	_commit(asphalt,side_material)
+	_commit(main_like,road_material)
 
 func _reserved_sites() -> void:
 	# Niente piazzali disegnati: la terra battuta della piazza la dipinge la maschera dell'erba (grass_field.gd), dal bordo irregolare.

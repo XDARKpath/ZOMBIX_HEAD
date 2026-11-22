@@ -67,6 +67,11 @@ func _run() -> void:
 	await _eye("H_posto_di_blocco_da_sud", cp + Vector3(-6, 1.7, -30), cp + Vector3(0, 0.8, 0))
 	await _eye("I_ingresso_borgo", Vector3(214, 1.7, -378), Vector3(150, 1.5, -385))
 	await _eye("J_via_est_borgo", Vector3(150, 1.7, -383), Vector3(70, 1.5, -385))
+	await _top("N_imbocco_borgo_statale", Vector3(200, 0, -385), 50.0)
+	await _top("O_pista_e_via_s", Vector3(50, 0, -262), 50.0)
+	await _top("P_via_n_e_statale", Vector3(75, 0, -505), 70.0)
+	await _eye("Q_via_n_dalla_statale", Vector3(112, 1.7, -530), Vector3(55, 0.8, -497))
+	await _eye("R_via_s_dalla_pista", Vector3(36, 1.7, -246), Vector3(50, 0.8, -300))
 	await _eye("M_dallo_scatto_utente", Vector3(112, 1.7, -258), Vector3(106, 0.8, -285))
 	var paths: Array = RoadNet.paths()
 	for p in paths.size():

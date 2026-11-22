@@ -386,6 +386,9 @@ static func density_pair(x: float, z: float, clumps: FastNoiseLite) -> Vector2:
 	# Rami: mezzo nastro (2,2 m) più l'imbuto degli incroci, con la stessa formula dell'asfalto (terrain.gd).
 	var funnel := 1.0 + 0.55 * pow(1.0 - clampf(RoadNet.junction_distance(p) / FUNNEL, 0.0, 1.0), 2.0)
 	var road: float = minf(Route.road_distance(p) - 3.55, RoadNet.distance(p) - RoadNet.WIDTH * 0.5 * funnel - 0.1)
+	# Vie del Borgo: larghe come la statale, con l'imbocco aperto sulla statale (terrain.gd _side_roads).
+	var flare := 1.0 + 0.9 * pow(1.0 - clampf(Route.road_distance(p) / 14.0, 0.0, 1.0), 2.0)
+	road = minf(road, RoadNet.wide_distance(p) - RoadNet.WIDTH * 0.5 * RoadNet.VILLAGE_STREET_WIDTH * flare - 0.1)
 	road = minf(road, _segment_distance(p, ROAD_END_A, ROAD_END_B) - 3.7)
 	var d := smoothstep(5.0, 9.0, RoadNet.arena_distance(p))
 	if Layout.yard(Vector3(x, 0, z)): d *= 0.25
