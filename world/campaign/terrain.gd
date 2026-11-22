@@ -883,7 +883,7 @@ func _village_sign() -> void:
 	var mouth:Vector3=paths[paths.size()-1][0]
 	var dir:Vector3=Route.road_direction(mouth)
 	var at:Vector3=Route.nearest_road(mouth-dir*26.0)+dir.cross(Vector3.UP).normalized()*7.5
-	var board:Node3D=poi.build_sign(chunk(at),{"at":at,"yaw":atan2(-dir.x,-dir.z),"lines":["<  BORGO CENERE","CENTRO  120 m"]},height(at.x,at.z))
+	var board:Node3D=poi.build_sign(chunk(at),{"at":at,"yaw":atan2(-dir.x,-dir.z),"lines":["<  BORGO CENERE","CENTRO  160 m"]},height(at.x,at.z))
 	board.name="CartelloBorgo"
 
 func _off_style(asset: String) -> bool:

@@ -6,7 +6,7 @@ const SEED := 7331
 const WIDTH := 4.4
 const START := Vector3(6, 0, -12)
 ## Luoghi della Zona 1: Borgo Cenere (world/villaggio) e la Rocca.
-const SITES := {"village": Vector3(95, 0, -385), "dungeon": Vector3(-230, 0, -245)}
+const SITES := {"village": Vector3(50, 0, -385), "dungeon": Vector3(-230, 0, -245)}
 const SITE_RADIUS := 32.0
 const TOWER_CLEARING := 15.0
 const CURVE_RADIUS := 22.0
@@ -15,7 +15,7 @@ const FOREST_STOP := 24.0
 ## Radura del Capomacello, il primo boss: lontana dal rifugio (6, -12), oltre la vecchia pista.
 const BOSS_ARENA := Vector3(-74, 0, -292)
 ## Dove la via est del Borgo entra in piazza (villaggio.gd: CENTER.x + PLAZA).
-const VILLAGE_PLAZA_X := 113.5
+const VILLAGE_PLAZA_X := 68.5
 ## Fattore di larghezza dell'asfalto della via del Borgo: 7 m come la statale (la via è larga 9 m, restano i bordi).
 const VILLAGE_STREET_WIDTH := 1.6
 ## Celle della griglia del terreno tolte dove si apre la scala della Rocca (x, z, larghezza, profondità): rocca.gd richiude attorno alla bocca.
@@ -27,22 +27,21 @@ static func data() -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = SEED
 	# Ogni strada parte da un incrocio e arriva in un posto: niente rami che finiscono nel nulla.
-	#   0 Vecchia pista: dal posto di blocco sulla curva della statale, nel bosco, fino al campo profughi di Borgo Cenere.
+	#   0 Vecchia pista: dal posto di blocco sulla curva della statale, nel bosco, fino in fondo alla via S di Borgo Cenere.
 	#   1 Sentiero del Capomacello: si stacca dalla pista e si ferma all'anello di rocce della radura.
 	#   2 Strada della gola: dalla statale alla radura della gola, a est.
 	#   3 Strada della Rocca: dalla statale, accanto alla fattoria, fino alla torre.
 	#   4 Dentro il recinto, dalla statale al portone est.
-	#   5 Via del Borgo: dalla statale, attraverso il posto di blocco del paese, fino alla piazza.
+	#   5 Via del Borgo: dalla statale, attraverso il posto di blocco del paese, fino alla piazza (diventa la via E).
 	var paths: Array = []
 	var arenas: Array = []
 	# La pista lascia la statale a quasi 60° verso ovest (bivio netto, senza cuneo d'asfalto), poi piega a nord.
 	paths.append([Vector3(8, 0, -100), Vector3(-10, 0, -110), Vector3(-16, 0, -136), Vector3(-12, 0, -166),
-		Vector3(-4, 0, -196), Vector3(-3, 0, -226), Vector3(-12, 0, -254), Vector3(-22, 0, -282),
-		Vector3(-24, 0, -315), Vector3(-20, 0, -348), Vector3(-17, 0, -366), Vector3(-18, 0, -381)])
-	# Il Capomacello: nel bosco a nord-ovest, quasi 300 m dal rifugio. Ci si arriva solo dopo pista e radura dei morti.
+		Vector3(-4, 0, -196), Vector3(4, 0, -224), Vector3(24, 0, -242), Vector3(42, 0, -252), Vector3(50, 0, -262), Vector3(50, 0, -272)])
+	# Il Capomacello: nel bosco a nord-ovest, quasi 300 m dal rifugio. Il suo sentiero si stacca dalla pista dopo la radura dei morti.
 	var forest := BOSS_ARENA
 	arenas.append(forest)
-	var spur: Array = [Vector3(-22, 0, -283), Vector3(-40, 0, -289)]
+	var spur: Array = [Vector3(-2, 0, -212), Vector3(-24, 0, -236), Vector3(-42, 0, -258)]
 	spur.append(forest + (spur[spur.size() - 1] - forest).normalized() * FOREST_STOP)
 	paths.append(spur)
 	# Stessa sequenza di semi di prima: la strada della gola e il viale del portone non cambiano forma.
@@ -64,7 +63,7 @@ static func data() -> Dictionary:
 		Vector3(-96, 0, -188), Vector3(-130, 0, -208), Vector3(-170, 0, -226), Vector3(-205, 0, -241), SITES["dungeon"] + Vector3(15, 0, 0)])
 	paths.append(gate)
 	# La via est del Borgo è asfaltata come la statale da cui arriva: un'unica strada fino alla piazza.
-	paths.append([Vector3(208, 0, -385), Vector3(184, 0, -385), Vector3(VILLAGE_PLAZA_X, 0, -385)])
+	paths.append([Vector3(208, 0, -385), Vector3(VILLAGE_PLAZA_X, 0, -385)])
 	_cache = {"paths": _rounded(paths), "arenas": arenas}
 	return _cache
 

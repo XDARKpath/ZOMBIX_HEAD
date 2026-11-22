@@ -666,7 +666,8 @@ func _ruin(at: Vector3, yaw: float, w: int) -> void:
 		if rng.randf() < 0.7:
 			asset(h, "Bld_Wall_Brick_01" if i % 2 else "Bld_Wall_Brick_Window_01", Vector3(w * 1.5 - i * 3, 0, -4.5), PI, true, Vector3(1, rng.randf_range(0.45, 1.0), 1))
 	for s in [-1, 1]:
-		asset(h, "Bld_Wall_Brick_01", Vector3(s * w * 1.5, 0, -4.5 if s < 0 else 1.5), -s * PI / 2, true, Vector3(1, rng.randf_range(0.5, 0.95), 1))
+		# come in _walls: mattoni fuori e intonaco dentro (girati al contrario sembravano cubi bianchi dalla strada)
+		asset(h, "Bld_Wall_Brick_01", Vector3(s * w * 1.5, 0, -4.5 if s < 0 else 1.5), s * PI / 2, true, Vector3(1, rng.randf_range(0.5, 0.95), 1))
 	for i in 5:
 		_tilted(h, Vector3(rng.randf_range(-w, w), 0.4, rng.randf_range(-3, 3)), Vector3(0.25, 0.25, rng.randf_range(2.5, 5.0)), Color("231f1a"),
 			Vector3(rng.randf_range(-0.3, 0.3), rng.randf_range(0, TAU), rng.randf_range(-0.2, 0.2)), i < 2)
