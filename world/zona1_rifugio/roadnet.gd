@@ -18,6 +18,8 @@ const BOSS_ARENA := Vector3(-74, 0, -292)
 const VILLAGE_PLAZA_X := 68.5
 ## Fattore di larghezza dell'asfalto della via del Borgo: 7 m come la statale (la via è larga 9 m, restano i bordi).
 const VILLAGE_STREET_WIDTH := 1.6
+## Da questo indice in poi le strade sono vie del Borgo (larghe come la statale).
+const VILLAGE_ROADS := 5
 ## Celle della griglia del terreno tolte dove si apre la scala della Rocca (x, z, larghezza, profondità): rocca.gd richiude attorno alla bocca.
 const TERRAIN_HOLE := Rect2(-240, -248, 16, 8)
 static var _cache: Dictionary = {}
@@ -33,11 +35,15 @@ static func data() -> Dictionary:
 	#   3 Strada della Rocca: dalla statale, accanto alla fattoria, fino alla torre.
 	#   4 Dentro il recinto, dalla statale al portone est.
 	#   5 Via del Borgo: dalla statale, attraverso il posto di blocco del paese, fino alla piazza (diventa la via E).
+#   6 Via N del Borgo: dalla statale, accanto alla chiesa, fino alla piazza. 7 Via O: dalla piazza al campo profughi.
+#   8 Via S: dalla fine della pista alla piazza. Le quattro vie del paese sono asfalto della statale, con la mezzeria:
+#   la pista, più stretta e rovinata, si innesta in fondo alla via S come una strada di campagna.
 	var paths: Array = []
 	var arenas: Array = []
 	# La pista lascia la statale a quasi 60° verso ovest (bivio netto, senza cuneo d'asfalto), poi piega a nord.
 	paths.append([Vector3(8, 0, -100), Vector3(-10, 0, -110), Vector3(-16, 0, -136), Vector3(-12, 0, -166),
-		Vector3(-4, 0, -196), Vector3(4, 0, -224), Vector3(24, 0, -242), Vector3(42, 0, -252), Vector3(50, 0, -262), Vector3(50, 0, -272)])
+		Vector3(-4, 0, -196), Vector3(4, 0, -224), Vector3(24, 0, -242), Vector3(42, 0, -252), Vector3(50, 0, -262),
+		Vector3(50, 0, -266.5)])
 	# Il Capomacello: nel bosco a nord-ovest, quasi 300 m dal rifugio. Il suo sentiero si stacca dalla pista dopo la radura dei morti.
 	var forest := BOSS_ARENA
 	arenas.append(forest)
@@ -64,6 +70,12 @@ static func data() -> Dictionary:
 	paths.append(gate)
 	# La via est del Borgo è asfaltata come la statale da cui arriva: un'unica strada fino alla piazza.
 	paths.append([Vector3(208, 0, -385), Vector3(VILLAGE_PLAZA_X, 0, -385)])
+	# Via N: dalla statale, a est della chiesa, entra in paese e scende fino alla piazza.
+	paths.append([Vector3(106, 0, -520), Vector3(84, 0, -508), Vector3(64, 0, -503), Vector3(50, 0, -503), Vector3(50, 0, -403.5)])
+	# Via O: dalla piazza al campo profughi, stesso asfalto delle altre vie.
+	paths.append([Vector3(31.5, 0, -385), Vector3(-66, 0, -385)])
+	# Via S: dalla fine della pista alla piazza.
+	paths.append([Vector3(50, 0, -266.5), Vector3(50, 0, -366.5)])
 	_cache = {"paths": _rounded(paths), "arenas": arenas}
 	return _cache
 
@@ -76,7 +88,7 @@ static func _rounded(paths: Array) -> Array:
 		var start: Vector3 = line[0]
 		if Route.road_distance(Vector2(start.x, start.z)) < 12.0:
 			line[0] = Route.nearest_road(start)
-		else:
+		elif _near_path(out, start) < 12.0:
 			var best := INF
 			for other in out:
 				for i in range(other.size() - 1):
@@ -89,6 +101,15 @@ static func _rounded(paths: Array) -> Array:
 						line[0] = on
 		out.append(line)
 	return out
+
+static func _near_path(lines: Array, p: Vector3) -> float:
+	var best := INF
+	for line in lines: best = minf(best, _path_distance(line, Vector2(p.x, p.z)))
+	return best
+
+## Quanto è più largo l'asfalto qui: le strade del Borgo (dalla statale e lungo le vie) sono larghe come la statale.
+static func width_factor(index: int, _p: Vector3) -> float:
+	return VILLAGE_STREET_WIDTH if index >= VILLAGE_ROADS else 1.0
 
 static func _branch(rng: RandomNumberGenerator, from: Vector3, to: Vector3, steps: int) -> Array:
 	var points: Array = [from]
@@ -115,6 +136,18 @@ static func distance(p: Vector2) -> float:
 			_index.add_line(path)
 			_index.add_coarse([path[0], path[path.size() - 1]])
 	return _index.distance(p)
+
+static var _wide_index: RefCounted = null
+
+## Distanza dalla mezzeria delle sole vie del Borgo (larghe come la statale): l'erba e il sottobosco ne stanno fuori.
+static func wide_distance(p: Vector2) -> float:
+	if _wide_index == null:
+		_wide_index = preload("res://world/campaign/polyline_index.gd").new()
+		var all: Array = paths()
+		for i in range(VILLAGE_ROADS, all.size()):
+			_wide_index.add_line(all[i])
+			_wide_index.add_coarse([all[i][0], all[i][all[i].size() - 1]])
+	return _wide_index.distance(p)
 
 ## Quanto è lontano il punto dall'area da tenere sgombra di alberi: tutto il villaggio, solo la radura della torre.
 static func clearing_distance(p: Vector2) -> float:
