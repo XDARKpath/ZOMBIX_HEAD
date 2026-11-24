@@ -42,6 +42,8 @@ const PLACES := [
 	{"at": Vector3(-150,0,-3776), "kind": "gas", "title": "STAZIONE DI SERVIZIO"},
 ]
 const ON_ROAD := ["crash", "mil", "bridge"]
+# Mezza carreggiata della statale: uno sterrato da 5 m, ci si incrociano due 4×4 (2,15 m l'uno).
+const ROAD_HALF := 2.5
 const PLACE_SETBACK := 38.0   # i luoghi fuori strada stanno a questa distanza dalla mezzeria
 const BRIDGE_HUMP := 3.2      # la strada sale sul ponte; il greto resta sopra y = -1, dove scatta il recupero
 const BRIDGE_BED := -0.6

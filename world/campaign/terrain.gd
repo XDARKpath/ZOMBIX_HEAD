@@ -413,14 +413,12 @@ func _set_range(node: Node, value: float) -> void:
 
 
 func _roads() -> void:
-	# Asfalto continuo: tre colonne (bordo, centro consumato, bordo), senza
-	# sponde pavimentate: ai lati resta il prato della radura.
+	# Sterrato continuo: tre colonne (bordo, centro, bordo); ai lati resta il prato della radura.
 	var points:Array=_sample_path(Route.road_points(),6.0)
-	# Asfalto rovinato (road.gdshader): crepe, rattoppi e buche, diviso per settore.
+	# Terra battuta (road.gdshader): solchi delle ruote, erba in mezzo e pozzanghere, divisa per settore.
 	var asphalt:={}
-	_road_strip(asphalt,points,3.45,0.075,Color("3b3b35"),Color("4e4c44"))
+	_road_strip(asphalt,points,Route.ROAD_HALF,0.05,Color("3b3b35"),Color("4e4c44"))
 	_commit(asphalt,road_material)
-	_distances(points)
 	_road_end()
 	_roadside()
 
@@ -428,7 +426,7 @@ func _road_end() -> void:
 	# Inizio della strada: l'asfalto arriva al lago e finisce nel prato, con
 	# barriere, panchina, lampione e il passaggio verso il pontile.
 	var asphalt:={}
-	_road_strip(asphalt,_sample_path([Vector3(6,0,-6.5),Vector3(6,0,2.6)],1.5),3.45,0.075,Color("3b3b35"),Color("4e4c44"))
+	_road_strip(asphalt,_sample_path([Vector3(6,0,-6.5),Vector3(6,0,2.6)],1.5),Route.ROAD_HALF,0.05,Color("3b3b35"),Color("4e4c44"))
 	_commit(asphalt,road_material)
 	var rng:=RandomNumberGenerator.new();rng.seed=4410
 	# Fine dell'asfalto mangiata dal gelo.
@@ -495,12 +493,9 @@ func _side_roads() -> void:
 		var drop:=0.004*float(index%4)
 		if index>=RoadNet.VILLAGE_ROADS:
 			# Vie del Borgo: stesso asfalto, stessi colori e stessa mezzeria della statale (da dopo il suo ciglio).
-			_road_strip(main_like,points,RoadNet.WIDTH*0.5,0.060-drop,Color("3b3b35"),Color("4e4c44"),0.0,widths)
-			var first:=0
-			while first<points.size()-2 and Route.road_distance(Vector2(points[first].x,points[first].z))<5.0:first+=1
-			_distances(_sample_path(points.slice(first),6.0))
+			_road_strip(main_like,points,RoadNet.WIDTH*0.5,0.045-drop,Color("3b3b35"),Color("4e4c44"),0.0,widths)
 			continue
-		_road_strip(asphalt,points,RoadNet.WIDTH*0.5,0.060-drop,Color("41413a"),Color("545249"),0.0,widths)
+		_road_strip(asphalt,points,RoadNet.WIDTH*0.5,0.045-drop,Color("41413a"),Color("545249"),0.0,widths)
 	_reserved_sites()
 	# Strade del bosco: stesso asfalto rovinato, con più crepe.
 	var side_material:=road_material.duplicate() as ShaderMaterial
@@ -545,7 +540,7 @@ func _trim_to_road_edge(path:Array) -> Array:
 		for s in range(n):
 			var p:Vector3=a.lerp(b,float(s)/n)
 			if not started:
-				if Route.road_distance(Vector2(p.x,p.z))>3.55:
+				if Route.road_distance(Vector2(p.x,p.z))>Route.ROAD_HALF+0.1:
 					out.append(p);started=true
 			else:out.append(p)
 	out.append(path[path.size()-1])
@@ -588,15 +583,18 @@ func _road_strip(tools:Dictionary, points:Array, half:float, lift:float, base:Co
 			var p2:=_edge_point(a,sa,columns[col+1]*ha/half,lift);var p3:=_edge_point(b,sb,columns[col+1]*hb/half,lift)
 			var c0:Color=edge if col==0 else base
 			var c1:Color=base if col==0 else edge
-			for row in [[p0,c0],[p1,c0],[p2,c1],[p1,c0],[p3,c1],[p2,c1]]:
-				_push_road(st,row[0],row[1])
+			# UV.x: posizione di traverso (-1 bordo, 0 centro, 1 bordo) per i solchi delle ruote.
+			var l0:float=columns[col]/half;var l1:float=columns[col+1]/half
+			for row in [[p0,c0,l0],[p1,c0,l0],[p2,c1,l1],[p1,c0,l0],[p3,c1,l1],[p2,c1,l1]]:
+				_push_road(st,row[0],row[1],row[2])
 
 func _edge_point(at:Vector3, side:Vector3, width:float, lift:float) -> Vector3:
 	var x:float=at.x+side.x*width;var z:float=at.z+side.z*width
 	return Vector3(x,height(x,z)+lift,z)
 
-func _push_road(st:SurfaceTool, at:Vector3, color:Color) -> void:
+func _push_road(st:SurfaceTool, at:Vector3, color:Color, lateral:=0.0) -> void:
 	st.set_color(color.darkened(0.05*(0.5+0.5*sin(at.x*0.13+at.z*0.17))))
+	st.set_uv(Vector2(lateral,0.0))
 	st.set_normal(_ground_normal(at.x,at.z))
 	st.add_vertex(at)
 
@@ -605,34 +603,6 @@ func _ground_normal(x:float,z:float) -> Vector3:
 	var nx:=height(x+e,z)-height(x-e,z)
 	var nz:=height(x,z+e)-height(x,z-e)
 	return Vector3(-nx,2.0*e,-nz).normalized()
-
-func _distances(samples:Array) -> void:
-	# Tratteggio centrale sbiadito e a tratti mancante: la vernice non è più rifatta da anni.
-	var tools:={}
-	var travelled:=0.0
-	for i in range(samples.size()-1):
-		var a:Vector3=samples[i];var b:Vector3=samples[i+1]
-		var length:=a.distance_to(b)
-		var dir:Vector3=(b-a).normalized()
-		var side:Vector3=dir.cross(Vector3.UP).normalized()
-		var phase:=fmod(travelled,11.0)
-		var worn:bool=noise.get_noise_2d(a.x*3.0,a.z*3.0)>0.18
-		if phase<3.6 and not worn:
-			var st:=_tool(tools,(a+b)*0.5)
-			# Sopra l'asfalto (0.075), altrimenti la mezzeria sparisce sotto.
-			var ya:float=height(a.x,a.z)+0.085
-			var yb:float=height(b.x,b.z)+0.085
-			var left_a:=Vector3(a.x-side.x*0.13,ya,a.z-side.z*0.13)
-			var right_a:=Vector3(a.x+side.x*0.13,ya,a.z+side.z*0.13)
-			var left_b:=Vector3(b.x-side.x*0.13,yb,b.z-side.z*0.13)
-			var right_b:=Vector3(b.x+side.x*0.13,yb,b.z+side.z*0.13)
-			st.set_color(Color("b6ab84"))
-			for p in [left_a,left_b,right_a,left_b,right_b,right_a]: st.add_vertex(p)
-		travelled+=length
-	var mark_material:=StandardMaterial3D.new()
-	mark_material.albedo_color=Color("a39d82")
-	mark_material.roughness=0.9
-	_commit(tools,mark_material)
 
 # Relitti del kit (tools/borgo_kit): la bruciata due volte, come prima il 45% di carcasse.
 const WRECKS:=["SM_Borgo_Car_Wreck","SM_Borgo_Car_Wreck_Red","SM_Borgo_Police_Wreck","SM_Borgo_Car_Wreck_Burnt","SM_Borgo_Car_Wreck_Burnt"]
@@ -663,6 +633,8 @@ func _burn(node:Node) -> void:
 	for child in node.get_children():_burn(child)
 
 func _stain(at:Vector3,size:float,yaw:float,_color:Color,kind:String="blood") -> void:
+	# Le strade sono sterrati: niente crepe, buche o bordi strappati d'asfalto (le pozzanghere le fa road.gdshader).
+	if kind in ["crack","torn","pothole"]: return
 	# Decal proiettato sull'asfalto (world/campaign/road_decals.gd): segue la superficie.
 	var aspect:float=0.5 if kind=="drag" else 1.0
 	var d:=RoadDecals.decal(kind,Vector2(size,size*aspect),yaw)
@@ -686,10 +658,6 @@ func _road_damage(points:Array, half:float, rng:RandomNumberGenerator) -> void:
 			_stain(at,rng.randf_range(1.6,3.2),rng.randf_range(0,TAU),Color.BLACK,"crack")
 		elif roll<0.68:
 			_stain(at,rng.randf_range(0.9,1.7),rng.randf_range(0,TAU),Color.BLACK,"pothole")
-			for k in rng.randi_range(2,4):
-				var chunk_at:=at+Vector3(rng.randf_range(-0.9,0.9),0,rng.randf_range(-0.9,0.9))
-				var slab:=_box(chunk(chunk_at),Vector3(rng.randf_range(0.18,0.42),0.06,rng.randf_range(0.14,0.3)),Vector3(chunk_at.x,height(chunk_at.x,chunk_at.z)+0.1,chunk_at.z),Color("2c2c29"))
-				slab.rotation=Vector3(rng.randf_range(-0.4,0.4),rng.randf_range(0,TAU),rng.randf_range(-0.4,0.4))
 		elif roll<0.86:
 			var edge:=a+side*(half-0.3)*(1.0 if rng.randf()<0.5 else -1.0)
 			_stain(edge,rng.randf_range(1.8,3.4),yaw+rng.randf_range(-0.3,0.3),Color.BLACK,"torn")
@@ -772,7 +740,7 @@ func _roadside() -> void:
 	var rng:=RandomNumberGenerator.new();rng.seed=6061
 	var main:=_sample_path(points,6.0)
 	_zombie_road(main,2,140,rng)
-	_road_damage(main.slice(0,160),3.45,rng)
+	_road_damage(main.slice(0,160),Route.ROAD_HALF,rng)
 	for path in RoadNet.paths():
 		var side_rng:=RandomNumberGenerator.new();side_rng.seed=int(absf(path[0].x*31+path[0].z*17))+9
 		var samples:=_sample_path(path,4.0)
@@ -1025,7 +993,7 @@ func _mute_tree(node: Node) -> void:
 			if mat is StandardMaterial3D:
 				if not _mute_cache.has(mat):
 					var copy: StandardMaterial3D = mat.duplicate()
-					copy.albedo_color = copy.albedo_color.lerp(Color(0.30,0.46,0.20),0.45)
+					copy.albedo_color = copy.albedo_color.lerp(Color(0.16,0.36,0.31),0.55)
 					_mute_cache[mat]=copy
 				node.set_surface_override_material(i,_mute_cache[mat])
 	for child in node.get_children():
