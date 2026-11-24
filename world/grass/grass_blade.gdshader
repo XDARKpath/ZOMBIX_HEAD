@@ -16,10 +16,12 @@ varying vec3 tint;
 void vertex() {
 	tip = clamp(1.0 - UV.y / base_v, 0.0, 1.0);
 	vec3 root = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-	float wave = sin(TIME * 1.5 + root.x * 0.33 + root.z * 0.21) * 0.6 + sin(TIME * 2.9 + root.x * 1.1) * 0.25;
+	// Stesse raffiche delle particelle (direzione 0,8; 0,6): il prato lontano ondeggia insieme a quello vicino.
+	vec2 wind_dir = vec2(0.8, 0.6);
+	float gust = sin(dot(root.xz, wind_dir) * 0.11 - TIME * 1.3) * 0.5 + 0.5;
+	float wave = sin(TIME * 3.7 + root.x * 1.1 + root.z * 0.8) * (0.25 + gust);
 	float bend = tip * tip;
-	VERTEX.x += wave * 0.13 * bend;
-	VERTEX.z += wave * 0.07 * bend;
+	VERTEX.xz += wind_dir * wave * 0.1 * bend;
 	NORMAL = vec3(0.0, 1.0, 0.0);
 	tint = mix(green_a, green_b, COLOR.r);
 	tint = mix(tint, dry, smoothstep(0.55, 1.0, COLOR.b) * 0.55);

@@ -270,7 +270,8 @@ func _flush_multimesh() -> void:
 			var local_xf: Transform3D = src.global_transform.affine_inverse() * mi.global_transform if src.is_inside_tree() else _rel(src, mi)
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
-			mm.mesh = mi.mesh
+			# Erba, fiori e foglie CC0 con i verdi spenti come il prato della Zona 1.
+			mm.mesh = preload("res://world/grass/grass_field.gd").dull_mesh(mi.mesh) if file.begins_with(NATURE) else mi.mesh
 			mm.instance_count = mm_rows[file].size()
 			for i in mm.instance_count:
 				mm.set_instance_transform(i, mm_rows[file][i] * local_xf)

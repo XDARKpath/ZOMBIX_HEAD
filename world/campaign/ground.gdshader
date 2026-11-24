@@ -51,8 +51,9 @@ void fragment() {
 			// Canale G: il prato dipinto arriva fin sotto il bordo dell'asfalto (R è solo per i ciuffi).
 			float bare = 1.0 - texture(grass_mask, muv).g;
 			// Sotto il prato il suolo ha i colori dell'erba (fresca nelle conche, secca a chiazze): da lontano il prato continua.
-			vec3 meadow = mix(vec3(0.085, 0.115, 0.036), vec3(0.150, 0.165, 0.055), broad);
-			meadow = mix(meadow, vec3(0.215, 0.195, 0.085), smoothstep(0.50, 0.80, medium) * 0.4);
+			// Oliva e paglia come i ciuffi (grass_lowpoly.gdshader), non verde prato all'inglese.
+			vec3 meadow = mix(vec3(0.105, 0.110, 0.040), vec3(0.185, 0.170, 0.068), broad);
+			meadow = mix(meadow, vec3(0.250, 0.205, 0.100), smoothstep(0.50, 0.80, medium) * 0.5);
 			albedo = mix(albedo, meadow, (1.0 - bare) * 0.8);
 			// Terra battuta e fango scuro, come il piazzale del concept.
 			vec3 mud = mix(vec3(0.11, 0.075, 0.045), vec3(0.19, 0.13, 0.08), fine);

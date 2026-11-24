@@ -24,6 +24,7 @@ const Layout = preload("res://world/zona1_rifugio/refuge_layout.gd")
 const Village = preload("res://world/villaggio/villaggio_layout.gd")
 const Poi = preload("res://world/campaign/roadside_poi.gd")
 const Solid = preload("res://world/campaign/solid_props.gd")
+const GrassField = preload("res://world/grass/grass_field.gd")
 ## Distanze di disegno: oltre la nebbia gli alberi non si vedono comunque, l'erba sparisce molto prima.
 const RANGE_GRASS := 140.0
 const RANGE_TREE := 320.0
@@ -342,7 +343,8 @@ func _plan(key: Vector2i) -> Array:
 		if Route.edge_rise(x,z)>38.0 or Route.zone_wall(x,z)>5.0: continue
 		plan.append({"pick":pick,"x":x,"z":z,"yaw":yaw,"scale":Vector3.ONE*size,"tree":"Tree" in source_names[pick] or "Pine" in source_names[pick],"body":i%5==0})
 	# Sottobosco: felci, cespugli, fiori, funghi e ciottoli vicino al terreno.
-	var undergrowth:=["Fern_1.gltf","Plant_1_Big.gltf","Plant_7_Big.gltf","Grass_Wispy_Tall.gltf","Fern_1.gltf"]
+	# Niente rosette verde acceso (Plant_7_Big): felci, foglie larghe ed erba alta, coi verdi spenti (GrassField.dull).
+	var undergrowth:=["Fern_1.gltf","Plant_1_Big.gltf","Grass_Wispy_Tall.gltf","Grass_Wispy_Tall.gltf","Fern_1.gltf"]
 	# Niente cespugli: né rossi né verdi chiaro, restano felci, erba e sassi.
 	for i in range(40):
 		var x:=key.x*TILE+rng.randf_range(0,TILE)
@@ -388,6 +390,7 @@ func _spawn(group: Node3D, entry: Dictionary) -> void:
 	item.rotation.y=entry.yaw
 	item.scale=entry.scale
 	if entry.has("grass"):
+		GrassField.dull(item)
 		_set_range(item,RANGE_GRASS)
 		return
 	if entry.has("cactus"):

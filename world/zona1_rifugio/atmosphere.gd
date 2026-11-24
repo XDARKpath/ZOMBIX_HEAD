@@ -134,6 +134,8 @@ static func grass(parent: Node3D, count: int, width: float, depth: float, center
 func nature(id: String) -> Node3D:
 	if not nature_cache.has(id): nature_cache[id] = load(NATURE+id+".gltf")
 	var node: Node3D = nature_cache[id].instantiate()
+	# Verdi accesi dei modelli CC0 spenti come il prato (world/grass/grass_field.gd).
+	preload("res://world/grass/grass_field.gd").dull(node)
 	return node
 
 func scatter_nature() -> void:
@@ -181,7 +183,7 @@ func scatter_undergrowth() -> void:
 		var x := rng.randf_range(-46,50) if close else rng.randf_range(-80,86)
 		var z := rng.randf_range(-82,10) if close else rng.randf_range(-140,-64)
 		if not _undergrowth_spot(layout,x,z): continue
-		var id: String = ["Fern_1","Plant_1_Big","Plant_7","Fern_1"][i%4]
+		var id: String = ["Fern_1","Plant_1_Big","Grass_Wispy_Short","Fern_1"][i%4]
 		var node := nature(id)
 		add_child(node)
 		node.position = Vector3(x,world.landscape.height(x,z)+0.01,z)
