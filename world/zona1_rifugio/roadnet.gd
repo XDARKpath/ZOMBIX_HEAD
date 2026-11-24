@@ -3,7 +3,8 @@ extends RefCounted
 # Ogni strada collega due posti (statale, pista, Borgo, Rocca, radure): niente vicoli
 # ciechi nel nulla. Seed fisso: la mappa è sempre la stessa.
 const SEED := 7331
-const WIDTH := 4.4
+# Rami del bosco: sterrati a una corsia, 3,4 m (il 4×4 è largo 2,15 m).
+const WIDTH := 3.4
 const START := Vector3(6, 0, -12)
 ## Luoghi della Zona 1: Borgo Cenere (world/villaggio) e la Rocca.
 const SITES := {"village": Vector3(50, 0, -385), "dungeon": Vector3(-230, 0, -245)}

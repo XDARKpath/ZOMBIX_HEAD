@@ -1,12 +1,12 @@
 // Ciuffo low-poly Quaternius (CC0) per il prato GPU: colori piatti come il resto del
 // gioco, erba alta che ondeggia a raffiche, punte secche più chiare.
-// Tavolozza da prato di fine estate: oliva e paglia, niente verde acceso.
+// Tavolozza da prato di fine estate al tramonto: giallo-verde e paglia, niente verde acceso.
 shader_type spatial;
 render_mode cull_disabled, diffuse_lambert, specular_disabled;
 
-uniform vec3 base_color : source_color = vec3(0.36, 0.38, 0.18);
-uniform vec3 dry : source_color = vec3(0.78, 0.66, 0.38);
-uniform vec3 lush : source_color = vec3(0.34, 0.37, 0.16);
+uniform vec3 base_color : source_color = vec3(0.42, 0.44, 0.18);
+uniform vec3 dry : source_color = vec3(0.82, 0.72, 0.36);
+uniform vec3 lush : source_color = vec3(0.36, 0.42, 0.16);
 uniform float sway = 0.05;
 uniform float mesh_height = 1.0;
 // Stesse raffiche delle particelle (grass_particles.gdshader): il tremolio sale quando passa l'onda.

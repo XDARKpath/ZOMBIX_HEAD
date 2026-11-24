@@ -398,7 +398,7 @@ func _mute_nature(node:Node) -> void:
 			var mat=node.mesh.surface_get_material(i)
 			if mat is StandardMaterial3D:
 				var copy:StandardMaterial3D=mat.duplicate()
-				copy.albedo_color=copy.albedo_color.lerp(Color(0.20,0.36,0.17),0.80)
+				copy.albedo_color=copy.albedo_color.lerp(Color(0.15,0.34,0.29),0.80)
 				node.set_surface_override_material(i,copy)
 	for child in node.get_children(): _mute_nature(child)
 

@@ -26,22 +26,24 @@ const FUNNEL := 8.0
 # pianta CC0 (art/nature), il suo colore, la sua altezza e le sue macchie (band =
 # fascia del rumore in cui cresce), così le specie si alternano a gruppi.
 const LAYERS := [
-	{"mesh": "Grass_Common_Tall", "rows": 120, "spacing": 0.4, "height": 0.5, "band": Vector2(0.0, 1.0), "keep": 1.0, "color": Color(0.52, 0.50, 0.26), "seed": 0.0},
-	{"mesh": "Grass_Wispy_Tall", "rows": 80, "spacing": 0.58, "height": 0.62, "band": Vector2(0.42, 1.0), "keep": 1.0, "color": Color(0.78, 0.68, 0.40), "seed": 0.17},
-	{"mesh": "Grass_Common_Short", "rows": 72, "spacing": 0.6, "height": 0.24, "band": Vector2(0.0, 0.55), "keep": 1.0, "color": Color(0.38, 0.40, 0.18), "seed": 0.31},
-	{"mesh": "Plant_1", "rows": 64, "spacing": 0.9, "height": 0.35, "band": Vector2(0.0, 1.0), "keep": 0.35, "color": Color(0.32, 0.34, 0.15), "seed": 0.53},
-	# Paglia bassa a macchie (al posto del trifoglio verde acceso): il prato secco del tardo pomeriggio.
-	{"mesh": "Grass_Wispy_Short", "rows": 64, "spacing": 0.8, "height": 0.3, "band": Vector2(0.5, 1.0), "keep": 1.0, "color": Color(0.74, 0.62, 0.34), "seed": 0.71},
+	# L'erba è fatta qui (blade_clump): cespi di fili affusolati e curvi, niente modelli già pronti.
+	# blades = fili per cespo, segments = snodi del filo, width = larghezza alla base (m), curve = quanto si piega,
+	# dryness = quanto è secco lo strato (grass_real.gdshader).
+	{"look": "blades", "rows": 120, "spacing": 0.4, "height": 0.72, "band": Vector2(0.0, 1.0), "keep": 1.0, "seed": 0.0, "blades": 14, "segments": 4, "width": 0.028, "curve": 0.35, "dryness": 0.3, "spread": 0.16},
+	{"look": "blades", "rows": 80, "spacing": 0.58, "height": 0.92, "band": Vector2(0.42, 1.0), "keep": 1.0, "seed": 0.17, "blades": 9, "segments": 5, "width": 0.022, "curve": 0.55, "dryness": 0.72, "spread": 0.18},
+	{"look": "blades", "rows": 80, "spacing": 0.5, "height": 0.26, "band": Vector2(0.0, 1.0), "keep": 1.0, "seed": 0.31, "blades": 12, "segments": 3, "width": 0.026, "curve": 0.25, "dryness": 0.2, "spread": 0.22},
+	# Paglia bassa a macchie: il prato secco del tardo pomeriggio.
+	{"look": "blades", "rows": 64, "spacing": 0.8, "height": 0.34, "band": Vector2(0.5, 1.0), "keep": 1.0, "seed": 0.71, "blades": 9, "segments": 3, "width": 0.025, "curve": 0.45, "dryness": 0.88, "spread": 0.18},
 	# Sottobosco rado, ognuno nelle sue macchie (offset): felci e piante a foglia larga, in toni oliva.
 	{"mesh": "Fern_1", "rows": 40, "spacing": 1.5, "height": 0.4, "keep": 0.1, "color": Color(0.28, 0.32, 0.15), "seed": 0.23, "offset": 37.0, "lean": 0.08},
 	{"mesh": "Plant_1_Big", "rows": 36, "spacing": 1.7, "height": 0.55, "keep": 0.07, "color": Color(0.32, 0.35, 0.16), "seed": 0.41, "offset": 81.0, "lean": 0.08},
 	# Piccoli cespugli a gruppetti (il modello è rosso: qui prende il verde del prato). Non fermano chi cammina.
 	{"look": "bush", "mesh": "Bush_Common", "rows": 30, "spacing": 2.4, "height": 0.7, "keep": 0.07, "color": Color(0.26, 0.30, 0.14), "seed": 0.63, "offset": 211.0, "lean": 0.05, "stiff": 0.3},
 	# Fiori CC0: foglie spente come il prato (dull_mesh), petali di un colore fisso per specie. Pochi, a macchie.
-	{"look": "flower", "mesh": "Flower_3_Group", "rows": 64, "spacing": 0.9, "height": 0.5, "keep": 0.3, "seed": 0.89, "lean": 0.1, "petal": Color(0.78, 0.36, 0.22)},
-	{"look": "flower", "mesh": "Flower_4_Single", "rows": 44, "spacing": 1.3, "height": 0.42, "keep": 0.18, "seed": 0.47, "offset": 150.0, "lean": 0.1, "petal": Color(0.88, 0.72, 0.30)},
-	# Prato lontano: ciuffi da sei triangoli fino a 47 m, vuoti vicino a te dove ci sono quelli veri. Senza, l'erba finiva a 20 m.
-	{"look": "far", "rows": 104, "spacing": 0.95, "height": 0.5, "keep": 1.0, "seed": 0.07, "inner": 15.0, "lean": 0.15},
+	{"look": "flower", "mesh": "Flower_3_Group", "rows": 64, "spacing": 0.9, "height": 0.62, "keep": 0.6, "seed": 0.89, "lean": 0.1, "petal": Color(1.0, 0.94, 0.28)},
+	{"look": "flower", "mesh": "Flower_4_Single", "rows": 44, "spacing": 1.3, "height": 0.42, "keep": 0.3, "seed": 0.47, "offset": 150.0, "lean": 0.1, "petal": Color(1.0, 0.86, 0.22)},
+	# Prato lontano: cespi da quattro fili interi fino a 47 m, vuoti vicino a te dove ci sono quelli veri. Senza, l'erba finiva a 20 m.
+	{"look": "blades", "rows": 104, "spacing": 0.95, "height": 0.7, "keep": 1.0, "seed": 0.07, "inner": 15.0, "lean": 0.15, "blades": 5, "segments": 2, "width": 0.05, "curve": 0.3, "dryness": 0.45, "spread": 0.3},
 ]
 # VEGETAZIONE (basso, medio, alto, ultra): moltiplica le righe di ogni strato.
 const QUALITY_SCALE := [0.55, 0.75, 0.9, 1.2]
@@ -311,16 +313,13 @@ static func _pusher(at: Vector3, radius: float) -> Vector4:
 ## La mesh di uno strato: ciuffo a colore piatto, fiore con i suoi materiali, cespuglio a foglie, filo d'erba lontano.
 func _mesh_for(spec: Dictionary) -> Mesh:
 	var look: String = spec.get("look", "")
-	if look == "far":
-		var blades := tuft_mesh()
+	if look == "blades":
+		var clump := blade_clump(spec.blades, spec.segments, spec.width, spec.curve, spec.spread, int(spec.seed * 1000.0))
 		var mat := ShaderMaterial.new()
-		mat.shader = preload("res://world/grass/grass_blade.gdshader")
-		mat.set_shader_parameter("albedo_tex", preload("res://art/grass/grass_diffuse_1024.png"))
-		mat.set_shader_parameter("green_a", Color(0.42, 0.42, 0.20))
-		mat.set_shader_parameter("green_b", Color(0.58, 0.53, 0.28))
-		mat.set_shader_parameter("dry", Color(0.74, 0.63, 0.38))
-		blades.surface_set_material(0, mat)
-		return blades
+		mat.shader = preload("res://world/grass/grass_real.gdshader")
+		mat.set_shader_parameter("dryness", spec.dryness)
+		clump.surface_set_material(0, mat)
+		return clump
 	if look == "":
 		return tuft(spec.mesh, spec.color)
 	var source: Node3D = load("res://art/nature/" + spec.mesh + ".gltf").instantiate()
@@ -336,6 +335,7 @@ func _mesh_for(spec: Dictionary) -> Mesh:
 			if m is BaseMaterial3D:
 				var petal: BaseMaterial3D = m.duplicate()
 				petal.vertex_color_use_as_albedo = false
+				petal.albedo_texture = null   # i petali della texture sono rossi: il colore lo decide la specie
 				petal.albedo_color = spec.petal
 				mesh.surface_set_material(s, petal)
 	if look == "bush":
@@ -421,20 +421,41 @@ static func dull(node: Node) -> void:
 			node.set_surface_override_material(s, dull_material(mat if mat else node.mesh.surface_get_material(s)))
 	for child in node.get_children(): dull(child)
 
-static func tuft_mesh() -> ArrayMesh:
-	# Tre quadrilateri incrociati con la texture del ciuffo (base a v = 0.64).
+## Un cespo d'erba: "count" fili che partono da un ciuffetto largo "spread" metri, si aprono a raggiera e si piegano
+## verso l'esterno. Alto 1 m (le particelle lo scalano). UV come vuole grass_real.gdshader; UV2.x = caso del filo.
+static func blade_clump(count: int, segments: int, width: float, curve: float, spread: float, seed_value: int) -> ArrayMesh:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value + 9001
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var w := 0.36
-	var h := 0.66
-	for k in 3:
-		var a := k * PI / 3.0
-		var side := Vector3(cos(a), 0, sin(a)) * w
-		var quad := [[-side, Vector2(0.18, 0.64)], [side, Vector2(0.86, 0.64)], [side + Vector3.UP * h, Vector2(0.86, 0.0)], [-side + Vector3.UP * h, Vector2(0.18, 0.0)]]
-		for idx in [0, 1, 2, 0, 2, 3]:
-			st.set_normal(Vector3.UP)
-			st.set_uv(quad[idx][1])
-			st.add_vertex(quad[idx][0])
+	for b in count:
+		var yaw := rng.randf_range(0.0, TAU)
+		var out := Vector3(cos(yaw), 0.0, sin(yaw))
+		var root := out * sqrt(rng.randf()) * spread
+		var tall := rng.randf_range(0.55, 1.0)
+		var lean := rng.randf_range(0.05, 0.3)
+		var bend := curve * rng.randf_range(0.6, 1.4)
+		# Il filo è largo di traverso alla sua direzione, e un po' ruotato su sé stesso.
+		var across := out.rotated(Vector3.UP, PI * 0.5 + rng.randf_range(-0.5, 0.5))
+		var own := rng.randf()
+		var spine: Array[Vector3] = []
+		for k in segments + 1:
+			var t := float(k) / segments
+			spine.append(root + out * (lean * t + bend * t * t) * tall + Vector3.UP * tall * t * (1.0 - 0.25 * bend * t * t))
+		for k in segments:
+			var t0 := float(k) / segments
+			var t1 := float(k + 1) / segments
+			var w0 := width * pow(1.0 - t0, 0.7)
+			var w1 := width * pow(1.0 - t1, 0.7)
+			var a0 := spine[k] - across * w0; var b0 := spine[k] + across * w0
+			var a1 := spine[k + 1] - across * w1; var b1 := spine[k + 1] + across * w1
+			var facing := (spine[k + 1] - spine[k]).cross(across).normalized()
+			var quad := [[a0, -1.0, t0], [b0, 1.0, t0], [b1, 1.0, t1], [a0, -1.0, t0], [b1, 1.0, t1], [a1, -1.0, t1]]
+			for v in quad:
+				st.set_normal((facing + across * v[1] * 0.35).normalized())
+				st.set_uv(Vector2(v[1], v[2] * tall))
+				st.set_uv2(Vector2(own, 0.0))
+				st.add_vertex(v[0])
 	return st.commit()
 
 static var _yards = null   # luoghi fuori strada dentro la maschera (nascono sul thread principale, nel primo density_pair di _start_mask)
@@ -450,7 +471,7 @@ static func density_pair(x: float, z: float, clumps: FastNoiseLite) -> Vector2:
 	var p := Vector2(x, z)
 	# Rami: mezzo nastro (2,2 m) più l'imbuto degli incroci, con la stessa formula dell'asfalto (terrain.gd).
 	var funnel := 1.0 + 0.55 * pow(1.0 - clampf(RoadNet.junction_distance(p) / FUNNEL, 0.0, 1.0), 2.0)
-	var road: float = minf(Route.road_distance(p) - 3.55, RoadNet.distance(p) - RoadNet.WIDTH * 0.5 * funnel - 0.1)
+	var road: float = minf(Route.road_distance(p) - Route.ROAD_HALF - 0.1, RoadNet.distance(p) - RoadNet.WIDTH * 0.5 * funnel - 0.1)
 	# Vie del Borgo: larghe come la statale, con l'imbocco aperto sulla statale (terrain.gd _side_roads).
 	var flare := 1.0 + 0.9 * pow(1.0 - clampf(Route.road_distance(p) / 14.0, 0.0, 1.0), 2.0)
 	road = minf(road, RoadNet.wide_distance(p) - RoadNet.WIDTH * 0.5 * RoadNet.VILLAGE_STREET_WIDTH * flare - 0.1)
@@ -469,10 +490,9 @@ static func density_pair(x: float, z: float, clumps: FastNoiseLite) -> Vector2:
 	var n := clumps.get_noise_2d(x, z)
 	d *= smoothstep(-0.8, -0.55, n)
 	d = clampf(d * (0.75 + 0.25 * smoothstep(0.1, 0.5, n)), 0.0, 1.0)
-	# I ciuffi partono un metro fuori dal bordo: le celle da 2 m lette in lineare li riportano radi fino al ciglio,
-	# senza sparpagliarli sull'asfalto (prima partivano mezzo metro dentro e finivano anche a 1,5 m nella corsia).
-	# Sotto, il prato dipinto (y) arriva lo stesso fino all'asfalto: resta un ciglio d'erba bassa, non terra.
-	return Vector2(d * smoothstep(0.8, 1.3, road), d * smoothstep(-1.6, -1.0, road))
+	# Sterrati: i ciuffi partono a 30 cm dal bordo; le celle da 2 m lette in lineare ne portano qualcuno rado fino
+	# al ciglio, come su una strada di campagna, ma non in mezzo alla carreggiata.
+	return Vector2(d * smoothstep(0.4, 0.9, road), d * smoothstep(-1.6, -1.0, road))
 
 static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
 	return density_pair(x, z, clumps).x

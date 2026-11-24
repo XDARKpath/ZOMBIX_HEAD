@@ -46,7 +46,7 @@ func _run() -> void:
 
 func _on_asphalt(x: float, z: float) -> bool:
 	var p := Vector2(x, z)
-	return Route.road_distance(p) <= 3.45 or RoadNet.distance(p) <= RoadNet.WIDTH * 0.5
+	return Route.road_distance(p) <= Route.ROAD_HALF or RoadNet.distance(p) <= RoadNet.WIDTH * 0.5
 
 
 ## 1. Ogni pianta già in scena (rifugio, sottobosco, pini) e ogni voce del piano del terreno sta fuori dall'asfalto.
@@ -254,7 +254,7 @@ func _bilinear(image: Image, x: float, z: float) -> Color:
 
 ## Banchina: a 0,3 m dal bordo dell'asfalto il suolo è già prato (dove a 6 m lo è), lungo statale e rami.
 func _no_sand_shoulder(field: Node) -> void:
-	var lines: Array = [[Route.road_points(), 3.45]]
+	var lines: Array = [[Route.road_points(), Route.ROAD_HALF]]
 	for path in RoadNet.paths(): lines.append([path, RoadNet.WIDTH * 0.5])
 	var tried := 0
 	var green := 0
@@ -276,7 +276,7 @@ func _no_sand_shoulder(field: Node) -> void:
 				for s: float in [-1.0, 1.0]:
 					var far := at + side * s * (half + 6.0)
 					var near := at + side * s * (half + 0.3)
-					if _bilinear(field._base, far.x, far.y).g < 0.5 or Route.road_distance(far) < 3.45 or RoadNet.distance(far) < 2.2: continue
+					if _bilinear(field._base, far.x, far.y).g < 0.5 or Route.road_distance(far) < Route.ROAD_HALF or RoadNet.distance(far) < RoadNet.WIDTH * 0.5: continue
 					tried += 1
 					if _bilinear(field._base, near.x, near.y).g >= 0.5: green += 1
 	print("  prato dipinto a 0,3 m dall'asfalto: %d/%d" % [green, tried])
