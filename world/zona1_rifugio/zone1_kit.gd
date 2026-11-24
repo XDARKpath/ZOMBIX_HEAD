@@ -412,8 +412,8 @@ func _nature() -> void:
 	var groups := [
 		[["Rock_Medium_1", "Rock_Medium_2", "Rock_Medium_3"], 70, Vector2(0.7, 1.6), true],
 		[["Pebble_Round_1", "Pebble_Round_3", "Pebble_Square_2", "Pebble_Square_4", "RockPath_Round_Wide", "RockPath_Square_Wide"], 160, Vector2(0.6, 1.2), false],
-		[["Fern_1", "Plant_1", "Plant_7", "Plant_7"], 150, Vector2(0.35, 0.7), false],
-		[["Mushroom_Common", "Mushroom_Laetiporus", "Clover_1", "Clover_2"], 120, Vector2(0.5, 0.9), false],
+		[["Fern_1", "Plant_1", "Grass_Wispy_Short", "Grass_Wispy_Tall"], 150, Vector2(0.35, 0.7), false],
+		[["Mushroom_Common", "Mushroom_Laetiporus", "Grass_Common_Short", "Grass_Wispy_Short"], 120, Vector2(0.5, 0.9), false],
 		[["DeadTree_1", "DeadTree_2", "DeadTree_3", "DeadTree_4", "DeadTree_5"], 26, Vector2(0.9, 1.4), true],
 	]
 	for group in groups:
@@ -468,9 +468,12 @@ func _mute(node: Node) -> void:
 		for i in node.mesh.get_surface_count():
 			var mat = node.mesh.surface_get_material(i)
 			if mat is StandardMaterial3D:
-				var copy: StandardMaterial3D = mat.duplicate()
-				copy.albedo_color = copy.albedo_color.lerp(Color(0.32, 0.33, 0.26), 0.35)
-				node.set_surface_override_material(i, copy)
+				# Foglie: spente dallo shader del prato (world/grass/grass_field.gd); il resto scurito come prima.
+				var dulled: Material = preload("res://world/grass/grass_field.gd").dull_material(mat)
+				if dulled is StandardMaterial3D:
+					dulled = dulled.duplicate()
+					dulled.albedo_color = dulled.albedo_color.lerp(Color(0.32, 0.33, 0.26), 0.35)
+				node.set_surface_override_material(i, dulled)
 	for child in node.get_children(): _mute(child)
 
 # ---------------------------------------------------------------- NPC in posa

@@ -4,7 +4,7 @@ shader_type spatial;
 render_mode cull_disabled, diffuse_lambert, specular_disabled;
 
 uniform sampler2D leaf : filter_linear_mipmap;
-uniform vec3 base_color : source_color = vec3(0.24, 0.36, 0.16);
+uniform vec3 base_color : source_color = vec3(0.30, 0.33, 0.16);
 uniform float mesh_height = 1.0;
 
 varying vec3 tint;

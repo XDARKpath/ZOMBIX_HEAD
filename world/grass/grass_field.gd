@@ -26,20 +26,20 @@ const FUNNEL := 8.0
 # pianta CC0 (art/nature), il suo colore, la sua altezza e le sue macchie (band =
 # fascia del rumore in cui cresce), così le specie si alternano a gruppi.
 const LAYERS := [
-	{"mesh": "Grass_Common_Tall", "rows": 120, "spacing": 0.4, "height": 0.5, "band": Vector2(0.0, 1.0), "keep": 1.0, "color": Color(0.50, 0.52, 0.27), "seed": 0.0},
-	{"mesh": "Grass_Wispy_Tall", "rows": 80, "spacing": 0.58, "height": 0.62, "band": Vector2(0.42, 1.0), "keep": 1.0, "color": Color(0.72, 0.67, 0.42), "seed": 0.17},
-	{"mesh": "Grass_Common_Short", "rows": 72, "spacing": 0.6, "height": 0.24, "band": Vector2(0.0, 0.55), "keep": 1.0, "color": Color(0.30, 0.36, 0.14), "seed": 0.31},
-	{"mesh": "Plant_1", "rows": 64, "spacing": 0.9, "height": 0.35, "band": Vector2(0.0, 1.0), "keep": 0.35, "color": Color(0.26, 0.32, 0.12), "seed": 0.53},
-	{"mesh": "Clover_1", "rows": 64, "spacing": 0.9, "height": 0.18, "band": Vector2(0.0, 0.6), "keep": 0.45, "color": Color(0.30, 0.34, 0.14), "seed": 0.71},
-	# Sottobosco rado, ognuno nelle sue macchie (offset): felci, piante a foglia larga, rosette basse.
-	{"mesh": "Fern_1", "rows": 40, "spacing": 1.5, "height": 0.4, "keep": 0.1, "color": Color(0.22, 0.36, 0.14), "seed": 0.23, "offset": 37.0, "lean": 0.08},
-	{"mesh": "Plant_1_Big", "rows": 36, "spacing": 1.7, "height": 0.55, "keep": 0.07, "color": Color(0.28, 0.40, 0.16), "seed": 0.41, "offset": 81.0, "lean": 0.08},
-	{"mesh": "Plant_7_Big", "rows": 40, "spacing": 1.4, "height": 0.14, "keep": 0.12, "color": Color(0.30, 0.42, 0.18), "seed": 0.59, "offset": 123.0, "lean": 0.0},
+	{"mesh": "Grass_Common_Tall", "rows": 120, "spacing": 0.4, "height": 0.5, "band": Vector2(0.0, 1.0), "keep": 1.0, "color": Color(0.52, 0.50, 0.26), "seed": 0.0},
+	{"mesh": "Grass_Wispy_Tall", "rows": 80, "spacing": 0.58, "height": 0.62, "band": Vector2(0.42, 1.0), "keep": 1.0, "color": Color(0.78, 0.68, 0.40), "seed": 0.17},
+	{"mesh": "Grass_Common_Short", "rows": 72, "spacing": 0.6, "height": 0.24, "band": Vector2(0.0, 0.55), "keep": 1.0, "color": Color(0.38, 0.40, 0.18), "seed": 0.31},
+	{"mesh": "Plant_1", "rows": 64, "spacing": 0.9, "height": 0.35, "band": Vector2(0.0, 1.0), "keep": 0.35, "color": Color(0.32, 0.34, 0.15), "seed": 0.53},
+	# Paglia bassa a macchie (al posto del trifoglio verde acceso): il prato secco del tardo pomeriggio.
+	{"mesh": "Grass_Wispy_Short", "rows": 64, "spacing": 0.8, "height": 0.3, "band": Vector2(0.5, 1.0), "keep": 1.0, "color": Color(0.74, 0.62, 0.34), "seed": 0.71},
+	# Sottobosco rado, ognuno nelle sue macchie (offset): felci e piante a foglia larga, in toni oliva.
+	{"mesh": "Fern_1", "rows": 40, "spacing": 1.5, "height": 0.4, "keep": 0.1, "color": Color(0.28, 0.32, 0.15), "seed": 0.23, "offset": 37.0, "lean": 0.08},
+	{"mesh": "Plant_1_Big", "rows": 36, "spacing": 1.7, "height": 0.55, "keep": 0.07, "color": Color(0.32, 0.35, 0.16), "seed": 0.41, "offset": 81.0, "lean": 0.08},
 	# Piccoli cespugli a gruppetti (il modello è rosso: qui prende il verde del prato). Non fermano chi cammina.
-	{"look": "bush", "mesh": "Bush_Common", "rows": 30, "spacing": 2.4, "height": 0.7, "keep": 0.07, "color": Color(0.20, 0.33, 0.13), "seed": 0.63, "offset": 211.0, "lean": 0.05, "stiff": 0.3},
-	# Fiori CC0 con i loro colori: pochi, a macchie.
-	{"look": "flower", "mesh": "Flower_3_Group", "rows": 64, "spacing": 0.9, "height": 0.5, "keep": 0.3, "seed": 0.89, "lean": 0.1},
-	{"look": "flower", "mesh": "Flower_4_Single", "rows": 44, "spacing": 1.3, "height": 0.42, "keep": 0.18, "seed": 0.47, "offset": 150.0, "lean": 0.1},
+	{"look": "bush", "mesh": "Bush_Common", "rows": 30, "spacing": 2.4, "height": 0.7, "keep": 0.07, "color": Color(0.26, 0.30, 0.14), "seed": 0.63, "offset": 211.0, "lean": 0.05, "stiff": 0.3},
+	# Fiori CC0: foglie spente come il prato (dull_mesh), petali di un colore fisso per specie. Pochi, a macchie.
+	{"look": "flower", "mesh": "Flower_3_Group", "rows": 64, "spacing": 0.9, "height": 0.5, "keep": 0.3, "seed": 0.89, "lean": 0.1, "petal": Color(0.78, 0.36, 0.22)},
+	{"look": "flower", "mesh": "Flower_4_Single", "rows": 44, "spacing": 1.3, "height": 0.42, "keep": 0.18, "seed": 0.47, "offset": 150.0, "lean": 0.1, "petal": Color(0.88, 0.72, 0.30)},
 	# Prato lontano: ciuffi da sei triangoli fino a 47 m, vuoti vicino a te dove ci sono quelli veri. Senza, l'erba finiva a 20 m.
 	{"look": "far", "rows": 104, "spacing": 0.95, "height": 0.5, "keep": 1.0, "seed": 0.07, "inner": 15.0, "lean": 0.15},
 ]
@@ -49,6 +49,9 @@ const QUALITY_SCALE := [0.55, 0.75, 0.9, 1.2]
 const PUSHERS := 8
 const PLAYER_PUSH := 0.8
 const ZOMBIE_PUSH := 0.65
+# Il 4×4 in marcia: due cerchi sull'asse, a 1,1 m dal centro (lungo 3,9 m, largo 2,15 m).
+const CAR_PUSH := 1.6
+const CAR_PUSH_REACH := 1.1
 # Niente erba dentro gli abitacoli: la maschera si azzera sotto relitti e 4×4 fermo. La maschera ha celle da 2 m
 # lette in lineare (ogni punto pesca le celle entro 2 m), quindi si spegne anche un bordo di VEHICLE_MARGIN attorno
 # (lì il terreno diventa terra battuta) e dentro, a 0,3 m dalla carrozzeria, non resta nemmeno un ciuffo.
@@ -283,6 +286,12 @@ func _update_pushers() -> void:
 	for body in bodies:
 		if list.size() < PUSHERS and is_instance_valid(body) and body.is_inside_tree():
 			list.append(_pusher(body.global_position, PLAYER_PUSH))
+	# Il 4×4 in marcia apre l'erba davanti e dietro, invece di attraversarla (da fermo c'è già la buca).
+	var expedition = world.get("expedition")
+	var car = expedition.get("car") if expedition else null
+	if car and is_instance_valid(car) and absf(car.speed) > 0.5 and me.distance_squared_to(car.global_position) < 900.0:
+		for k in [-1.0, 1.0]:
+			if list.size() < PUSHERS: list.append(_pusher(car.global_position + car.global_basis.z * k * CAR_PUSH_REACH, CAR_PUSH))
 	var near: Array = []
 	for t in world.get("targets") if world.get("targets") is Array else []:
 		if is_instance_valid(t) and t.is_inside_tree():
@@ -307,17 +316,28 @@ func _mesh_for(spec: Dictionary) -> Mesh:
 		var mat := ShaderMaterial.new()
 		mat.shader = preload("res://world/grass/grass_blade.gdshader")
 		mat.set_shader_parameter("albedo_tex", preload("res://art/grass/grass_diffuse_1024.png"))
-		mat.set_shader_parameter("green_a", Color(0.36, 0.42, 0.18))
-		mat.set_shader_parameter("green_b", Color(0.50, 0.52, 0.26))
-		mat.set_shader_parameter("dry", Color(0.66, 0.61, 0.38))
+		mat.set_shader_parameter("green_a", Color(0.42, 0.42, 0.20))
+		mat.set_shader_parameter("green_b", Color(0.58, 0.53, 0.28))
+		mat.set_shader_parameter("dry", Color(0.74, 0.63, 0.38))
 		blades.surface_set_material(0, mat)
 		return blades
 	if look == "":
 		return tuft(spec.mesh, spec.color)
 	var source: Node3D = load("res://art/nature/" + spec.mesh + ".gltf").instantiate()
 	var found: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0]
-	var mesh: ArrayMesh = found.mesh.duplicate() if look == "bush" else found.mesh
+	var mesh: ArrayMesh = found.mesh.duplicate() if look == "bush" else dull_mesh(found.mesh)
 	source.free()
+	if look == "flower":
+		# Nelle particelle COLOR è il seme del ciuffo (grass_particles.gdshader), non il colore del modello: i petali
+		# letti dai vertici uscivano verdi o rosa a caso. Ogni specie ha il suo colore fisso.
+		mesh = mesh.duplicate()
+		for s in mesh.get_surface_count():
+			var m := mesh.surface_get_material(s)
+			if m is BaseMaterial3D:
+				var petal: BaseMaterial3D = m.duplicate()
+				petal.vertex_color_use_as_albedo = false
+				petal.albedo_color = spec.petal
+				mesh.surface_set_material(s, petal)
 	if look == "bush":
 		for s in mesh.get_surface_count():
 			var mat := ShaderMaterial.new()
@@ -355,6 +375,51 @@ static func tuft(id: String, color: Color) -> ArrayMesh:
 		mat.set_shader_parameter("mesh_height", mesh.get_aabb().size.y)
 		mesh.surface_set_material(s, mat)
 	return mesh
+
+# Le piante CC0 (art/nature) prendono il colore dai vertici, un verde molto saturo, su atlanti chiari: foglie ed erba
+# passano a oliva/paglia come il prato, petali, funghi e sassi restano coi loro colori, appena spenti.
+const LEAF_TINT := Color(1.0, 0.86, 0.56)
+const OTHER_TINT := Color(0.95, 0.9, 0.84)
+static var _dulled := {}
+
+## Copia spenta di un materiale (una per materiale originale, condivisa).
+static func dull_material(mat: Material) -> Material:
+	if not mat is BaseMaterial3D: return mat
+	if not _dulled.has(mat):
+		if _leafy(mat.albedo_texture):
+			# Il verde dei vertici non si spegne moltiplicando: si lascia fuori e si desatura (shader del vento del prato).
+			var leaf := ShaderMaterial.new()
+			leaf.shader = preload("res://world/zona1_rifugio/foliage_wind.gdshader")
+			leaf.set_shader_parameter("albedo_tex", mat.albedo_texture)
+			leaf.set_shader_parameter("tint", LEAF_TINT)
+			leaf.set_shader_parameter("fade", 0.6)
+			leaf.set_shader_parameter("sway", 0.02)
+			_dulled[mat] = leaf
+		else:
+			var copy: BaseMaterial3D = mat.duplicate()
+			copy.albedo_color = mat.albedo_color * OTHER_TINT
+			_dulled[mat] = copy
+	return _dulled[mat]
+
+## Foglie ed erba del pacchetto stanno in due atlanti (Leaves.png, Grass.png); petali, funghi e sassi in altri.
+static func _leafy(tex: Texture2D) -> bool:
+	return tex != null and (tex.resource_path.get_file().begins_with("Leaves") or tex.resource_path.get_file().begins_with("Grass"))
+
+## Stessa mesh con i materiali spenti (cache per mesh: i MultiMesh e le particelle la condividono).
+static func dull_mesh(mesh: Mesh) -> Mesh:
+	if not _dulled.has(mesh):
+		var copy: Mesh = mesh.duplicate()
+		for s in copy.get_surface_count(): copy.surface_set_material(s, dull_material(mesh.surface_get_material(s)))
+		_dulled[mesh] = copy
+	return _dulled[mesh]
+
+## Spegne i verdi di una pianta già nella scena (felci, ciuffi e fiori sparsi a mano).
+static func dull(node: Node) -> void:
+	if node is MeshInstance3D and node.mesh:
+		for s in node.mesh.get_surface_count():
+			var mat: Material = node.get_surface_override_material(s)
+			node.set_surface_override_material(s, dull_material(mat if mat else node.mesh.surface_get_material(s)))
+	for child in node.get_children(): dull(child)
 
 static func tuft_mesh() -> ArrayMesh:
 	# Tre quadrilateri incrociati con la texture del ciuffo (base a v = 0.64).
@@ -404,8 +469,10 @@ static func density_pair(x: float, z: float, clumps: FastNoiseLite) -> Vector2:
 	var n := clumps.get_noise_2d(x, z)
 	d *= smoothstep(-0.8, -0.55, n)
 	d = clampf(d * (0.75 + 0.25 * smoothstep(0.1, 0.5, n)), 0.0, 1.0)
-	# I ciuffi partono mezzo metro dentro il bordo: qualche filo invade l'asfalto, come su una strada abbandonata.
-	return Vector2(d * smoothstep(-0.5, 0.0, road), d * smoothstep(-1.6, -1.0, road))
+	# I ciuffi partono un metro fuori dal bordo: le celle da 2 m lette in lineare li riportano radi fino al ciglio,
+	# senza sparpagliarli sull'asfalto (prima partivano mezzo metro dentro e finivano anche a 1,5 m nella corsia).
+	# Sotto, il prato dipinto (y) arriva lo stesso fino all'asfalto: resta un ciglio d'erba bassa, non terra.
+	return Vector2(d * smoothstep(0.8, 1.3, road), d * smoothstep(-1.6, -1.0, road))
 
 static func density_at(x: float, z: float, clumps: FastNoiseLite) -> float:
 	return density_pair(x, z, clumps).x
